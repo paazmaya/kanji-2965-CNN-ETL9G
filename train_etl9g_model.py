@@ -17,14 +17,13 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 from collections import defaultdict
 
-# Optional ONNX imports
+# Optional ONNX conversion import
 try:
-    import onnx
-    import onnxruntime
+    from convert_to_onnx import export_to_onnx, create_character_mapping
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
-    print("⚠️  ONNX/ONNXRuntime not available. ONNX export will be skipped.")
+    print("⚠️  ONNX conversion module not available. Use --export-onnx flag to enable.")
 
 class ETL9GDataset(Dataset):
     """Efficient dataset for ETL9G with memory management"""
@@ -440,64 +439,6 @@ def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
     
     return train_loader, val_loader, test_loader
 
-def export_to_onnx(model, model_path, onnx_path, image_size, num_classes):
-    """Export to ONNX with optimization for web deployment"""
-    
-    # Load best model
-    model.load_state_dict(torch.load(model_path, map_location='cpu'))
-    model = model.to('cpu')  # Explicitly move model to CPU
-    model.eval()
-    
-    # Create dummy input
-    dummy_input = torch.randn(1, image_size * image_size)
-    
-    # Export to ONNX with optimizations
-    torch.onnx.export(
-        model,
-        dummy_input,
-        onnx_path,
-        export_params=True,
-        opset_version=12,  # Use opset 12 for better web support
-        do_constant_folding=True,
-        input_names=['input'],
-        output_names=['output'],
-        dynamic_axes={
-            'input': {0: 'batch_size'},
-            'output': {0: 'batch_size'}
-        },
-        verbose=False
-    )
-    
-    # Optimize ONNX model (if optimization tools available)
-    print("Optimizing ONNX model...")
-    
-    try:
-        # Basic optimization using session options
-        sess_options = onnxruntime.SessionOptions()
-        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-        
-        # Test inference to ensure model works
-        session = onnxruntime.InferenceSession(onnx_path, sess_options)
-        
-        # Verify model structure
-        onnx_model = onnx.load(onnx_path)
-        onnx.checker.check_model(onnx_model)
-        
-        print(f"✅ ONNX model exported successfully to {onnx_path}")
-        print(f"📁 Model size: {Path(onnx_path).stat().st_size / (1024*1024):.1f} MB")
-        
-        # Test inference
-        test_input = dummy_input.numpy()
-        ort_outputs = session.run(None, {'input': test_input})
-        print(f"Input shape: {test_input.shape}")
-        print(f"Output shape: {ort_outputs[0].shape}")
-        
-        return onnx_path
-        
-    except Exception as e:
-        print(f"ONNX optimization failed: {e}")
-        return onnx_path
-
 def load_chunked_dataset(data_dir):
     """Load dataset from chunks if available, otherwise load single file"""
     data_path = Path(data_dir)
@@ -639,32 +580,25 @@ def main():
     
     # Export to ONNX
     if args.export_onnx:
-        print("\nExporting to ONNX...")
-        onnx_path = export_to_onnx(
-            model, 'best_kanji_model.pth', 'kanji_etl9g_model.onnx',
-            args.image_size, num_classes
-        )
-        
-        # Create class mapping for integration
-        class_mapping = {
-            'class_to_jis': metadata['class_to_jis'],
-            'jis_to_class': metadata['jis_to_class'],
-            'num_classes': num_classes,
-            'image_size': args.image_size,
-            'model_info': {
-                'dataset': 'ETL9G',
-                'accuracy': f"{test_acc:.2f}%",
-                'total_samples': metadata['total_samples']
-            }
-        }
-        
-        with open('kanji_etl9g_mapping.json', 'w', encoding='utf-8') as f:
-            json.dump(class_mapping, f, indent=2, ensure_ascii=False)
-        
-        print("Model ready for WASM integration!")
-        print(f"Files created:")
-        print(f"  - kanji_etl9g_model.onnx ({Path('kanji_etl9g_model.onnx').stat().st_size / (1024*1024):.1f} MB)")
-        print(f"  - kanji_etl9g_mapping.json")
+        if ONNX_AVAILABLE:
+            print("\nExporting to ONNX...")
+            onnx_path = export_to_onnx(
+                'best_kanji_model.pth', 'kanji_etl9g_model.onnx',
+                args.image_size, num_classes
+            )
+            
+            if onnx_path:
+                # Create character mapping
+                create_character_mapping(
+                    args.data_dir, num_classes, args.image_size, test_acc
+                )
+                
+                print("Model ready for WASM integration!")
+                print(f"Files created:")
+                print(f"  - kanji_etl9g_model.onnx ({Path('kanji_etl9g_model.onnx').stat().st_size / (1024*1024):.1f} MB)")
+                print(f"  - kanji_etl9g_mapping.json")
+        else:
+            print("⚠️  ONNX conversion not available. Run: python convert_to_onnx.py")
 
 if __name__ == "__main__":
     main()

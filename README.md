@@ -188,7 +188,7 @@ python train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --samp
 Train the complete model for production use:
 
 ```powershell
-python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64 --export-onnx
+python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64
 ```
 
 **Parameters:**
@@ -196,7 +196,6 @@ python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64 --exp
 - `--epochs`: Number of training epochs (default: 30)
 - `--batch-size`: Training batch size (default: 64)
 - `--learning-rate`: Learning rate (default: 0.001)
-- `--export-onnx`: Export ONNX model for WASM deployment
 - `--sample-limit`: Limit samples for testing (optional)
 
 **Expected Training Time with NVIDIA GPU:**
@@ -204,6 +203,105 @@ python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64 --exp
 - **RTX 4090/4080**: 45-90 minutes
 - **RTX 3080/3070**: 1.5-2.5 hours
 - **GTX 1660/RTX 2060**: 2.5-4 hours
+
+### Step 6: ONNX Export for WASM
+
+Convert trained model to ONNX for web deployment:
+
+```powershell
+python convert_to_onnx.py --model-path best_kanji_model.pth --data-dir dataset
+```
+
+**Parameters:**
+
+- `--model-path`: Path to trained model (default: best_kanji_model.pth)
+- `--onnx-path`: Output ONNX file (default: kanji_etl9g_model.onnx)
+- `--data-dir`: Dataset directory (default: dataset)
+- `--image-size`: Image size used in training (default: 64)
+- `--num-classes`: Number of classes (default: 3036)
+- `--pooling-type`: Pooling layer configuration (default: adaptive_avg)
+- `--target-backend`: Target inference backend (default: tract)
+
+**Backend Configuration Options:**
+
+| Backend                                           | Description                  | ONNX Opset | Use Case                       | Pooling Support |
+| ------------------------------------------------- | ---------------------------- | ---------- | ------------------------------ | --------------- |
+| [`tract`](https://github.com/sonos/tract)         | Direct Sonos Tract (default) | 12         | Maximum performance            | All types ✅    |
+| [`ort-tract`](https://ort.pyke.io/backends/tract) | ORT-Tract via ort crate      | 11         | ONNX Runtime API compatibility | Fixed only 🔷   |
+| `strict`                                          | Ultra-compatible mode        | 11         | Universal compatibility        | Fixed only ⚠️   |
+
+**Pooling Compatibility:**
+
+- **`tract`**: Supports all pooling types including `adaptive_avg`, `adaptive_max` (GlobalAveragePool/GlobalMaxPool)
+- **`ort-tract` & `strict`**: Auto-converts `adaptive_avg` → `fixed_avg`, `adaptive_max` → `fixed_max` (no GlobalAveragePool)
+
+**Model Architecture Compatibility:**
+
+The converter automatically uses the correct trained model architecture from `train_etl9g_model.py`:
+
+- **Input**: 2D image tensors `(batch, 1, 64, 64)` - matches training format
+- **Architecture**: Depthwise separable convolutions `1→32→64→128→256`
+- **Pooling**: Backend-aware automatic conversion for maximum compatibility
+- **Output**: `(batch, 3036)` classification scores
+
+⚠️ **Important**: The converter imports the exact model architecture used during training to ensure weight compatibility.
+
+**Export Method Selection:**
+
+The converter automatically selects the optimal ONNX export method based on your target backend:
+
+| Backend     | Export Method                | PyTorch Feature | Reason                                    |
+| ----------- | ---------------------------- | --------------- | ----------------------------------------- |
+| `tract`     | `torch.export` (dynamo=True) | Modern exporter | Better optimization for inference engines |
+| `ort-tract` | TorchScript (dynamo=False)   | Legacy exporter | API compatibility with ORT                |
+| `strict`    | TorchScript (dynamo=False)   | Legacy exporter | Maximum universal compatibility           |
+
+**Automatic Fallback:** If `torch.export` fails, the converter automatically falls back to TorchScript method with status reporting.
+
+**Backend Examples:**
+
+```powershell
+# Default: Direct Sonos Tract (recommended for performance)
+python convert_to_onnx.py --model-path best_kanji_model.pth
+
+# ORT-Tract: Better integration with existing ort-based code
+python convert_to_onnx.py --model-path best_kanji_model.pth --target-backend ort-tract
+
+# Strict: Maximum compatibility across all inference engines
+python convert_to_onnx.py --model-path best_kanji_model.pth --target-backend strict
+```
+
+**Pooling Configuration Options:**
+
+| Pooling Type   | Description                      | Output Size | Classifier Input | Model Size Impact |
+| -------------- | -------------------------------- | ----------- | ---------------- | ----------------- |
+| `adaptive_avg` | Global Average Pooling (default) | 1×1         | 256 features     | Smallest          |
+| `adaptive_max` | Global Max Pooling               | 1×1         | 256 features     | Smallest          |
+| `avg_2x2`      | 2×2 Average Pooling              | 2×2         | 1,024 features   | 4x larger         |
+| `max_2x2`      | 2×2 Max Pooling                  | 2×2         | 1,024 features   | 4x larger         |
+| `fixed_avg`    | Fixed 4×4 Average Pool           | 1×1         | 256 features     | Smallest          |
+| `fixed_max`    | Fixed 4×4 Max Pool               | 1×1         | 256 features     | Smallest          |
+
+**Pooling Examples:**
+
+```powershell
+# Default global average pooling (recommended)
+python convert_to_onnx.py --model-path best_kanji_model.pth
+
+# Global max pooling (alternative feature aggregation)
+python convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type adaptive_max
+
+# 2x2 pooling (larger model, potentially better accuracy)
+python convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type avg_2x2
+```
+
+**Alternative (Combined Training + Export):**
+
+```powershell
+python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64 --export-onnx
+```
+
+**Note:** Using separate commands allows flexibility - you can train once and export multiple times with different settings.
 
 ## Output Files
 
@@ -325,6 +423,15 @@ python prepare_etl9g_dataset.py --workers 2
 - **Compatibility**: Ensure opset_version=12 for web support
 - **Runtime Errors**: Verify input/output tensor shapes
 
+### Backend Compatibility Issues
+
+- **`unsupported op_type GlobalAveragePool` (ORT-Tract)**:
+  - ✅ **Fixed**: Converter automatically uses `--target-backend ort-tract` to replace with compatible `AveragePool`
+  - The converter detects ORT-Tract backend and overrides `adaptive_avg` → `fixed_avg` pooling
+- **Model Architecture Mismatch**:
+  - ✅ **Fixed**: Converter now imports the correct architecture from `train_etl9g_model.py`
+  - Ensures trained weights are compatible with ONNX export model
+
 ## File Structure
 
 ```
@@ -336,6 +443,7 @@ training/
 ├── preflight_check.py          # System verification
 ├── prepare_etl9g_dataset.py    # Data preparation
 ├── train_etl9g_model.py        # Main training script
+├── convert_to_onnx.py          # ONNX export script
 ├── test_etl9g_setup.py         # Setup testing
 ├── training_commands.ps1       # Command reference
 ├── ETL9G/                     # Raw dataset (user provided)
@@ -408,6 +516,11 @@ After successful training:
 2. **Update Rust Code**: Integrate `kanji_etl9g_mapping.json` mappings
 3. **Test Integration**: Verify model works with your WASM interface
 4. **Performance Tuning**: Optimize inference speed if needed
+
+**Training Workflow:**
+
+- Train: `python train_etl9g_model.py --data-dir dataset --epochs 30`
+- Export: `python convert_to_onnx.py --model-path best_kanji_model.pth`
 
 ## Support
 
