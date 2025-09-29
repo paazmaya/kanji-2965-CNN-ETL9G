@@ -692,3 +692,11 @@ This demonstrates that **data quantity is critical** for deep learning success, 
 - **Model Parameters**: 1,735,527 (lightweight!)
 - **Classes Covered**: 3,036 (complete ETL9G)
 - **Training Time**: ~30 epochs on full dataset
+
+## Development
+
+Python source code is formatted with [`ruff`](https://github.com/astral-sh/ruff):
+
+```ps1
+ruff format
+```

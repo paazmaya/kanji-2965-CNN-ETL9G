@@ -7,29 +7,30 @@ import json
 import argparse
 from pathlib import Path
 
+
 def generate_rust_mapping(class_mapping_file: str, output_file: str):
     """Generate Rust HashMap initialization code from class mapping"""
-    
-    with open(class_mapping_file, 'r') as f:
+
+    with open(class_mapping_file, "r") as f:
         mapping = json.load(f)
-    
-    class_to_jis = mapping['class_to_jis']
-    num_classes = mapping['num_classes']
-    
+
+    class_to_jis = mapping["class_to_jis"]
+    num_classes = mapping["num_classes"]
+
     # Generate Rust HashMap initialization
-    rust_code = f'''// Auto-generated class mapping from trained model
+    rust_code = f"""// Auto-generated class mapping from trained model
 // {num_classes} classes total
 
 use std::collections::HashMap;
 
 pub fn create_class_to_jis_mapping() -> HashMap<usize, String> {{
     let mut map = HashMap::new();
-'''
-    
+"""
+
     for class_idx, jis_code in class_to_jis.items():
         rust_code += f'    map.insert({class_idx}, "{jis_code}".to_string());\n'
-    
-    rust_code += '''    map
+
+    rust_code += """    map
 }
 
 // Updated get_character_from_class_index method
@@ -55,21 +56,25 @@ impl KanjiClassifier {
         (format!("Class_{}", class_index), format!("{:04X}", class_index))
     }
 }
-'''
-    
-    with open(output_file, 'w') as f:
+"""
+
+    with open(output_file, "w") as f:
         f.write(rust_code)
-    
+
     print(f"Rust mapping code generated: {output_file}")
     print(f"Classes: {num_classes}")
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Generate Rust integration code')
-    parser.add_argument('--mapping-file', required=True, help='class_mapping.json from training')
-    parser.add_argument('--output', default='rust_mapping.rs', help='Output Rust file')
-    
+    parser = argparse.ArgumentParser(description="Generate Rust integration code")
+    parser.add_argument(
+        "--mapping-file", required=True, help="class_mapping.json from training"
+    )
+    parser.add_argument("--output", default="rust_mapping.rs", help="Output Rust file")
+
     args = parser.parse_args()
     generate_rust_mapping(args.mapping_file, args.output)
+
 
 if __name__ == "__main__":
     main()
