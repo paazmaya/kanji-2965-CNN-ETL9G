@@ -4,7 +4,6 @@ Pre-flight check for ETL9G training setup
 Run this before starting actual training
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -270,7 +269,7 @@ def main():
     # Training time estimate
     estimate_training_time()
 
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     print(f"Checks passed: {checks_passed}/{total_checks}")
 
     if checks_passed == total_checks:

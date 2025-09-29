@@ -4,7 +4,6 @@ ETL9G Dataset Preparation - Optimized for Large-Scale Kanji Recognition
 Handles 3,036 character classes with 607,200 samples efficiently
 """
 
-import os
 import struct
 import numpy as np
 import json
@@ -15,7 +14,6 @@ import cv2
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing as mp
 from tqdm import tqdm
-import sqlite3
 
 
 class ETL9GProcessor:
@@ -285,7 +283,7 @@ class ETL9GProcessor:
             },
         }
 
-        print(f"\nDataset Summary:")
+        print("\nDataset Summary:")
         print(f"  Total classes: {metadata['num_classes']}")
         print(f"  Total samples: {metadata['total_samples']}")
         print(f"  Image size: {target_size}x{target_size}")
@@ -381,7 +379,7 @@ def main():
         target_size=args.size, max_workers=args.workers
     )
 
-    print(f"ETL9G dataset preparation complete!")
+    print("ETL9G dataset preparation complete!")
     print(f"Shape: X={X.shape}, y={y.shape}")
     print(f"Ready for training with {metadata['num_classes']} character classes!")
 

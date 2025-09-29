@@ -8,14 +8,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-import torch.nn.functional as F
 import numpy as np
 import json
 import argparse
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-from collections import defaultdict
 
 # Optional ONNX conversion import
 try:
@@ -662,11 +660,11 @@ def main():
                 )
 
                 print("Model ready for WASM integration!")
-                print(f"Files created:")
+                print("Files created:")
                 print(
                     f"  - kanji_etl9g_model.onnx ({Path('kanji_etl9g_model.onnx').stat().st_size / (1024 * 1024):.1f} MB)"
                 )
-                print(f"  - kanji_etl9g_mapping.json")
+                print("  - kanji_etl9g_mapping.json")
         else:
             print("⚠️  ONNX conversion not available. Run: python convert_to_onnx.py")
 

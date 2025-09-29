@@ -5,7 +5,6 @@ Update Rust code with new model mappings after training
 
 import json
 import argparse
-from pathlib import Path
 
 
 def generate_rust_mapping(class_mapping_file: str, output_file: str):

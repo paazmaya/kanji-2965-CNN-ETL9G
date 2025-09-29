@@ -39,7 +39,7 @@ def analyze_etl9g_data(data_dir):
     if chunk_info_path.exists():
         with open(chunk_info_path, "r") as f:
             chunk_info = json.load(f)
-        print(f"\nDataset is chunked:")
+        print("\nDataset is chunked:")
         print(f"  Total samples: {chunk_info['total_samples']}")
         print(f"  Chunk size: {chunk_info['chunk_size']}")
         print(f"  Number of chunks: {chunk_info['num_chunks']}")
@@ -54,7 +54,7 @@ def analyze_etl9g_data(data_dir):
         if missing_chunks:
             print(f"  Warning: Missing chunks: {missing_chunks}")
         else:
-            print(f"  All chunk files present ✓")
+            print("  All chunk files present ✓")
 
     # Load a sample to verify data format
     try:
@@ -73,7 +73,7 @@ def analyze_etl9g_data(data_dir):
         X_sample = data["X"][:10]  # First 10 samples
         y_sample = data["y"][:10]
 
-        print(f"\nSample verification:")
+        print("\nSample verification:")
         print(f"  X shape: {X_sample.shape}")
         print(f"  y shape: {y_sample.shape}")
         print(f"  X data type: {X_sample.dtype}")
@@ -120,7 +120,7 @@ def analyze_etl9g_data(data_dir):
         rice_field_jis = "4544"  # Rice field kanji JIS code
         if rice_field_jis in char_mapping:
             rice_info = char_mapping[rice_field_jis]
-            print(f"Rice field kanji (田) found:")
+            print("Rice field kanji (田) found:")
             print(f"  JIS: {rice_field_jis}")
             print(f"  Class: {rice_info['class_idx']}")
             print(f"  Samples: {rice_info['sample_count']}")
@@ -153,7 +153,7 @@ def test_model_architecture():
         total_params = sum(p.numel() for p in model.parameters())
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-        print(f"Model created successfully:")
+        print("Model created successfully:")
         print(f"  Input size: {image_size}x{image_size}")
         print(f"  Output classes: {num_classes}")
         print(f"  Total parameters: {total_params:,}")
@@ -167,7 +167,7 @@ def test_model_architecture():
         with torch.no_grad():
             output = model(test_input)
 
-        print(f"Forward pass test:")
+        print("Forward pass test:")
         print(f"  Input shape: {test_input.shape}")
         print(f"  Output shape: {output.shape}")
         print(f"  Output range: [{output.min():.3f}, {output.max():.3f}]")

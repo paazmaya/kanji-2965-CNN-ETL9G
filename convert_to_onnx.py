@@ -35,22 +35,22 @@ class LightweightKanjiNet(OriginalLightweightKanjiNet):
             self.global_pool = nn.AdaptiveAvgPool2d(
                 1
             )  # Original: GlobalAveragePool in ONNX
-            print(f"🔍 Using AdaptiveAvgPool2d(1) -> GlobalAveragePool in ONNX")
+            print("🔍 Using AdaptiveAvgPool2d(1) -> GlobalAveragePool in ONNX")
         elif pooling_type == "adaptive_max":
             self.global_pool = nn.AdaptiveMaxPool2d(
                 1
             )  # Alternative: GlobalMaxPool in ONNX
-            print(f"🔍 Using AdaptiveMaxPool2d(1) -> GlobalMaxPool in ONNX")
+            print("🔍 Using AdaptiveMaxPool2d(1) -> GlobalMaxPool in ONNX")
         elif pooling_type == "fixed_avg":
             self.global_pool = nn.AvgPool2d(
                 kernel_size=4, stride=1, padding=0
             )  # Compatible: AveragePool in ONNX
-            print(f"🔍 Using AvgPool2d(4) -> AveragePool in ONNX")
+            print("🔍 Using AvgPool2d(4) -> AveragePool in ONNX")
         elif pooling_type == "fixed_max":
             self.global_pool = nn.MaxPool2d(
                 kernel_size=4, stride=1, padding=0
             )  # Compatible: MaxPool in ONNX
-            print(f"🔍 Using MaxPool2d(4) -> MaxPool in ONNX")
+            print("🔍 Using MaxPool2d(4) -> MaxPool in ONNX")
         else:
             print(f"🔍 Using original pooling: {self.global_pool}")
 
@@ -135,7 +135,7 @@ def export_to_onnx(
             print(
                 f"⚠️  ORT-Tract: Overriding {original_pooling} -> {pooling_type} (GlobalAveragePool unsupported)"
             )
-        print(f"📋 Configuring for ORT-Tract backend (ONNX Runtime API)")
+        print("📋 Configuring for ORT-Tract backend (ONNX Runtime API)")
     elif target_backend == "strict":
         # Strict mode: Maximum compatibility - also avoid GlobalAveragePool
         opset_version = 11
@@ -148,12 +148,12 @@ def export_to_onnx(
             print(
                 f"⚠️  Strict mode: Overriding {original_pooling} -> {pooling_type} (Maximum compatibility)"
             )
-        print(f"📋 Configuring for strict compatibility mode")
+        print("📋 Configuring for strict compatibility mode")
     else:
         # Direct Tract: Use newer opset for better optimization
         opset_version = 12  # Newer opset for direct tract
         use_dynamo = True  # Modern export for better optimization
-        print(f"📋 Configuring for direct Sonos Tract backend")
+        print("📋 Configuring for direct Sonos Tract backend")
 
     # Initialize model architecture with proper pooling
     model = LightweightKanjiNet(num_classes, image_size, pooling_type)
