@@ -279,9 +279,9 @@ def main():
             "1. python prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64"
         )
         print("2. python test_etl9g_setup.py --data-dir dataset --test-model")
-        print(
-            "3. python train_etl9g_model.py --data-dir dataset --epochs 30 --export-onnx"
-        )
+        print("3. python train_etl9g_model.py --data-dir dataset --epochs 30")
+        print("4. python convert_to_onnx.py --model-path best_kanji_model.pth")
+        print("5. python convert_to_safetensors.py --model-path best_kanji_model.pth")
     else:
         print("✗ Some checks failed. Please resolve issues before training.")
 

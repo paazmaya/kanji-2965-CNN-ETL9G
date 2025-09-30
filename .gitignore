@@ -210,3 +210,7 @@ __marimo__/
 dataset/
 ETL9G/
 *.pth
+*.json
+*.onnx
+*.ckpt
+*.safetensors

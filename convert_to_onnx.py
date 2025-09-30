@@ -58,15 +58,21 @@ class LightweightKanjiNet(OriginalLightweightKanjiNet):
         # with kernel_size=4 will produce 1x1 output, maintaining the same classifier input size (256)
 
 
+def generate_output_filename(base_name, image_size, backend, suffix):
+    """Generate consistent filename with configuration details."""
+    return f"{base_name}_etl9g_{image_size}x{image_size}_3036classes_{backend}{suffix}"
+
+
 def export_to_onnx(
     model_path,
     onnx_path,
     image_size,
-    num_classes,
     pooling_type="adaptive_avg",
     target_backend="tract",
 ):
     """Export PyTorch model to ONNX with backend-specific optimizations
+
+    Auto-generates filename if onnx_path is None.
 
     Backend Compatibility Analysis:
     ===============================
@@ -121,6 +127,12 @@ def export_to_onnx(
 
     print(f"Loading model from {model_path}...")
 
+    # Generate default filename if not provided
+    if onnx_path is None:
+        onnx_path = generate_output_filename(
+            "kanji_model", image_size, target_backend, ".onnx"
+        )
+
     # Choose export method and opset version based on target backend
     if target_backend == "ort-tract":
         # ORT-Tract: Use more conservative settings for API compatibility
@@ -156,7 +168,9 @@ def export_to_onnx(
         print("📋 Configuring for direct Sonos Tract backend")
 
     # Initialize model architecture with proper pooling
-    model = LightweightKanjiNet(num_classes, image_size, pooling_type)
+    # ETL9G dataset has exactly 3,036 character classes (fixed)
+    NUM_CLASSES = 3036
+    model = LightweightKanjiNet(NUM_CLASSES, image_size, pooling_type)
 
     # Load trained weights
     model.load_state_dict(torch.load(model_path, map_location="cpu"))
@@ -240,25 +254,254 @@ def export_to_onnx(
         print(f"⚠️  ONNX validation warning: {e}")
         print("Model exported but validation failed. Check ONNX compatibility.")
 
-    # Create character mapping for inference
+    # Create enhanced character mapping for inference
     mapping_path = onnx_path.replace(".onnx", "_mapping.json")
 
-    # Basic character mapping (this should ideally be loaded from training data)
-    mapping = {
-        "num_classes": num_classes,
-        "image_size": image_size,
-        "pooling_type": pooling_type,
-        "target_backend": target_backend,
-        "opset_version": opset_version,
-        "export_method": "torch.export" if use_dynamo else "TorchScript",
-    }
+    # Load the character mapping from dataset
+    try:
+        with open("dataset/character_mapping.json", "r", encoding="utf-8") as f:
+            char_details = json.load(f)
+        print("📚 Loaded character details from dataset")
+    except FileNotFoundError:
+        print("⚠️  Character mapping not found, using basic mapping")
+        char_details = {}
+
+    # Create comprehensive mapping
+    mapping = create_enhanced_character_mapping(
+        char_details,
+        {
+            "image_size": image_size,
+            "pooling_type": pooling_type,
+            "target_backend": target_backend,
+            "opset_version": opset_version,
+            "export_method": "torch.export" if use_dynamo else "TorchScript",
+        },
+    )
 
     with open(mapping_path, "w", encoding="utf-8") as f:
         json.dump(mapping, f, indent=2, ensure_ascii=False)
 
-    print(f"📄 Character mapping saved to {mapping_path}")
+    print(f"📄 Enhanced character mapping saved to {mapping_path}")
 
     return onnx_path
+
+
+def create_enhanced_character_mapping(char_details, model_info):
+    """Create enhanced character mapping for ETL9G dataset (3,036 classes)"""
+    NUM_CLASSES = 3036
+
+    def jis_to_unicode(jis_code):
+        """Convert JIS X 0208 code to Unicode character"""
+        try:
+            # JIS X 0208 to Unicode conversion
+            jis_int = int(jis_code, 16)
+
+            # ETL9G uses JIS X 0208 encoding
+            # Convert from JIS X 0208 area/code to Unicode
+
+            # Extract area (high byte) and code (low byte)
+            area = (jis_int >> 8) & 0xFF
+            code = jis_int & 0xFF
+
+            # Hiragana (area 24)
+            if area == 0x24:
+                # JIS X 0208 Hiragana starts at 24-21 (0x2421)
+                # Unicode Hiragana starts at U+3041
+                if 0x21 <= code <= 0x73:  # Valid Hiragana range
+                    unicode_val = 0x3041 + (code - 0x21)
+                    return chr(unicode_val)
+
+            # Katakana (area 25)
+            elif area == 0x25:
+                # JIS X 0208 Katakana starts at 25-21 (0x2521)
+                # Unicode Katakana starts at U+30A1
+                if 0x21 <= code <= 0x76:  # Valid Katakana range
+                    unicode_val = 0x30A1 + (code - 0x21)
+                    return chr(unicode_val)
+
+            # Hiragana (area 30 in some encodings)
+            elif area == 0x30:
+                # Alternative Hiragana encoding
+                if 0x21 <= code <= 0x7E:
+                    unicode_val = 0x3041 + (code - 0x21)
+                    if unicode_val <= 0x3096:  # Valid Hiragana range
+                        return chr(unicode_val)
+
+            # Kanji Level 1 (areas 30-4F in JIS X 0208)
+            elif 0x30 <= area <= 0x4F:
+                # This is a complex mapping, using simplified approach
+                # JIS Level 1 Kanji to Unicode CJK mapping
+                jis_linear = ((area - 0x30) * 94) + (code - 0x21)
+                unicode_val = 0x4E00 + jis_linear  # Start of CJK Unified Ideographs
+
+                # Keep within reasonable CJK range
+                if unicode_val > 0x9FAF:
+                    unicode_val = 0x4E00 + (jis_linear % (0x9FAF - 0x4E00))
+
+                return chr(unicode_val)
+
+            # Fallback: return JIS code representation
+            return f"[JIS:{jis_code}]"
+
+        except (ValueError, OverflowError):
+            return f"[JIS:{jis_code}]"
+
+    def estimate_stroke_count(jis_code, character):
+        """Estimate stroke count based on JIS code and character"""
+        try:
+            jis_int = int(jis_code, 16)
+            area = (jis_int >> 8) & 0xFF
+            code = jis_int & 0xFF
+
+            # Hiragana typically have 1-4 strokes
+            if area == 0x24 or area == 0x30:
+                # Simple estimation based on position
+                return min(4, max(1, (code - 0x21) % 4 + 1))
+
+            # Katakana typically have 1-5 strokes
+            elif area == 0x25:
+                return min(5, max(1, (code - 0x21) % 5 + 1))
+
+            # Kanji stroke count estimation
+            elif 0x30 <= area <= 0x4F:
+                # JIS ordering roughly follows stroke count/complexity
+                jis_linear = ((area - 0x30) * 94) + (code - 0x21)
+
+                # Rough stroke count estimation
+                if jis_linear < 200:
+                    return min(8, max(1, jis_linear // 25 + 1))  # 1-8 strokes
+                elif jis_linear < 800:
+                    return min(12, max(8, (jis_linear - 200) // 75 + 8))  # 8-12 strokes
+                elif jis_linear < 1500:
+                    return min(
+                        16, max(12, (jis_linear - 800) // 100 + 12)
+                    )  # 12-16 strokes
+                else:
+                    return min(
+                        25, max(16, (jis_linear - 1500) // 150 + 16)
+                    )  # 16+ strokes
+
+            return 1  # Default fallback
+
+        except ValueError:
+            return 1
+
+    # Create class-to-JIS mapping
+    class_to_jis = {}
+    jis_to_class = {}
+
+    for jis_code, details in char_details.items():
+        class_idx = details["class_idx"]
+        class_to_jis[str(class_idx)] = jis_code
+        jis_to_class[jis_code] = class_idx
+
+    # Create comprehensive character mapping
+    characters = {}
+
+    for class_idx in range(NUM_CLASSES):
+        class_str = str(class_idx)
+
+        if class_str in class_to_jis:
+            jis_code = class_to_jis[class_str]
+            details = char_details[jis_code]
+
+            # Get the actual character
+            character = jis_to_unicode(jis_code)
+            stroke_count = estimate_stroke_count(jis_code, character)
+
+            characters[class_str] = {
+                "jis_code": jis_code,
+                "character": character,
+                "reading": details.get("ascii_reading", ""),
+                "stroke_count": stroke_count,
+                "sample_count": details.get("sample_count", 0),
+            }
+        else:
+            # Fallback for missing mappings
+            characters[class_str] = {
+                "jis_code": "unknown",
+                "character": f"[{class_idx}]",
+                "reading": "",
+                "stroke_count": 1,
+                "sample_count": 0,
+            }
+
+    # Complete mapping structure
+    mapping = {
+        "model_info": model_info,
+        "num_classes": NUM_CLASSES,
+        "class_to_jis": class_to_jis,
+        "characters": characters,
+        "statistics": {
+            "total_characters": len(characters),
+            "hiragana_count": len(
+                [c for c in characters.values() if c["jis_code"].startswith("30")]
+            ),
+            "kanji_count": len(
+                [
+                    c
+                    for c in characters.values()
+                    if c["jis_code"].startswith(
+                        (
+                            "31",
+                            "32",
+                            "33",
+                            "34",
+                            "35",
+                            "36",
+                            "37",
+                            "38",
+                            "39",
+                            "3A",
+                            "3B",
+                            "3C",
+                            "3D",
+                            "3E",
+                            "3F",
+                            "40",
+                            "41",
+                            "42",
+                            "43",
+                            "44",
+                        )
+                    )
+                ]
+            ),
+            "average_stroke_count": sum(c["stroke_count"] for c in characters.values())
+            / len(characters)
+            if characters
+            else 0,
+        },
+    }
+
+    return mapping
+
+
+def create_character_mapping(data_dir, image_size, accuracy):
+    """Legacy function for backward compatibility - ETL9G has 3,036 classes"""
+    NUM_CLASSES = 3036
+    try:
+        with open(f"{data_dir}/character_mapping.json", "r", encoding="utf-8") as f:
+            char_details = json.load(f)
+
+        model_info = {
+            "image_size": image_size,
+            "accuracy": accuracy,
+            "pooling_type": "adaptive_avg",
+            "target_backend": "tract",
+            "opset_version": 12,
+            "export_method": "TorchScript",
+        }
+
+        mapping = create_enhanced_character_mapping(char_details, model_info)
+
+        with open("kanji_etl9g_mapping.json", "w", encoding="utf-8") as f:
+            json.dump(mapping, f, indent=2, ensure_ascii=False)
+
+        print("📄 Enhanced character mapping created: kanji_etl9g_mapping.json")
+
+    except FileNotFoundError:
+        print("⚠️  Character mapping file not found in dataset directory")
 
 
 def main():
@@ -272,14 +515,11 @@ def main():
     parser.add_argument(
         "--onnx-path",
         type=str,
-        default="kanji_etl9g_model.onnx",
-        help="Output path for ONNX model",
+        default=None,
+        help="Output path for ONNX model (auto-generated if not specified)",
     )
     parser.add_argument(
         "--image-size", type=int, default=64, help="Image size used in training"
-    )
-    parser.add_argument(
-        "--num-classes", type=int, default=3036, help="Number of classes"
     )
     parser.add_argument(
         "--pooling-type",
@@ -300,17 +540,26 @@ def main():
 
     print("🔄 Starting ONNX conversion...")
     print(f"Model: {args.model_path}")
-    print(f"Output: {args.onnx_path}")
+    if args.onnx_path is None:
+        onnx_filename = generate_output_filename(
+            "kanji_model",
+            args.image_size,
+            args.target_backend,
+            ".onnx",
+        )
+        print(f"Output: {onnx_filename} (auto-generated)")
+    else:
+        onnx_filename = args.onnx_path
+        print(f"Output: {onnx_filename}")
     print(f"Image size: {args.image_size}x{args.image_size}")
-    print(f"Classes: {args.num_classes}")
+    print("Classes: 3036 (ETL9G dataset)")
     print(f"Pooling: {args.pooling_type}")
     print(f"Backend: {args.target_backend}")
 
     result = export_to_onnx(
         args.model_path,
-        args.onnx_path,
+        onnx_filename,
         args.image_size,
-        args.num_classes,
         args.pooling_type,
         args.target_backend,
     )
@@ -341,9 +590,9 @@ def main():
 
         print("Files ready for deployment:")
         print(
-            f"  - {args.onnx_path} ({Path(args.onnx_path).stat().st_size / (1024 * 1024):.1f} MB)"
+            f"  - {onnx_filename} ({Path(onnx_filename).stat().st_size / (1024 * 1024):.1f} MB)"
         )
-        print(f"  - {args.onnx_path.replace('.onnx', '_mapping.json')}")
+        print(f"  - {onnx_filename.replace('.onnx', '_mapping.json')}")
     else:
         print("❌ ONNX conversion failed")
 

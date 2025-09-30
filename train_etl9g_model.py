@@ -15,15 +15,6 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
-# Optional ONNX conversion import
-try:
-    from convert_to_onnx import export_to_onnx, create_character_mapping
-
-    ONNX_AVAILABLE = True
-except ImportError:
-    ONNX_AVAILABLE = False
-    print("⚠️  ONNX conversion module not available. Use --export-onnx flag to enable.")
-
 
 class ETL9GDataset(Dataset):
     """Efficient dataset for ETL9G with memory management"""
@@ -58,8 +49,46 @@ class ETL9GDataset(Dataset):
         return image, label
 
 
+class ChannelAttention(nn.Module):
+    """SENet-style Channel Attention Module for feature recalibration"""
+
+    def __init__(self, in_channels, reduction=16):
+        super(ChannelAttention, self).__init__()
+        # =========================
+        # CHANNEL ATTENTION ALGORITHMS - SENet STYLE
+        # =========================
+        # Purpose: Adaptively recalibrate channel-wise feature responses
+        # Process: Global Pool -> FC -> ReLU -> FC -> Sigmoid -> Scale
+        # Reduction ratio: 16 (standard SENet configuration)
+
+        self.global_pool = nn.AdaptiveAvgPool2d(1)  # Squeeze: H×W -> 1×1
+        self.fc = nn.Sequential(
+            nn.Linear(
+                in_channels, in_channels // reduction, bias=False
+            ),  # Reduction layer
+            nn.ReLU(inplace=True),  # Non-linearity
+            nn.Linear(
+                in_channels // reduction, in_channels, bias=False
+            ),  # Excitation layer
+            nn.Sigmoid(),  # Gating function (0-1 scale per channel)
+        )
+
+    def forward(self, x):
+        # x shape: (batch, channels, height, width)
+        b, c, _, _ = x.size()
+
+        # Squeeze: Global spatial information into channel descriptor
+        y = self.global_pool(x).view(b, c)  # (batch, channels)
+
+        # Excitation: Generate channel-wise attention weights
+        y = self.fc(y).view(b, c, 1, 1)  # (batch, channels, 1, 1)
+
+        # Scale: Apply attention weights to input features
+        return x * y.expand_as(x)  # Element-wise multiplication
+
+
 class LightweightKanjiNet(nn.Module):
-    """Lightweight CNN optimized for web deployment"""
+    """Lightweight CNN optimized for web deployment with Channel Attention"""
 
     def __init__(self, num_classes: int, image_size: int = 64):
         super(LightweightKanjiNet, self).__init__()
@@ -68,16 +97,34 @@ class LightweightKanjiNet(nn.Module):
         self.num_classes = num_classes
 
         # =========================
-        # CNN ARCHITECTURE ALGORITHMS - ADJUSTABLE
+        # CNN ARCHITECTURE WITH CHANNEL ATTENTION - ENHANCED
         # =========================
-        # Current: Depthwise separable convolutions for efficiency
-        # Alternatives: Regular Conv2d, ResNet blocks, Vision Transformer, EfficientNet
-        # Channel progression: 1 -> 32 -> 64 -> 128 -> 256
-        # Stride pattern: 2 for all layers (progressive downsampling)
+        # Current: Depthwise separable convolutions + SENet-style channel attention
+        # Attention placement: After conv3, conv4, conv5 (deeper layers benefit most)
+        # Channel progression: 1 -> 32 -> 64 -> 128 -> 256 -> 512 (enhanced capacity)
+        # Stride pattern: 2 for downsampling layers, 1 for feature refinement
         self.conv1 = self._depthwise_separable_conv(1, 32, stride=2)  # 64x64 -> 32x32
         self.conv2 = self._depthwise_separable_conv(32, 64, stride=2)  # 32x32 -> 16x16
         self.conv3 = self._depthwise_separable_conv(64, 128, stride=2)  # 16x16 -> 8x8
         self.conv4 = self._depthwise_separable_conv(128, 256, stride=2)  # 8x8 -> 4x4
+        self.conv5 = self._depthwise_separable_conv(
+            256, 512, stride=1
+        )  # 4x4 -> 4x4 (feature refinement)
+
+        # =========================
+        # CHANNEL ATTENTION MODULES - SENet INTEGRATION
+        # =========================
+        # Apply attention after deeper layers for maximum impact
+        # Reduction ratio: 16 (balances effectiveness vs efficiency)
+        self.attention3 = ChannelAttention(
+            128, reduction=8
+        )  # After conv3 (smaller reduction for fewer channels)
+        self.attention4 = ChannelAttention(
+            256, reduction=16
+        )  # After conv4 (standard reduction)
+        self.attention5 = ChannelAttention(
+            512, reduction=16
+        )  # After conv5 (standard reduction)
 
         # Alternative architectures (commented out):
         # self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1)  # Regular convolution
@@ -93,20 +140,21 @@ class LightweightKanjiNet(nn.Module):
         # =========================
         # CLASSIFIER HEAD ALGORITHMS - ADJUSTABLE
         # =========================
-        # Current: Two-layer MLP with dropout regularization
-        # Hidden layer size: 512 (intermediate representation)
-        # Dropout rates: 0.3 and 0.2 (prevent overfitting)
+        # Enhanced: Two-layer MLP with increased capacity for 512 input features
+        # Hidden layer size: 1024 (larger intermediate representation for complex patterns)
+        # Dropout rates: 0.3 and 0.2 (prevent overfitting with larger model)
         # Activation: ReLU (could use GELU, Swish, etc.)
         self.classifier = nn.Sequential(
             nn.Dropout(0.3),  # First dropout layer
-            nn.Linear(256, 512),  # Hidden layer
+            nn.Linear(512, 1024),  # Enhanced hidden layer (512->1024)
             nn.ReLU(inplace=True),  # Activation function
             nn.Dropout(0.2),  # Second dropout layer
-            nn.Linear(512, num_classes),  # Output layer
+            nn.Linear(1024, num_classes),  # Output layer
         )
 
         # Alternative classifier options (commented out):
-        # Single layer: nn.Linear(256, num_classes)
+        # Single layer: nn.Linear(512, num_classes)
+        # Original smaller: nn.Linear(256, 512), nn.ReLU(), nn.Linear(512, num_classes)
         # Larger hidden: nn.Linear(256, 1024), nn.ReLU(), nn.Linear(1024, num_classes)
         # Different activation: nn.GELU(), nn.Swish()
 
@@ -182,15 +230,22 @@ class LightweightKanjiNet(nn.Module):
         batch_size = x.size(0)
         x = x.view(batch_size, 1, self.image_size, self.image_size)
 
-        # Feature extraction
-        x = self.conv1(x)  # 64x64 -> 32x32
-        x = self.conv2(x)  # 32x32 -> 16x16
-        x = self.conv3(x)  # 16x16 -> 8x8
-        x = self.conv4(x)  # 8x8 -> 4x4
+        # Enhanced feature extraction with Channel Attention
+        x = self.conv1(x)  # 64x64 -> 32x32, channels: 1->32
+        x = self.conv2(x)  # 32x32 -> 16x16, channels: 32->64
+
+        x = self.conv3(x)  # 16x16 -> 8x8, channels: 64->128
+        x = self.attention3(x)  # Apply channel attention to refine 128 features
+
+        x = self.conv4(x)  # 8x8 -> 4x4, channels: 128->256
+        x = self.attention4(x)  # Apply channel attention to refine 256 features
+
+        x = self.conv5(x)  # 4x4 -> 4x4, channels: 256->512 (feature refinement)
+        x = self.attention5(x)  # Apply channel attention to refine 512 features
 
         # Global pooling and classification
         x = self.global_pool(x)  # 4x4 -> 1x1
-        x = x.view(batch_size, -1)  # Flatten
+        x = x.view(batch_size, -1)  # Flatten to 512 features
         x = self.classifier(x)
 
         return x
@@ -556,19 +611,11 @@ def main():
     # Current: 64x64 (good balance for kanji detail and computational efficiency)
     # Alternatives: 32x32 (faster, less detail), 128x128 (slower, more detail)
     parser.add_argument("--image-size", type=int, default=64, help="Image size")
-
-    parser.add_argument("--export-onnx", action="store_true", help="Export to ONNX")
     parser.add_argument(
         "--sample-limit",
         type=int,
         default=None,
         help="Limit samples for testing (e.g., 50000)",
-    )
-    parser.add_argument(
-        "--class-limit",
-        type=int,
-        default=None,
-        help="Limit to N most frequent classes for testing (e.g., 100)",
     )
 
     args = parser.parse_args()
@@ -581,31 +628,9 @@ def main():
     with open(data_path / "metadata.json", "r") as f:
         metadata = json.load(f)
 
-    num_classes = metadata["num_classes"]
-
-    # Optional: Limit to most frequent classes for testing/debugging
-    if args.class_limit and args.class_limit < num_classes:
-        print(
-            f"Limiting dataset to {args.class_limit} most frequent classes for testing..."
-        )
-        # Find most frequent classes
-        unique_classes, class_counts = np.unique(y, return_counts=True)
-        top_classes_idx = np.argsort(class_counts)[-args.class_limit :]
-        top_classes = unique_classes[top_classes_idx]
-
-        # Filter samples to only include top classes
-        mask = np.isin(y, top_classes)
-        X = X[mask]
-        y = y[mask]
-
-        # Remap class labels to 0-based consecutive indices
-        class_mapping = {
-            old_class: new_class for new_class, old_class in enumerate(top_classes)
-        }
-        y = np.array([class_mapping[class_id] for class_id in y])
-
-        num_classes = args.class_limit
-        print(f"Using {len(top_classes)} classes with {len(X)} samples")
+    # ETL9G dataset has exactly 3,036 character classes (fixed)
+    num_classes = 3036
+    print(f"Dataset loaded: {X.shape}, {num_classes} classes (ETL9G fixed)")
 
     # Optional: Limit samples for faster testing/debugging
     if args.sample_limit and len(X) > args.sample_limit:
@@ -641,32 +666,6 @@ def main():
     # Test final model
     test_loss, test_acc = trainer.validate(test_loader, nn.CrossEntropyLoss())
     print(f"\nFinal test accuracy: {test_acc:.2f}%")
-
-    # Export to ONNX
-    if args.export_onnx:
-        if ONNX_AVAILABLE:
-            print("\nExporting to ONNX...")
-            onnx_path = export_to_onnx(
-                "best_kanji_model.pth",
-                "kanji_etl9g_model.onnx",
-                args.image_size,
-                num_classes,
-            )
-
-            if onnx_path:
-                # Create character mapping
-                create_character_mapping(
-                    args.data_dir, num_classes, args.image_size, test_acc
-                )
-
-                print("Model ready for WASM integration!")
-                print("Files created:")
-                print(
-                    f"  - kanji_etl9g_model.onnx ({Path('kanji_etl9g_model.onnx').stat().st_size / (1024 * 1024):.1f} MB)"
-                )
-                print("  - kanji_etl9g_mapping.json")
-        else:
-            print("⚠️  ONNX conversion not available. Run: python convert_to_onnx.py")
 
 
 if __name__ == "__main__":
