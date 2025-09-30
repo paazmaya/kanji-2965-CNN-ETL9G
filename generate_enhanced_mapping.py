@@ -64,22 +64,26 @@ def estimate_stroke_count(character):
 def create_enhanced_character_mapping():
     """Create enhanced character mapping with actual characters and stroke counts."""
 
-    # Load existing mappings
-    mapping_file = Path("kanji_etl9g_mapping.json")
+    # Load existing mappings - use the latest generated mapping file
+    mapping_file = Path("kanji_model_etl9g_64x64_3036classes_tract_mapping.json")
     char_details_file = Path("dataset/character_mapping.json")
 
     if not mapping_file.exists():
         print(f"❌ Mapping file not found: {mapping_file}")
+        print("💡 Run 'python convert_to_onnx.py --model-path best_kanji_model.pth' first")
         return False
 
     if not char_details_file.exists():
         print(f"❌ Character details not found: {char_details_file}")
         return False
 
-    # Load class-to-JIS mapping
+    # Load class-to-JIS mapping from characters
     with open(mapping_file, "r", encoding="utf-8") as f:
         mapping_data = json.load(f)
-        class_to_jis = mapping_data.get("class_to_jis", mapping_data)
+        class_to_jis = {
+            class_idx: char_info["jis_code"] 
+            for class_idx, char_info in mapping_data["characters"].items()
+        }
 
     # Load character details
     with open(char_details_file, "r", encoding="utf-8") as f:

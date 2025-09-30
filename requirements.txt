@@ -20,6 +20,9 @@ Pillow>=9.0.0
 onnx>=1.14.0
 onnxruntime-gpu>=1.15.0
 
+# CO2 emissions tracking
+codecarbon>=2.3.0
+
 # System monitoring
 psutil>=5.8.0
 

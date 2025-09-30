@@ -372,12 +372,6 @@ python convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type avg_2
 # Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
 ```
 
-**Alternative (Combined Training + Export):**
-
-```powershell
-python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64
-```
-
 **Note:** ONNX/SafeTensors conversion is done separately after training - you can train once and export multiple times with different settings.
 
 ## Output Files
@@ -495,7 +489,7 @@ The model has undergone significant optimizations to achieve state-of-the-art ac
 - **Expected**: +3-5% accuracy improvement
 - **Focus**: Increased model capacity for complex patterns
 
-#### **Version 2.1 (Current - With Attention)**
+#### **Version 2.1 (With Attention)**
 
 - **Added**: SENet-style channel attention modules
 - **Attention Points**: After conv3, conv4, conv5
@@ -610,7 +604,7 @@ The enhanced character mapping provides comprehensive character information:
 
 ### Memory Issues
 
-```bash
+```powershell
 # Use smaller batch size
 python train_etl9g_model.py --batch-size 32
 
@@ -769,7 +763,7 @@ Great question! The image size parameter has a **significant multiplicative effe
 
 Looking at the training command:
 
-```bash
+```powershell
 python prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
 ```
 
@@ -929,7 +923,7 @@ This demonstrates that **data quantity is critical** for deep learning success, 
 
 Python source code is formatted with [`ruff`](https://github.com/astral-sh/ruff):
 
-```ps1
+```powershell
 ruff format
 ```
 

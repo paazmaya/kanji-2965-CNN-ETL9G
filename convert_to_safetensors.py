@@ -12,75 +12,6 @@ import json
 from train_etl9g_model import LightweightKanjiNet
 
 
-def convert_to_safetensors(
-    model_path="best_kanji_model.pth",
-    output_path=None,
-    include_metadata=True,
-):
-    """Convert PyTorch model to SafeTensors format.
-
-    SafeTensors provides secure, efficient model weight storage with metadata
-    """
-
-    # ETL9G dataset has exactly 3,036 character classes (fixed)
-    NUM_CLASSES = 3036
-
-    # Generate default filename if not provided
-    if output_path is None:
-        output_path = generate_output_filename("kanji_model", 64, ".safetensors")
-
-    print("🔄 Converting PyTorch model to SafeTensors format...")
-    print(f"📁 Input: {model_path}")
-    print(f"📁 Output: {output_path}")
-    print(f"Classes: {NUM_CLASSES} (ETL9G dataset)")
-
-    # Load the trained model
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = load_model_for_conversion(model_path, image_size=64)
-
-    # Extract state dict
-    state_dict = model.state_dict()
-
-    # Convert tensors to CPU and ensure they're contiguous
-    cpu_state_dict = {}
-    for key, tensor in state_dict.items():
-        cpu_state_dict[key] = tensor.cpu().contiguous()
-
-    # Generate metadata if requested
-    metadata = {}
-    if include_metadata:
-        metadata = extract_model_metadata(model, model_path)
-
-    # Save as SafeTensors
-    try:
-        save_file(cpu_state_dict, output_path, metadata=metadata)
-        print("✅ SafeTensors model saved successfully!")
-
-        # Save companion info file
-        info_path = str(output_path).replace(".safetensors", "_info.json")
-        model_info = {
-            "format": "safetensors",
-            "model_path": str(model_path),
-            "safetensors_path": str(output_path),
-            "metadata": metadata,
-            "architecture": {
-                "type": "LightweightKanjiNet",
-                "num_classes": NUM_CLASSES,
-                "image_size": 64,
-            },
-        }
-
-        with open(info_path, "w") as f:
-            json.dump(model_info, f, indent=2)
-
-        print(f"📄 Model info saved: {info_path}")
-        return output_path
-
-    except Exception as e:
-        print(f"❌ Error saving SafeTensors: {e}")
-        return None
-
-
 def load_model_for_conversion(model_path, image_size=64):
     """Load the trained PyTorch model for conversion."""
     # ETL9G dataset has exactly 3,036 character classes (fixed)
@@ -169,6 +100,9 @@ def convert_to_safetensors(
     include_metadata=True,
 ):
     """Convert PyTorch model to SafeTensors format."""
+
+    # ETL9G dataset has exactly 3,036 character classes (fixed)
+    NUM_CLASSES = num_classes
 
     # Generate default filename if not provided
     if output_path is None:

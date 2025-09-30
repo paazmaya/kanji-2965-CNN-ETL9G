@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import argparse
 import json
+import time
 from pathlib import Path
 
 # Import the correct model architecture from training
@@ -173,7 +174,56 @@ def export_to_onnx(
     model = LightweightKanjiNet(NUM_CLASSES, image_size, pooling_type)
 
     # Load trained weights
-    model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    checkpoint = torch.load(model_path, map_location="cpu")
+
+    # For ORT-Tract compatibility, we need to ensure ALL pooling layers are correct
+    if target_backend in ["ort-tract", "strict"] and pooling_type == "fixed_avg":
+        # Replace ALL AdaptiveAvgPool2d layers with fixed pooling for backend compatibility
+        print("🔍 Using AvgPool2d(4) -> AveragePool in ONNX")
+
+        # Replace the main global pooling layer
+        if hasattr(model, "global_pool"):
+            model.global_pool = nn.AvgPool2d(4, stride=1, padding=0)
+
+        # Replace pooling layers in channel attention modules with correct kernel sizes
+        # Based on architecture: conv3->8x8, conv4->4x4, conv5->4x4
+        attention_pool_sizes = {
+            "attention3": 8,  # After conv3: 8x8 spatial size
+            "attention4": 4,  # After conv4: 4x4 spatial size
+            "attention5": 4,  # After conv5: 4x4 spatial size
+        }
+
+        for name, module in model.named_modules():
+            if hasattr(module, "global_pool") and any(
+                att_name in name for att_name in attention_pool_sizes
+            ):
+                # Find which attention module this is
+                for att_name, kernel_size in attention_pool_sizes.items():
+                    if att_name in name:
+                        print(
+                            f"🔧 Replacing AdaptiveAvgPool2d in {name} with AvgPool2d({kernel_size})"
+                        )
+                        module.global_pool = nn.AvgPool2d(
+                            kernel_size, stride=1, padding=0
+                        )
+                        break
+
+        # Load all weights except pooling layers which we've reconfigured
+        state_dict = checkpoint.copy()
+
+        # Remove any pooling layer weights that might conflict
+        keys_to_remove = [k for k in state_dict.keys() if "global_pool" in k]
+        for key in keys_to_remove:
+            print(f"🔧 Removing conflicting pooling weight: {key}")
+            del state_dict[key]
+
+        # Load the remaining weights
+        model.load_state_dict(state_dict, strict=False)
+        print(f"✅ Loaded weights with fixed_avg pooling for {target_backend}")
+    else:
+        # Standard loading for other backends
+        model.load_state_dict(checkpoint)
+
     model = model.to("cpu")  # Explicitly move model to CPU
     model.eval()
 
@@ -257,14 +307,36 @@ def export_to_onnx(
     # Create enhanced character mapping for inference
     mapping_path = onnx_path.replace(".onnx", "_mapping.json")
 
-    # Load the character mapping from dataset
+    # Load the enhanced character mapping
+    enhanced_mapping_file = "kanji_etl9g_enhanced_mapping.json"
     try:
-        with open("dataset/character_mapping.json", "r", encoding="utf-8") as f:
-            char_details = json.load(f)
-        print("📚 Loaded character details from dataset")
-    except FileNotFoundError:
-        print("⚠️  Character mapping not found, using basic mapping")
+        with open(enhanced_mapping_file, "r", encoding="utf-8") as f:
+            enhanced_mapping = json.load(f)
+        print(f"📚 Loaded enhanced character mapping from {enhanced_mapping_file}")
+
+        # Convert enhanced mapping to the format expected by create_enhanced_character_mapping
         char_details = {}
+        for class_id, char_info in enhanced_mapping.items():
+            # Skip metadata entries that aren't class mappings
+            if not class_id.isdigit():
+                continue
+
+            char_details[char_info.get("jis_code", f"{class_id:04X}")] = {
+                "class_idx": int(class_id),
+                "character": char_info.get("character", f"[{class_id}]"),
+                "stroke_count": char_info.get("stroke_count", 8),
+            }
+
+    except FileNotFoundError:
+        print(f"⚠️ Enhanced character mapping not found: {enhanced_mapping_file}")
+        # Fallback to dataset mapping
+        try:
+            with open("dataset/character_mapping.json", "r", encoding="utf-8") as f:
+                char_details = json.load(f)
+            print("📚 Loaded character details from dataset")
+        except FileNotFoundError:
+            print("⚠️  Character mapping not found, using basic mapping")
+            char_details = {}
 
     # Create comprehensive mapping
     mapping = create_enhanced_character_mapping(
@@ -276,6 +348,7 @@ def export_to_onnx(
             "opset_version": opset_version,
             "export_method": "torch.export" if use_dynamo else "TorchScript",
         },
+        enhanced_mapping if "enhanced_mapping" in locals() else None,
     )
 
     with open(mapping_path, "w", encoding="utf-8") as f:
@@ -286,61 +359,74 @@ def export_to_onnx(
     return onnx_path
 
 
-def create_enhanced_character_mapping(char_details, model_info):
+def create_enhanced_character_mapping(char_details, model_info, enhanced_mapping=None):
     """Create enhanced character mapping for ETL9G dataset (3,036 classes)"""
     NUM_CLASSES = 3036
 
-    def jis_to_unicode(jis_code):
-        """Convert JIS X 0208 code to Unicode character"""
-        try:
-            # JIS X 0208 to Unicode conversion
-            jis_int = int(jis_code, 16)
+    # If enhanced mapping is provided directly, use it
+    if enhanced_mapping:
+        characters = {}
+        enhanced_chars = enhanced_mapping.get("characters", {})
+        for class_idx in range(NUM_CLASSES):
+            class_str = str(class_idx)
+            char_info = enhanced_chars.get(class_str, {})
 
-            # ETL9G uses JIS X 0208 encoding
-            # Convert from JIS X 0208 area/code to Unicode
+            if char_info:
+                characters[class_str] = {
+                    "character": char_info.get("character", f"[{class_idx}]"),
+                    "jis_code": char_info.get("jis_code", f"{class_idx:04X}"),
+                    "stroke_count": char_info.get("stroke_count", 8),
+                }
+            else:
+                print(f"⚠️ Warning: Missing mapping for class {class_idx}")
+                characters[class_str] = {
+                    "character": f"[{class_idx}]",
+                    "jis_code": f"{class_idx:04X}",
+                    "stroke_count": 8,
+                }
+
+        # Complete mapping structure
+        mapping = {
+            "model_info": model_info,
+            "num_classes": NUM_CLASSES,
+            "characters": characters,
+            "statistics": {
+                "total_characters": len(characters),
+                "mapped_characters": len(
+                    [
+                        c
+                        for c in characters.values()
+                        if not c["character"].startswith("[")
+                    ]
+                ),
+                "creation_timestamp": int(time.time()),
+            },
+        }
+        return mapping
+
+    def jis_to_unicode(jis_code):
+        """Convert JIS X 0208 area/code format to Unicode character."""
+        try:
+            # Convert hex string to integer
+            jis_int = int(jis_code, 16)
 
             # Extract area (high byte) and code (low byte)
             area = (jis_int >> 8) & 0xFF
             code = jis_int & 0xFF
 
-            # Hiragana (area 24)
-            if area == 0x24:
-                # JIS X 0208 Hiragana starts at 24-21 (0x2421)
-                # Unicode Hiragana starts at U+3041
-                if 0x21 <= code <= 0x73:  # Valid Hiragana range
-                    unicode_val = 0x3041 + (code - 0x21)
-                    return chr(unicode_val)
+            # JIS X 0208 to Unicode mapping
+            if area == 0x24:  # Hiragana
+                if 0x21 <= code <= 0x73:
+                    return chr(0x3041 + (code - 0x21))
+            elif area == 0x25:  # Katakana
+                if 0x21 <= code <= 0x76:
+                    return chr(0x30A1 + (code - 0x21))
+            elif 0x30 <= area <= 0x4F:  # Kanji
+                # Simplified kanji mapping - this is a basic approximation
+                # Real JIS X 0208 to Unicode requires full conversion tables
+                base_offset = (area - 0x30) * 94 + (code - 0x21)
+                return chr(0x4E00 + base_offset)  # CJK Unified Ideographs base
 
-            # Katakana (area 25)
-            elif area == 0x25:
-                # JIS X 0208 Katakana starts at 25-21 (0x2521)
-                # Unicode Katakana starts at U+30A1
-                if 0x21 <= code <= 0x76:  # Valid Katakana range
-                    unicode_val = 0x30A1 + (code - 0x21)
-                    return chr(unicode_val)
-
-            # Hiragana (area 30 in some encodings)
-            elif area == 0x30:
-                # Alternative Hiragana encoding
-                if 0x21 <= code <= 0x7E:
-                    unicode_val = 0x3041 + (code - 0x21)
-                    if unicode_val <= 0x3096:  # Valid Hiragana range
-                        return chr(unicode_val)
-
-            # Kanji Level 1 (areas 30-4F in JIS X 0208)
-            elif 0x30 <= area <= 0x4F:
-                # This is a complex mapping, using simplified approach
-                # JIS Level 1 Kanji to Unicode CJK mapping
-                jis_linear = ((area - 0x30) * 94) + (code - 0x21)
-                unicode_val = 0x4E00 + jis_linear  # Start of CJK Unified Ideographs
-
-                # Keep within reasonable CJK range
-                if unicode_val > 0x9FAF:
-                    unicode_val = 0x4E00 + (jis_linear % (0x9FAF - 0x4E00))
-
-                return chr(unicode_val)
-
-            # Fallback: return JIS code representation
             return f"[JIS:{jis_code}]"
 
         except (ValueError, OverflowError):
@@ -386,6 +472,29 @@ def create_enhanced_character_mapping(char_details, model_info):
         except ValueError:
             return 1
 
+    def estimate_stroke_count(jis_code, character):
+        """Estimate stroke count for a character."""
+        if len(character) != 1:
+            return 1
+
+        code_point = ord(character)
+
+        # Hiragana: typically 1-4 strokes
+        if 0x3041 <= code_point <= 0x3096:
+            return max(1, len(character) + (code_point % 4))
+
+        # Katakana: typically 1-4 strokes
+        elif 0x30A1 <= code_point <= 0x30FC:
+            return max(1, len(character) + (code_point % 4))
+
+        # Kanji: typically 1-25 strokes (complex estimation)
+        elif 0x4E00 <= code_point <= 0x9FAF:
+            # Simple heuristic based on code point position
+            base_strokes = 1 + ((code_point - 0x4E00) % 20)
+            return min(base_strokes, 25)
+
+        return 1
+
     # Create class-to-JIS mapping
     class_to_jis = {}
     jis_to_class = {}
@@ -403,34 +512,29 @@ def create_enhanced_character_mapping(char_details, model_info):
 
         if class_str in class_to_jis:
             jis_code = class_to_jis[class_str]
-            details = char_details[jis_code]
 
-            # Get the actual character
+            # Get the actual character using JIS to Unicode conversion
             character = jis_to_unicode(jis_code)
             stroke_count = estimate_stroke_count(jis_code, character)
 
             characters[class_str] = {
-                "jis_code": jis_code,
                 "character": character,
-                "reading": details.get("ascii_reading", ""),
+                "jis_code": jis_code,
                 "stroke_count": stroke_count,
-                "sample_count": details.get("sample_count", 0),
             }
         else:
-            # Fallback for missing mappings
+            # Fallback for missing mappings - this should be rare with proper dataset
+            print(f"⚠️ Warning: Missing mapping for class {class_idx}")
             characters[class_str] = {
+                "character": f"[Missing-{class_idx}]",
                 "jis_code": "unknown",
-                "character": f"[{class_idx}]",
-                "reading": "",
                 "stroke_count": 1,
-                "sample_count": 0,
             }
 
     # Complete mapping structure
     mapping = {
         "model_info": model_info,
         "num_classes": NUM_CLASSES,
-        "class_to_jis": class_to_jis,
         "characters": characters,
         "statistics": {
             "total_characters": len(characters),
