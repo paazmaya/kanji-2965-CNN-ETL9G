@@ -6,7 +6,7 @@
 torch>=2.0.0
 torchvision>=0.15.0
 # Note: Install PyTorch with CUDA using:
-# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 
 # Data processing and utilities
 numpy>=1.21.0

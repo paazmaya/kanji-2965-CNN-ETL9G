@@ -4,7 +4,6 @@ ONNX Model Inspector - Check what operations are used in ONNX models
 """
 
 import onnx
-import sys
 from collections import Counter
 import os
 

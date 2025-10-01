@@ -66,7 +66,7 @@ def check_gpu_availability():
             print("  - NVIDIA GPU drivers are installed")
             print("  - PyTorch with CUDA support is installed")
             print(
-                "  - pip install torch --index-url https://download.pytorch.org/whl/cu126"
+                "  - pip install torch --index-url https://download.pytorch.org/whl/cu129"
             )
             return False
 

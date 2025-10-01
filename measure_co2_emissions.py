@@ -6,7 +6,6 @@ Following Hugging Face guidelines: https://huggingface.co/docs/hub/model-cards-c
 This script measures and tracks CO2 emissions during model training and inference.
 """
 
-import time
 import json
 import psutil
 import platform
@@ -313,7 +312,7 @@ For reference, daily inference usage:
     with open("carbon_footprint_section.md", "w") as f:
         f.write(carbon_section)
 
-    print(f"\n📝 Carbon footprint section saved to: carbon_footprint_section.md")
+    print("\n📝 Carbon footprint section saved to: carbon_footprint_section.md")
     print("💡 You can copy this section into your model-card.md file")
 
     return carbon_section

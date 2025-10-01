@@ -70,7 +70,9 @@ def create_enhanced_character_mapping():
 
     if not mapping_file.exists():
         print(f"❌ Mapping file not found: {mapping_file}")
-        print("💡 Run 'python convert_to_onnx.py --model-path best_kanji_model.pth' first")
+        print(
+            "💡 Run 'python convert_to_onnx.py --model-path best_kanji_model.pth' first"
+        )
         return False
 
     if not char_details_file.exists():
@@ -81,7 +83,7 @@ def create_enhanced_character_mapping():
     with open(mapping_file, "r", encoding="utf-8") as f:
         mapping_data = json.load(f)
         class_to_jis = {
-            class_idx: char_info["jis_code"] 
+            class_idx: char_info["jis_code"]
             for class_idx, char_info in mapping_data["characters"].items()
         }
 

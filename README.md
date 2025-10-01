@@ -50,7 +50,7 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1
 
 # Install PyTorch with CUDA support for NVIDIA GPU
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 
 # Install other required packages
 pip install numpy scikit-learn matplotlib tqdm

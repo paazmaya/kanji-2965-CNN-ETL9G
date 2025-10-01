@@ -5,7 +5,6 @@ GlobalAveragePool vs AveragePool - Demonstration of the differences
 
 import torch
 import torch.nn as nn
-import numpy as np
 
 
 def demonstrate_pooling_differences():
@@ -45,7 +44,7 @@ def demonstrate_pooling_differences():
     avg_pool_8x8 = nn.AvgPool2d(kernel_size=8, stride=1, padding=0)
     avg_output_8x8 = avg_pool_8x8(sample_input)
     print(f"   - Input: {sample_input.shape} → Output: {avg_output_8x8.shape}")
-    print(f"   - Computation: Average over 8×8 = 64 spatial locations")
+    print("   - Computation: Average over 8×8 = 64 spatial locations")
     print()
 
     # Verify they produce the same result
