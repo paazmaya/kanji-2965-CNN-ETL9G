@@ -12,7 +12,15 @@ import time
 from pathlib import Path
 
 # Import the correct model architecture from training
-from train_etl9g_model import LightweightKanjiNet as OriginalLightweightKanjiNet
+try:
+    from train_etl9g_model import LightweightKanjiNet as OriginalLightweightKanjiNet
+except ImportError:
+    # Handle case when running from scripts directory
+    import sys
+    from pathlib import Path
+
+    sys.path.append(str(Path(__file__).parent))
+    from train_etl9g_model import LightweightKanjiNet as OriginalLightweightKanjiNet
 
 try:
     import onnxruntime
@@ -61,7 +69,7 @@ class LightweightKanjiNet(OriginalLightweightKanjiNet):
 
 def generate_output_filename(base_name, image_size, backend, suffix):
     """Generate consistent filename with configuration details."""
-    return f"{base_name}_etl9g_{image_size}x{image_size}_3036classes_{backend}{suffix}"
+    return f"models/{base_name}_etl9g_{image_size}x{image_size}_3036classes_{backend}{suffix}"
 
 
 def export_to_onnx(
@@ -613,7 +621,7 @@ def main():
     parser.add_argument(
         "--model-path",
         type=str,
-        default="best_kanji_model.pth",
+        default="models/best_kanji_model.pth",
         help="Path to the trained PyTorch model",
     )
     parser.add_argument(
@@ -641,6 +649,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Create models directory if it doesn't exist
+    Path("models").mkdir(exist_ok=True)
 
     print("🔄 Starting ONNX conversion...")
     print(f"Model: {args.model_path}")

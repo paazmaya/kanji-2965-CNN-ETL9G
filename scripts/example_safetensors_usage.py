@@ -9,11 +9,20 @@ import torch
 import numpy as np
 from PIL import Image
 from safetensors.torch import load_file
-from train_etl9g_model import LightweightKanjiNet
+
+try:
+    from train_etl9g_model import LightweightKanjiNet
+except ImportError:
+    # Handle case when running from scripts directory
+    import sys
+    from pathlib import Path
+
+    sys.path.append(str(Path(__file__).parent))
+    from train_etl9g_model import LightweightKanjiNet
 
 
 def load_safetensors_model(
-    safetensors_path="kanji_etl9g_model_64x64.safetensors",
+    safetensors_path="models/kanji_etl9g_model_64x64.safetensors",
     info_path="kanji_etl9g_model_64x64_info.json",
 ):
     """Load model from SafeTensors format."""

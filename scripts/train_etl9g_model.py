@@ -425,13 +425,13 @@ class ProgressiveTrainer:
 
             # Save progress periodically
             if (epoch + 1) % 5 == 0 or epoch == 0:
-                with open("training_progress.json", "w") as f:
+                with open("models/training_progress.json", "w") as f:
                     json.dump(progress_log, f, indent=2)
 
             # Save best model
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
-                torch.save(self.model.state_dict(), "best_kanji_model.pth")
+                torch.save(self.model.state_dict(), "models/best_kanji_model.pth")
                 patience_counter = 0
                 print(f"New best model saved! Accuracy: {best_val_acc:.2f}%")
 
@@ -443,7 +443,7 @@ class ProgressiveTrainer:
                     "train_accuracy": train_acc,
                     "learning_rate": optimizer.param_groups[0]["lr"],
                 }
-                with open("best_model_info.json", "w") as f:
+                with open("models/best_model_info.json", "w") as f:
                     json.dump(model_info, f, indent=2)
             else:
                 patience_counter += 1
@@ -454,7 +454,7 @@ class ProgressiveTrainer:
         print(f"\nTraining completed! Best validation accuracy: {best_val_acc:.2f}%")
 
         # Save final progress
-        with open("training_progress.json", "w") as f:
+        with open("models/training_progress.json", "w") as f:
             json.dump(progress_log, f, indent=2)
 
         return best_val_acc
@@ -653,6 +653,9 @@ def main():
 
     model = LightweightKanjiNet(num_classes, args.image_size)
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    # Create models directory if it doesn't exist
+    Path("models").mkdir(exist_ok=True)
 
     # Initialize trainer
     trainer = ProgressiveTrainer(model, device, num_classes)

@@ -9,7 +9,16 @@ from pathlib import Path
 import torch
 from safetensors.torch import save_file
 import json
-from train_etl9g_model import LightweightKanjiNet
+
+try:
+    from train_etl9g_model import LightweightKanjiNet
+except ImportError:
+    # Handle case when running from scripts directory
+    import sys
+    from pathlib import Path
+
+    sys.path.append(str(Path(__file__).parent))
+    from train_etl9g_model import LightweightKanjiNet
 
 
 def load_model_for_conversion(model_path, image_size=64):
@@ -89,11 +98,11 @@ def extract_model_metadata(model_path, model, image_size):
 
 def generate_output_filename(base_name, image_size, suffix):
     """Generate consistent filename with configuration details."""
-    return f"{base_name}_etl9g_{image_size}x{image_size}_3036classes{suffix}"
+    return f"models/{base_name}_etl9g_{image_size}x{image_size}_3036classes{suffix}"
 
 
 def convert_to_safetensors(
-    model_path="best_kanji_model.pth",
+    model_path="models/best_kanji_model.pth",
     output_path=None,
     num_classes=3036,
     image_size=64,
@@ -231,7 +240,7 @@ def main():
     parser.add_argument(
         "--model-path",
         type=str,
-        default="best_kanji_model.pth",
+        default="models/best_kanji_model.pth",
         help="Path to the trained PyTorch model",
     )
     parser.add_argument(
@@ -253,6 +262,11 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Create models directory if it doesn't exist
+    from pathlib import Path
+
+    Path("models").mkdir(exist_ok=True)
 
     print("🚀 SafeTensors Conversion Tool")
     print("=" * 50)

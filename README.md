@@ -88,6 +88,36 @@ training/
 
 The `ETL9G_` files are a bit over 94 MB each.
 
+## Project Structure
+
+After setting up and running the training pipeline, your project will have this structure:
+
+```
+kanji-2965-CNN-ETL9G/
+├── scripts/                    # Python training scripts
+│   ├── train_etl9g_model.py   # Main training script
+│   ├── convert_to_onnx.py     # ONNX conversion for web deployment
+│   ├── convert_to_safetensors.py # SafeTensors conversion
+│   ├── prepare_etl9g_dataset.py  # Data preprocessing
+│   └── ... (11 more scripts)
+├── models/                     # Generated model files
+│   ├── best_kanji_model.pth    # Best PyTorch model (training output)
+│   ├── best_model_info.json   # Model metadata
+│   ├── training_progress.json # Training metrics
+│   ├── *.onnx                 # ONNX models for web deployment
+│   ├── *.safetensors          # SafeTensors models for secure deployment
+│   └── *_mapping.json         # Character mappings for each model
+├── dataset/                    # Processed training data
+│   ├── etl9g_dataset_chunk_*.npz  # Training data chunks
+│   ├── character_mapping.json     # Character class mappings
+│   └── metadata.json             # Dataset information
+├── ETL9G/                      # Original ETL9G dataset files
+│   ├── ETL9G_01 through ETL9G_50
+│   └── ETL9INFO
+├── requirements.txt            # Python dependencies
+└── README.md                  # This documentation
+```
+
 ## Training Workflow
 
 ### Step 0: Environment Setup
@@ -217,13 +247,13 @@ python scripts/train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 
 Convert trained model to ONNX for web deployment:
 
 ```powershell
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
 ```
 
 Convert trained model to SafeTensors format:
 
 ```powershell
-python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --verify
+python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth --verify
 ```
 
 **Parameters:**
@@ -281,12 +311,12 @@ The training pipeline supports multiple output formats, each optimized for diffe
 
 ```powershell
 # ONNX for web deployment (recommended)
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
-# → kanji_model_etl9g_64x64_3036classes_tract.onnx
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
+# → models/kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # SafeTensors for secure deployment
-python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --verify
-# → kanji_model_etl9g_64x64_3036classes.safetensors
+python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth --verify
+# → models/kanji_model_etl9g_64x64_3036classes.safetensors
 
 # Enhanced character mapping (all formats)
 python scripts/generate_enhanced_mapping.py
@@ -333,16 +363,16 @@ The converter automatically selects the optimal ONNX export method based on your
 
 ```powershell
 # Default: Direct Sonos Tract (recommended for performance)
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
-# Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
+# Output: models/kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # ORT-Tract: Better integration with existing ort-based code
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --target-backend ort-tract
-# Output: kanji_model_etl9g_64x64_3036classes_ort-tract.onnx
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth --target-backend ort-tract
+# Output: models/kanji_model_etl9g_64x64_3036classes_ort-tract.onnx
 
 # Strict: Maximum compatibility across all inference engines
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --target-backend strict
-# Output: kanji_model_etl9g_64x64_3036classes_strict.onnx
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth --target-backend strict
+# Output: models/kanji_model_etl9g_64x64_3036classes_strict.onnx
 ```
 
 **Pooling Configuration Options:**
@@ -360,15 +390,15 @@ python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --target-bac
 
 ```powershell
 # Default global average pooling (recommended)
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
-# Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
+# Output: models/kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # Global max pooling (alternative feature aggregation)
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type adaptive_max
-# Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth --pooling-type adaptive_max
+# Output: models/kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # 2x2 pooling (larger model, potentially better accuracy)
-python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type avg_2x2
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth --pooling-type avg_2x2
 # Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
 ```
 
@@ -378,16 +408,16 @@ python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --pooling-ty
 
 ### Training Outputs
 
-- `best_kanji_model.pth`: Best PyTorch model checkpoint
-- `training_progress.json`: Training metrics and curves
-- `best_model_info.json`: Best model metadata
+- `models/best_kanji_model.pth`: Best PyTorch model checkpoint
+- `models/training_progress.json`: Training metrics and curves
+- `models/best_model_info.json`: Best model metadata
 
 ### WASM Deployment Files
 
-- `kanji_model_etl9g_64x64_3036classes_tract.onnx`: Optimized ONNX model (6.6 MB)
-- `kanji_model_etl9g_64x64_3036classes_tract_mapping.json`: Class-to-character mappings
-- `kanji_etl9g_enhanced_mapping.json`: Enhanced character mapping with Unicode characters and stroke counts
-- `kanji_model_etl9g_64x64_3036classes.safetensors`: SafeTensors model format (6.6 MB)
+- `models/kanji_model_etl9g_64x64_3036classes_tract.onnx`: Optimized ONNX model (6.6 MB)
+- `models/kanji_model_etl9g_64x64_3036classes_tract_mapping.json`: Class-to-character mappings
+- `models/kanji_etl9g_enhanced_mapping.json`: Enhanced character mapping with Unicode characters and stroke counts
+- `models/kanji_model_etl9g_64x64_3036classes.safetensors`: SafeTensors model format (6.6 MB)
 
 ## Memory Management
 

@@ -281,7 +281,9 @@ def main():
         print("2. python scripts/test_etl9g_setup.py --data-dir dataset --test-model")
         print("3. python scripts/train_etl9g_model.py --data-dir dataset --epochs 30")
         print("4. python scripts/convert_to_onnx.py --model-path best_kanji_model.pth")
-        print("5. python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth")
+        print(
+            "5. python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth"
+        )
     else:
         print("✗ Some checks failed. Please resolve issues before training.")
 
