@@ -1,0 +1,84 @@
+[project]
+name = "kanji-2965-cnn-etl9g"
+version = "0.1.0"
+description = "Enhanced Lightweight CNN for Japanese kanji character recognition using ETL9G dataset"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "paazmaya", email = "paazmaya@yahoo.com" }
+]
+keywords = ["kanji", "cnn", "machine-learning", "etl9g", "japanese", "character-recognition", "pytorch", "onnx"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.8"
+
+dependencies = [
+    # Core ML framework with CUDA support
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    # Data processing and utilities
+    "numpy>=1.21.0",
+    "scikit-learn>=1.0.0",
+    "matplotlib>=3.5.0",
+    "tqdm>=4.64.0",
+    "opencv-python>=4.6.0",
+    "Pillow>=9.0.0",
+    # Model export and deployment (GPU-accelerated)
+    "onnx>=1.14.0",
+    "onnxruntime-gpu>=1.15.0",
+    # CO2 emissions tracking
+    "codecarbon>=2.3.0",
+    # System monitoring
+    "psutil>=5.8.0",
+    # Data handling
+    "pandas>=1.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter>=1.0.0",
+    "ruff>=0.5.0",
+    "pytest>=7.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.0.0",
+    "ruff>=0.5.0",
+    "pytest>=7.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/paazmaya/kanji-2965-CNN-ETL9G"
+Repository = "https://github.com/paazmaya/kanji-2965-CNN-ETL9G"
+Issues = "https://github.com/paazmaya/kanji-2965-CNN-ETL9G/issues"
+
+# PyTorch with CUDA support requires special index
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu129"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "ISC", "PIE", "T20", "Q"]
+ignore = ["E501", "S101", "S311"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

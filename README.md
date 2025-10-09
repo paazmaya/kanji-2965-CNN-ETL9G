@@ -40,7 +40,28 @@ Data set definition http://etlcdb.db.aist.go.jp/etlcdb/etln/form_e9g.htm
 
 ### Python Dependencies
 
-First, set up a virtual environment for isolated package management:
+This project uses [uv](https://docs.astral.sh/uv/) for fast and reliable Python package management:
+
+```powershell
+# Install uv (if not already installed)
+# Via pip: pip install uv
+# Via pipx: pipx install uv
+# Via winget: winget install astral-sh.uv
+
+# Create project with uv (automatically creates virtual environment)
+uv sync
+
+# Install PyTorch with CUDA support (special index configuration in pyproject.toml)
+uv add torch torchvision --index pytorch
+
+# Activate the virtual environment
+.venv\Scripts\Activate.ps1
+
+# Alternatively, run commands directly with uv:
+uv run python scripts/preflight_check.py
+```
+
+**Alternative pip installation** (if you prefer traditional pip):
 
 ```powershell
 # Create virtual environment
@@ -53,19 +74,10 @@ python -m venv venv
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 
 # Install other required packages
-pip install numpy scikit-learn matplotlib tqdm
-pip install opencv-python Pillow
-pip install onnx onnxruntime-gpu
-pip install psutil  # System monitoring
+pip install -r requirements.txt
 ```
 
-Now it is a good time to update dependencies file `requirements.txt`:
-
-```powershell
-pip freeze > requirements.txt
-```
-
-**Note**: Always activate the virtual environment before running any training scripts. Ensure your NVIDIA drivers are up to date.
+**Note**: Always ensure your virtual environment is activated before running any Python scripts. You should see `(venv)` or `(.venv)` in your PowerShell prompt. Ensure your NVIDIA drivers are up to date.
 
 ## Dataset Setup
 
@@ -114,7 +126,10 @@ kanji-2965-CNN-ETL9G/
 ├── ETL9G/                      # Original ETL9G dataset files
 │   ├── ETL9G_01 through ETL9G_50
 │   └── ETL9INFO
-├── requirements.txt            # Python dependencies
+├── pyproject.toml              # Project configuration and dependencies (uv)
+├── .python-version             # Python version specification
+├── uv.lock                     # Locked dependencies (auto-generated)
+├── requirements.txt            # Legacy pip dependencies (kept for compatibility)
 └── README.md                  # This documentation
 ```
 
@@ -122,7 +137,20 @@ kanji-2965-CNN-ETL9G/
 
 ### Step 0: Environment Setup
 
-Before running any training commands, set up and activate your virtual environment:
+Before running any training commands, set up your environment with uv:
+
+```powershell
+# Install uv (if not already installed)
+winget install astral-sh.uv
+
+# Create project environment and install dependencies
+uv sync
+
+# Activate the virtual environment
+.venv\Scripts\Activate.ps1
+```
+
+**Alternative with pip**:
 
 ```powershell
 # Create and activate virtual environment (first time only)
@@ -133,14 +161,17 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-**Important**: Always ensure your virtual environment is activated before running any Python scripts. You should see `(venv)` in your PowerShell prompt.
+**Important**: Always ensure your virtual environment is activated before running any Python scripts. You should see `(.venv)` or `(venv)` in your PowerShell prompt.
 
 ### Step 1: Pre-flight Check
 
 Verify your system setup and requirements:
 
 ```powershell
-# Make sure virtual environment is activated first
+# With uv (recommended)
+uv run python scripts/preflight_check.py
+
+# Or with activated virtual environment
 python scripts/preflight_check.py
 ```
 
@@ -156,6 +187,10 @@ python scripts/preflight_check.py
 Convert ETL9G binary files to training-ready format:
 
 ```powershell
+# With uv (recommended)
+uv run python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
+
+# Or with activated virtual environment
 python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
 ```
 
@@ -630,18 +665,74 @@ The enhanced character mapping provides comprehensive character information:
 }
 ```
 
+## UV Package Management
+
+This project uses [uv](https://docs.astral.sh/uv/) for fast and reliable Python package management. Here are common uv commands:
+
+### Environment Management
+
+```powershell
+# Create project environment with dependencies
+uv sync
+
+# Add new dependency
+uv add package-name
+
+# Add development dependency
+uv add --dev pytest
+
+# Remove dependency
+uv remove package-name
+
+# Update all dependencies
+uv lock --upgrade
+
+# Activate virtual environment
+.venv\Scripts\Activate.ps1
+```
+
+### Running Scripts
+
+```powershell
+# Run script without activating environment
+uv run python scripts/train_etl9g_model.py --help
+
+# Run with project scripts (defined in pyproject.toml)
+uv run train-kanji --help
+uv run prepare-dataset --help
+uv run convert-to-onnx --help
+uv run convert-to-safetensors --help
+```
+
+### PyTorch CUDA Installation
+
+Due to PyTorch's special CUDA requirements, install with the configured index:
+
+```powershell
+# Install PyTorch with CUDA support
+uv add torch torchvision --index pytorch
+
+# Or manually specify the index URL
+uv add torch torchvision --index-url https://download.pytorch.org/whl/cu129
+```
+
 ## Troubleshooting
 
 ### Memory Issues
 
 ```powershell
-# Use smaller batch size
+# Use smaller batch size (with uv)
+uv run python scripts/train_etl9g_model.py --batch-size 32
+
+# Limit training samples for testing (with uv)
+uv run python scripts/train_etl9g_model.py --sample-limit 50000
+
+# Use fewer worker processes (with uv)
+uv run python scripts/prepare_etl9g_dataset.py --workers 2
+
+# Or with activated virtual environment
 python scripts/train_etl9g_model.py --batch-size 32
-
-# Limit training samples for testing
 python scripts/train_etl9g_model.py --sample-limit 50000
-
-# Use fewer worker processes
 python scripts/prepare_etl9g_dataset.py --workers 2
 ```
 
