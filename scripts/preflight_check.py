@@ -193,9 +193,9 @@ def check_training_scripts():
     print("\n=== Checking Training Scripts ===")
 
     required_files = [
-        "prepare_etl9g_dataset.py",
-        "train_etl9g_model.py",
-        "test_etl9g_setup.py",
+        "scripts/prepare_etl9g_dataset.py",
+        "scripts/train_etl9g_model.py",
+        "scripts/test_etl9g_setup.py",
     ]
 
     all_present = True
@@ -276,12 +276,12 @@ def main():
         print("✓ Setup looks good! You can proceed with training.")
         print("\nRecommended workflow:")
         print(
-            "1. python prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64"
+            "1. python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64"
         )
-        print("2. python test_etl9g_setup.py --data-dir dataset --test-model")
-        print("3. python train_etl9g_model.py --data-dir dataset --epochs 30")
-        print("4. python convert_to_onnx.py --model-path best_kanji_model.pth")
-        print("5. python convert_to_safetensors.py --model-path best_kanji_model.pth")
+        print("2. python scripts/test_etl9g_setup.py --data-dir dataset --test-model")
+        print("3. python scripts/train_etl9g_model.py --data-dir dataset --epochs 30")
+        print("4. python scripts/convert_to_onnx.py --model-path best_kanji_model.pth")
+        print("5. python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth")
     else:
         print("✗ Some checks failed. Please resolve issues before training.")
 

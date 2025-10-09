@@ -111,7 +111,7 @@ Verify your system setup and requirements:
 
 ```powershell
 # Make sure virtual environment is activated first
-python preflight_check.py
+python scripts/preflight_check.py
 ```
 
 **Expected Output:**
@@ -126,7 +126,7 @@ python preflight_check.py
 Convert ETL9G binary files to training-ready format:
 
 ```powershell
-python prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
+python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
 ```
 
 **Parameters:**
@@ -150,7 +150,7 @@ python prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
 Test the prepared dataset and model architecture:
 
 ```powershell
-python test_etl9g_setup.py --data-dir dataset --test-model
+python scripts/test_etl9g_setup.py --data-dir dataset --test-model
 ```
 
 **Expected Output:**
@@ -167,17 +167,17 @@ Perform a quick test with limited data to verify the training pipeline:
 **Recommended for initial testing (smaller sample size for faster training):**
 
 ```powershell
-python train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 15000
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 15000
 ```
 
 **Alternative commands:**
 
 ```powershell
 # More samples for better testing (still limited for speed)
-python train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 50000
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 50000
 
 # Very quick test (may show lower accuracy due to too few samples per class)
-python train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 5000
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 5000
 ```
 
 **Parameters:**
@@ -196,7 +196,7 @@ python train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --samp
 Train the complete model for production use:
 
 ```powershell
-python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64
 ```
 
 **Parameters:**
@@ -217,13 +217,13 @@ python train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64
 Convert trained model to ONNX for web deployment:
 
 ```powershell
-python convert_to_onnx.py --model-path best_kanji_model.pth
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
 ```
 
 Convert trained model to SafeTensors format:
 
 ```powershell
-python convert_to_safetensors.py --model-path best_kanji_model.pth --verify
+python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --verify
 ```
 
 **Parameters:**
@@ -281,15 +281,15 @@ The training pipeline supports multiple output formats, each optimized for diffe
 
 ```powershell
 # ONNX for web deployment (recommended)
-python convert_to_onnx.py --model-path best_kanji_model.pth
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
 # → kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # SafeTensors for secure deployment
-python convert_to_safetensors.py --model-path best_kanji_model.pth --verify
+python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --verify
 # → kanji_model_etl9g_64x64_3036classes.safetensors
 
 # Enhanced character mapping (all formats)
-python generate_enhanced_mapping.py
+python scripts/generate_enhanced_mapping.py
 # → kanji_etl9g_enhanced_mapping.json
 ```
 
@@ -333,15 +333,15 @@ The converter automatically selects the optimal ONNX export method based on your
 
 ```powershell
 # Default: Direct Sonos Tract (recommended for performance)
-python convert_to_onnx.py --model-path best_kanji_model.pth
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
 # Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # ORT-Tract: Better integration with existing ort-based code
-python convert_to_onnx.py --model-path best_kanji_model.pth --target-backend ort-tract
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --target-backend ort-tract
 # Output: kanji_model_etl9g_64x64_3036classes_ort-tract.onnx
 
 # Strict: Maximum compatibility across all inference engines
-python convert_to_onnx.py --model-path best_kanji_model.pth --target-backend strict
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --target-backend strict
 # Output: kanji_model_etl9g_64x64_3036classes_strict.onnx
 ```
 
@@ -360,15 +360,15 @@ python convert_to_onnx.py --model-path best_kanji_model.pth --target-backend str
 
 ```powershell
 # Default global average pooling (recommended)
-python convert_to_onnx.py --model-path best_kanji_model.pth
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
 # Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # Global max pooling (alternative feature aggregation)
-python convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type adaptive_max
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type adaptive_max
 # Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
 
 # 2x2 pooling (larger model, potentially better accuracy)
-python convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type avg_2x2
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type avg_2x2
 # Output: kanji_model_etl9g_64x64_3036classes_tract.onnx
 ```
 
@@ -606,13 +606,13 @@ The enhanced character mapping provides comprehensive character information:
 
 ```powershell
 # Use smaller batch size
-python train_etl9g_model.py --batch-size 32
+python scripts/train_etl9g_model.py --batch-size 32
 
 # Limit training samples for testing
-python train_etl9g_model.py --sample-limit 50000
+python scripts/train_etl9g_model.py --sample-limit 50000
 
 # Use fewer worker processes
-python prepare_etl9g_dataset.py --workers 2
+python scripts/prepare_etl9g_dataset.py --workers 2
 ```
 
 ### Training Issues
@@ -637,27 +637,251 @@ python prepare_etl9g_dataset.py --workers 2
   - ✅ **Fixed**: Converter now imports the correct architecture from `train_etl9g_model.py`
   - Ensures trained weights are compatible with ONNX export model
 
+## Scripts Reference
+
+The project includes several Python scripts organized in the `scripts/` folder. Each script serves a specific purpose in the kanji recognition training and deployment pipeline.
+
+### Core Training Scripts
+
+#### 1. `preflight_check.py` - System Verification
+
+Verifies your system setup and requirements before training.
+
+```powershell
+python scripts/preflight_check.py
+```
+
+**Purpose**: Ensures all dependencies are installed and the system is ready for training.
+
+**Checks**:
+- Python packages availability
+- ETL9G data files presence
+- System resources (RAM, GPU)
+- CUDA compatibility
+
+#### 2. `prepare_etl9g_dataset.py` - Dataset Preparation
+
+Converts ETL9G binary files to training-ready format.
+
+```powershell
+# Basic usage
+python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
+
+# With custom workers
+python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64 --workers 4
+```
+
+**Parameters**:
+- `--etl-dir`: Directory containing ETL9G files
+- `--output-dir`: Output directory for processed dataset  
+- `--size`: Target image size (default: 64x64 pixels)
+- `--workers`: Number of parallel workers (default: auto)
+
+#### 3. `test_etl9g_setup.py` - Setup Verification
+
+Tests the prepared dataset and model architecture.
+
+```powershell
+python scripts/test_etl9g_setup.py --data-dir dataset --test-model
+```
+
+**Purpose**: Validates dataset preparation and model architecture before full training.
+
+**Outputs**:
+- Dataset statistics and sample visualization
+- Model architecture verification
+- Character mapping analysis
+- Estimated model size
+
+#### 4. `train_etl9g_model.py` - Model Training
+
+Main training script for the kanji recognition model.
+
+```powershell
+# Quick test run
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 15000
+
+# Full training
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64
+
+# With custom learning rate
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64 --learning-rate 0.001
+```
+
+**Key Parameters**:
+- `--data-dir`: Directory containing prepared dataset
+- `--epochs`: Number of training epochs (default: 30)
+- `--batch-size`: Training batch size (default: 64)
+- `--learning-rate`: Learning rate (default: 0.001)
+- `--sample-limit`: Limit samples for testing (optional)
+
+### Model Export Scripts
+
+#### 5. `convert_to_onnx.py` - ONNX Model Export
+
+Converts trained PyTorch model to ONNX format for web deployment.
+
+```powershell
+# Default tract backend
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth
+
+# Different backends
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --target-backend ort-tract
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --target-backend strict
+
+# Custom pooling
+python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --pooling-type adaptive_max
+```
+
+**Parameters**:
+- `--model-path`: Path to trained model (default: best_kanji_model.pth)
+- `--target-backend`: Backend (tract, ort-tract, strict)
+- `--pooling-type`: Pooling configuration (adaptive_avg, adaptive_max, etc.)
+- `--image-size`: Image size used in training (default: 64)
+
+#### 6. `convert_to_safetensors.py` - SafeTensors Export
+
+Converts PyTorch model to secure SafeTensors format.
+
+```powershell
+# Basic conversion
+python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth
+
+# With verification
+python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --verify
+
+# Custom output path
+python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --output-path custom_model.safetensors
+```
+
+**Parameters**:
+- `--model-path`: Path to trained model
+- `--output-path`: Output SafeTensors file (auto-generated if not specified)
+- `--verify`: Verify the converted model
+- `--no-metadata`: Skip adding metadata
+
+### Utility Scripts
+
+#### 7. `generate_enhanced_mapping.py` - Character Mapping Enhancement
+
+Creates enhanced character mapping with Unicode characters and stroke counts.
+
+```powershell
+python scripts/generate_enhanced_mapping.py
+```
+
+**Purpose**: Generates comprehensive character mappings for web deployment.
+
+**Outputs**:
+- Enhanced mapping with Unicode characters
+- Stroke count information
+- Character statistics
+
+#### 8. `inspect_onnx_model.py` - ONNX Model Inspector
+
+Inspects ONNX models to verify operations and compatibility.
+
+```powershell
+python scripts/inspect_onnx_model.py
+```
+
+**Purpose**: Analyzes ONNX models for backend compatibility and operations used.
+
+**Features**:
+- Lists all operations in the model
+- Identifies problematic operations
+- Shows pooling operation details
+- Checks backend compatibility
+
+#### 9. `measure_co2_emissions.py` - Carbon Footprint Measurement
+
+Measures CO2 emissions during training (requires CodeCarbon).
+
+```powershell
+python scripts/measure_co2_emissions.py
+```
+
+**Purpose**: Environmental impact assessment of training process.
+
+**Requirements**: CodeCarbon package installed
+
+### Analysis and Comparison Scripts
+
+#### 10. `onnx_operations_comparison.py` - Operations Analysis
+
+Compares operations between different ONNX model variants.
+
+```powershell
+python scripts/onnx_operations_comparison.py
+```
+
+**Purpose**: Analyzes differences between tract, ort-tract, and strict backend models.
+
+#### 11. `pooling_comparison.py` - Pooling Strategy Comparison
+
+Compares different pooling strategies and their impact on model size.
+
+```powershell
+python scripts/pooling_comparison.py
+```
+
+**Purpose**: Helps choose optimal pooling configuration for deployment.
+
+### Example and Integration Scripts
+
+#### 12. `example_safetensors_usage.py` - SafeTensors Usage Example
+
+Demonstrates how to load and use SafeTensors models.
+
+```powershell
+python scripts/example_safetensors_usage.py
+```
+
+**Purpose**: Example code for integrating SafeTensors models in applications.
+
+#### 13. `codecarbon_integration_guide.py` - CodeCarbon Integration
+
+Guide and example for integrating CodeCarbon emission tracking.
+
+```powershell
+python scripts/codecarbon_integration_guide.py
+```
+
+**Purpose**: Demonstrates environmental impact tracking setup.
+
 ## File Structure
 
 ```
 training/
 ├── README.md                    # This file
 ├── requirements.txt             # Python dependencies
+├── LICENSE                      # MIT license
 ├── venv/                       # Virtual environment (created by setup)
-├── setup_etl9g.ps1            # Automated environment setup
-├── preflight_check.py          # System verification
-├── prepare_etl9g_dataset.py    # Data preparation
-├── train_etl9g_model.py        # Main training script
-├── convert_to_onnx.py          # ONNX export script
-├── test_etl9g_setup.py         # Setup testing
-├── training_commands.ps1       # Command reference
+├── scripts/                    # Python scripts for training and deployment
+│   ├── preflight_check.py          # System verification
+│   ├── prepare_etl9g_dataset.py    # Data preparation
+│   ├── test_etl9g_setup.py         # Setup testing
+│   ├── train_etl9g_model.py        # Main training script
+│   ├── convert_to_onnx.py          # ONNX export script
+│   ├── convert_to_safetensors.py   # SafeTensors export script
+│   ├── generate_enhanced_mapping.py # Enhanced character mapping
+│   ├── inspect_onnx_model.py       # ONNX model inspector
+│   ├── measure_co2_emissions.py    # Carbon footprint measurement
+│   ├── onnx_operations_comparison.py # Operations analysis
+│   ├── pooling_comparison.py       # Pooling strategy comparison
+│   ├── example_safetensors_usage.py # SafeTensors usage example
+│   └── codecarbon_integration_guide.py # CodeCarbon integration
 ├── ETL9G/                     # Raw dataset (user provided)
 │   ├── ETL9G_01
-│   └── ...
+│   ├── ETL9G_02
+│   ├── ...
+│   ├── ETL9G_50
+│   └── ETL9INFO
 └── dataset/                   # Processed dataset (generated)
     ├── etl9g_dataset_chunk_*.npz
     ├── metadata.json
-    └── character_mapping.json
+    ├── character_mapping.json
+    └── chunk_info.json
 ```
 
 ## Virtual Environment Management
@@ -672,7 +896,7 @@ training/
 python preflight_check.py
 
 # Run training commands...
-python train_etl9g_model.py --data-dir dataset --epochs 30
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 30
 
 # Deactivate when done (optional)
 deactivate
@@ -742,9 +966,9 @@ After successful training:
 
 **Training Workflow:**
 
-- Train: `python train_etl9g_model.py --data-dir dataset --epochs 30`
-- Export ONNX: `python convert_to_onnx.py --model-path best_kanji_model.pth`
-- Export SafeTensors: `python convert_to_safetensors.py --model-path best_kanji_model.pth --verify`
+- Train: `python scripts/train_etl9g_model.py --data-dir dataset --epochs 30`
+- Export ONNX: `python scripts/convert_to_onnx.py --model-path best_kanji_model.pth`
+- Export SafeTensors: `python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --verify`
 
 ## Support
 
@@ -764,7 +988,7 @@ Great question! The image size parameter has a **significant multiplicative effe
 Looking at the training command:
 
 ```powershell
-python prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
+python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
 ```
 
 With 64×64 input images, the **first layer parameters** are:
