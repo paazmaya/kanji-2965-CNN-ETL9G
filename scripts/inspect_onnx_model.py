@@ -3,9 +3,10 @@
 ONNX Model Inspector - Check what operations are used in ONNX models
 """
 
-import onnx
-from collections import Counter
 import os
+from collections import Counter
+
+import onnx
 
 
 def inspect_onnx_model(model_path):
@@ -45,13 +46,7 @@ def inspect_onnx_model(model_path):
 
         print("🔧 Operations used in model:")
         for op, count in sorted(op_counts.items()):
-            emoji = (
-                "🔴"
-                if "GlobalAveragePool" in op
-                else "🟢"
-                if "pool" in op.lower()
-                else "⚪"
-            )
+            emoji = "🔴" if "GlobalAveragePool" in op else "🟢" if "pool" in op.lower() else "⚪"
             print(f"  {emoji} {op}: {count}")
 
         print()
@@ -75,9 +70,7 @@ def inspect_onnx_model(model_path):
                 print()
 
         # Check for problematic operations
-        problematic_ops = [
-            op for op in operations if op in ["GlobalAveragePool", "GlobalMaxPool"]
-        ]
+        problematic_ops = [op for op in operations if op in ["GlobalAveragePool", "GlobalMaxPool"]]
         if problematic_ops:
             print("🚨 PROBLEMATIC OPERATIONS FOUND:")
             for op in set(problematic_ops):

@@ -5,10 +5,11 @@ Provides secure, fast loading format with embedded metadata.
 """
 
 import argparse
+import json
 from pathlib import Path
+
 import torch
 from safetensors.torch import save_file
-import json
 
 try:
     from train_etl9g_model import LightweightKanjiNet
@@ -66,16 +67,14 @@ def extract_model_metadata(model_path, model, image_size):
     # Add training info if available
     try:
         if Path("best_model_info.json").exists():
-            with open("best_model_info.json", "r") as f:
+            with open("best_model_info.json") as f:
                 training_info = json.load(f)
                 metadata.update(
                     {
                         "accuracy": str(training_info.get("accuracy", "unknown")),
                         "loss": str(training_info.get("loss", "unknown")),
                         "epoch": str(training_info.get("epoch", "unknown")),
-                        "learning_rate": str(
-                            training_info.get("learning_rate", "unknown")
-                        ),
+                        "learning_rate": str(training_info.get("learning_rate", "unknown")),
                     }
                 )
     except Exception as e:
@@ -115,9 +114,7 @@ def convert_to_safetensors(
 
     # Generate default filename if not provided
     if output_path is None:
-        output_path = generate_output_filename(
-            "kanji_model", image_size, ".safetensors"
-        )
+        output_path = generate_output_filename("kanji_model", image_size, ".safetensors")
 
     print("🔄 Converting PyTorch model to SafeTensors...")
     print(f"Input model: {model_path}")
@@ -234,9 +231,7 @@ def verify_safetensors_model(safetensors_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Convert PyTorch kanji model to SafeTensors"
-    )
+    parser = argparse.ArgumentParser(description="Convert PyTorch kanji model to SafeTensors")
     parser.add_argument(
         "--model-path",
         type=str,
@@ -249,9 +244,7 @@ def main():
         default=None,
         help="Output path for SafeTensors model (auto-generated if not specified)",
     )
-    parser.add_argument(
-        "--image-size", type=int, default=64, help="Input image size (square)"
-    )
+    parser.add_argument("--image-size", type=int, default=64, help="Input image size (square)")
     parser.add_argument(
         "--no-metadata",
         action="store_true",

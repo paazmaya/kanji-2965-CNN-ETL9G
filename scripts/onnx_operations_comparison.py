@@ -3,8 +3,9 @@
 Real ONNX Operation Comparison - Show actual operations from our models
 """
 
-import onnx
 import os
+
+import onnx
 
 
 def show_real_onnx_operations():

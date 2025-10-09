@@ -2667,7 +2667,7 @@ wheels = [
 
 [[package]]
 name = "kanji-2965-cnn-etl9g"
-version = "2.1.0"
+version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "codecarbon" },

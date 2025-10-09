@@ -3,10 +3,11 @@
 Quick test script to verify ETL9G data preparation and training setup
 """
 
-import numpy as np
 import json
 from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def analyze_etl9g_data(data_dir):
@@ -23,21 +24,19 @@ def analyze_etl9g_data(data_dir):
     # Load metadata
     metadata_path = data_path / "metadata.json"
     if metadata_path.exists():
-        with open(metadata_path, "r") as f:
+        with open(metadata_path) as f:
             metadata = json.load(f)
 
         print(f"Classes: {metadata['num_classes']}")
         print(f"Total samples: {metadata['total_samples']}")
         print(f"Target size: {metadata['target_size']}x{metadata['target_size']}")
         print(f"Files processed: {metadata['dataset_info']['files_processed']}")
-        print(
-            f"Avg samples per class: {metadata['dataset_info']['avg_samples_per_class']:.1f}"
-        )
+        print(f"Avg samples per class: {metadata['dataset_info']['avg_samples_per_class']:.1f}")
 
     # Check dataset files
     chunk_info_path = data_path / "chunk_info.json"
     if chunk_info_path.exists():
-        with open(chunk_info_path, "r") as f:
+        with open(chunk_info_path) as f:
             chunk_info = json.load(f)
         print("\nDataset is chunked:")
         print(f"  Total samples: {chunk_info['total_samples']}")
@@ -111,7 +110,7 @@ def analyze_etl9g_data(data_dir):
     # Character mapping analysis
     char_mapping_path = data_path / "character_mapping.json"
     if char_mapping_path.exists():
-        with open(char_mapping_path, "r", encoding="utf-8") as f:
+        with open(char_mapping_path, encoding="utf-8") as f:
             char_mapping = json.load(f)
 
         print(f"\nCharacter mapping available: {len(char_mapping)} entries")
@@ -133,10 +132,11 @@ def analyze_etl9g_data(data_dir):
 def test_model_architecture():
     """Test the model architecture without training"""
     try:
+        import os
+        import sys
+
         import torch
         import torch.nn as nn
-        import sys
-        import os
 
         # Add current directory to path to import model
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -189,15 +189,9 @@ def test_model_architecture():
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Test ETL9G dataset and training setup"
-    )
-    parser.add_argument(
-        "--data-dir", default="dataset", help="Dataset directory to analyze"
-    )
-    parser.add_argument(
-        "--test-model", action="store_true", help="Test model architecture"
-    )
+    parser = argparse.ArgumentParser(description="Test ETL9G dataset and training setup")
+    parser.add_argument("--data-dir", default="dataset", help="Dataset directory to analyze")
+    parser.add_argument("--test-model", action="store_true", help="Test model architecture")
 
     args = parser.parse_args()
 

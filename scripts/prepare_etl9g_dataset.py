@@ -4,15 +4,16 @@ ETL9G Dataset Preparation - Optimized for Large-Scale Kanji Recognition
 Handles 3,036 character classes with 607,200 samples efficiently
 """
 
-import struct
-import numpy as np
-import json
-from pathlib import Path
 import argparse
-from collections import defaultdict
-import cv2
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import json
 import multiprocessing as mp
+import struct
+from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
+
+import cv2
+import numpy as np
 from tqdm import tqdm
 
 
@@ -57,9 +58,7 @@ class ETL9GProcessor:
             writer_id = record_data[18]  # Age of writer
 
             # Gray-scale image data (bytes 65-8192, 4-bit packed)
-            image_data = record_data[
-                self.IMAGE_OFFSET : self.IMAGE_OFFSET + self.IMAGE_SIZE_BYTES
-            ]
+            image_data = record_data[self.IMAGE_OFFSET : self.IMAGE_OFFSET + self.IMAGE_SIZE_BYTES]
 
             return {
                 "serial": serial,
@@ -87,9 +86,7 @@ class ETL9GProcessor:
             pixels = unpacked[: self.IMAGE_WIDTH * self.IMAGE_HEIGHT]
 
             # Reshape to image dimensions and convert to 0-255 range
-            image = np.array(pixels, dtype=np.uint8).reshape(
-                self.IMAGE_HEIGHT, self.IMAGE_WIDTH
-            )
+            image = np.array(pixels, dtype=np.uint8).reshape(self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
 
             # Convert from 16 levels (0-15) to 256 levels (0-255)
             return image * 17  # 15 * 17 = 255
@@ -202,11 +199,7 @@ class ETL9GProcessor:
 
         # Find all ETL9G files (exclude info files)
         etl_files = sorted(
-            [
-                f
-                for f in self.etl_dir.glob("ETL9G_*")
-                if f.is_file() and "INFO" not in f.name
-            ]
+            [f for f in self.etl_dir.glob("ETL9G_*") if f.is_file() and "INFO" not in f.name]
         )
         print(f"Found {len(etl_files)} ETL9G files")
 
@@ -223,9 +216,7 @@ class ETL9GProcessor:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             # Submit all file processing tasks
             future_to_file = {
-                executor.submit(
-                    self.process_single_file, etl_file, target_size
-                ): etl_file
+                executor.submit(self.process_single_file, etl_file, target_size): etl_file
                 for etl_file in etl_files
             }
 
@@ -259,8 +250,7 @@ class ETL9GProcessor:
 
         # Create metadata
         class_to_jis = {
-            class_idx: f"{jis_code:04X}"
-            for jis_code, class_idx in global_jis_to_class.items()
+            class_idx: f"{jis_code:04X}" for jis_code, class_idx in global_jis_to_class.items()
         }
 
         # Statistics
@@ -314,9 +304,7 @@ class ETL9GProcessor:
                     X=chunk_X,
                     y=chunk_y,
                 )
-                print(
-                    f"  Saved chunk {i // chunk_size + 1}: samples {i}-{chunk_end - 1}"
-                )
+                print(f"  Saved chunk {i // chunk_size + 1}: samples {i}-{chunk_end - 1}")
 
             # Save chunk info
             chunk_info = {
@@ -329,9 +317,7 @@ class ETL9GProcessor:
         else:
             # Save as single file if manageable size
             X = np.array([sample["image"] for sample in all_samples], dtype=np.float32)
-            y = np.array(
-                [sample["class_idx"] for sample in all_samples], dtype=np.int32
-            )
+            y = np.array([sample["class_idx"] for sample in all_samples], dtype=np.int32)
             np.savez_compressed(self.output_dir / "etl9g_dataset.npz", X=X, y=y)
 
         # Save metadata
@@ -339,9 +325,7 @@ class ETL9GProcessor:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
 
         # Save detailed character mapping for debugging
-        with open(
-            self.output_dir / "character_mapping.json", "w", encoding="utf-8"
-        ) as f:
+        with open(self.output_dir / "character_mapping.json", "w", encoding="utf-8") as f:
             char_details = {}
             for sample in all_samples[:1000]:  # Sample for details
                 jis_hex = f"{sample['jis_code']:04X}"
@@ -359,25 +343,17 @@ class ETL9GProcessor:
 
 def main():
     parser = argparse.ArgumentParser(description="Prepare ETL9G dataset for training")
-    parser.add_argument(
-        "--etl-dir", required=True, help="Directory containing ETL9G files"
-    )
+    parser.add_argument("--etl-dir", required=True, help="Directory containing ETL9G files")
     parser.add_argument(
         "--output-dir", required=True, help="Output directory for processed dataset"
     )
-    parser.add_argument(
-        "--size", type=int, default=64, help="Target image size (default: 64)"
-    )
-    parser.add_argument(
-        "--workers", type=int, default=None, help="Number of worker processes"
-    )
+    parser.add_argument("--size", type=int, default=64, help="Target image size (default: 64)")
+    parser.add_argument("--workers", type=int, default=None, help="Number of worker processes")
 
     args = parser.parse_args()
 
     processor = ETL9GProcessor(args.etl_dir, args.output_dir)
-    X, y, metadata = processor.process_all_files(
-        target_size=args.size, max_workers=args.workers
-    )
+    X, y, metadata = processor.process_all_files(target_size=args.size, max_workers=args.workers)
 
     print("ETL9G dataset preparation complete!")
     print(f"Shape: X={X.shape}, y={y.shape}")

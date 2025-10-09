@@ -4,12 +4,13 @@ ONNX Conversion for ETL9G Kanji Recognition Model
 Converts trained PyTorch model to ONNX format with backend-specific optimizations
 """
 
-import torch
-import torch.nn as nn
 import argparse
 import json
 import time
 from pathlib import Path
+
+import torch
+import torch.nn as nn
 
 # Import the correct model architecture from training
 try:
@@ -33,22 +34,16 @@ except ImportError:
 class LightweightKanjiNet(OriginalLightweightKanjiNet):
     """Extended LightweightKanjiNet with configurable pooling for different backends."""
 
-    def __init__(
-        self, num_classes: int, image_size: int = 64, pooling_type: str = "adaptive_avg"
-    ):
+    def __init__(self, num_classes: int, image_size: int = 64, pooling_type: str = "adaptive_avg"):
         # Initialize the original model first
         super().__init__(num_classes, image_size)
 
         # Override the pooling layer based on target backend compatibility
         if pooling_type == "adaptive_avg":
-            self.global_pool = nn.AdaptiveAvgPool2d(
-                1
-            )  # Original: GlobalAveragePool in ONNX
+            self.global_pool = nn.AdaptiveAvgPool2d(1)  # Original: GlobalAveragePool in ONNX
             print("🔍 Using AdaptiveAvgPool2d(1) -> GlobalAveragePool in ONNX")
         elif pooling_type == "adaptive_max":
-            self.global_pool = nn.AdaptiveMaxPool2d(
-                1
-            )  # Alternative: GlobalMaxPool in ONNX
+            self.global_pool = nn.AdaptiveMaxPool2d(1)  # Alternative: GlobalMaxPool in ONNX
             print("🔍 Using AdaptiveMaxPool2d(1) -> GlobalMaxPool in ONNX")
         elif pooling_type == "fixed_avg":
             self.global_pool = nn.AvgPool2d(
@@ -129,18 +124,14 @@ def export_to_onnx(
         return None
 
     if not ONNXRUNTIME_AVAILABLE:
-        print(
-            "⚠️  ONNX/ONNXRuntime not available. Install with: pip install onnx onnxruntime"
-        )
+        print("⚠️  ONNX/ONNXRuntime not available. Install with: pip install onnx onnxruntime")
         return None
 
     print(f"Loading model from {model_path}...")
 
     # Generate default filename if not provided
     if onnx_path is None:
-        onnx_path = generate_output_filename(
-            "kanji_model", image_size, target_backend, ".onnx"
-        )
+        onnx_path = generate_output_filename("kanji_model", image_size, target_backend, ".onnx")
 
     # Choose export method and opset version based on target backend
     if target_backend == "ort-tract":
@@ -150,9 +141,7 @@ def export_to_onnx(
         # Override pooling for ORT-Tract compatibility - GlobalAveragePool not supported
         if pooling_type in ["adaptive_avg", "adaptive_max"]:
             original_pooling = pooling_type
-            pooling_type = (
-                "fixed_avg" if pooling_type == "adaptive_avg" else "fixed_max"
-            )
+            pooling_type = "fixed_avg" if pooling_type == "adaptive_avg" else "fixed_max"
             print(
                 f"⚠️  ORT-Tract: Overriding {original_pooling} -> {pooling_type} (GlobalAveragePool unsupported)"
             )
@@ -163,9 +152,7 @@ def export_to_onnx(
         use_dynamo = False  # Legacy export for maximum compatibility
         if pooling_type in ["adaptive_avg", "adaptive_max"]:
             original_pooling = pooling_type
-            pooling_type = (
-                "fixed_avg" if pooling_type == "adaptive_avg" else "fixed_max"
-            )
+            pooling_type = "fixed_avg" if pooling_type == "adaptive_avg" else "fixed_max"
             print(
                 f"⚠️  Strict mode: Overriding {original_pooling} -> {pooling_type} (Maximum compatibility)"
             )
@@ -211,9 +198,7 @@ def export_to_onnx(
                         print(
                             f"🔧 Replacing AdaptiveAvgPool2d in {name} with AvgPool2d({kernel_size})"
                         )
-                        module.global_pool = nn.AvgPool2d(
-                            kernel_size, stride=1, padding=0
-                        )
+                        module.global_pool = nn.AvgPool2d(kernel_size, stride=1, padding=0)
                         break
 
         # Load all weights except pooling layers which we've reconfigured
@@ -288,9 +273,7 @@ def export_to_onnx(
     try:
         # Basic optimization using session options
         sess_options = onnxruntime.SessionOptions()
-        sess_options.graph_optimization_level = (
-            onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-        )
+        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
 
         # Test inference to ensure model works
         session = onnxruntime.InferenceSession(str(onnx_path), sess_options)
@@ -318,7 +301,7 @@ def export_to_onnx(
     # Load the enhanced character mapping
     enhanced_mapping_file = "kanji_etl9g_enhanced_mapping.json"
     try:
-        with open(enhanced_mapping_file, "r", encoding="utf-8") as f:
+        with open(enhanced_mapping_file, encoding="utf-8") as f:
             enhanced_mapping = json.load(f)
         print(f"📚 Loaded enhanced character mapping from {enhanced_mapping_file}")
 
@@ -339,7 +322,7 @@ def export_to_onnx(
         print(f"⚠️ Enhanced character mapping not found: {enhanced_mapping_file}")
         # Fallback to dataset mapping
         try:
-            with open("dataset/character_mapping.json", "r", encoding="utf-8") as f:
+            with open("dataset/character_mapping.json", encoding="utf-8") as f:
                 char_details = json.load(f)
             print("📚 Loaded character details from dataset")
         except FileNotFoundError:
@@ -401,11 +384,7 @@ def create_enhanced_character_mapping(char_details, model_info, enhanced_mapping
             "statistics": {
                 "total_characters": len(characters),
                 "mapped_characters": len(
-                    [
-                        c
-                        for c in characters.values()
-                        if not c["character"].startswith("[")
-                    ]
+                    [c for c in characters.values() if not c["character"].startswith("[")]
                 ),
                 "creation_timestamp": int(time.time()),
             },
@@ -467,13 +446,9 @@ def create_enhanced_character_mapping(char_details, model_info, enhanced_mapping
                 elif jis_linear < 800:
                     return min(12, max(8, (jis_linear - 200) // 75 + 8))  # 8-12 strokes
                 elif jis_linear < 1500:
-                    return min(
-                        16, max(12, (jis_linear - 800) // 100 + 12)
-                    )  # 12-16 strokes
+                    return min(16, max(12, (jis_linear - 800) // 100 + 12))  # 12-16 strokes
                 else:
-                    return min(
-                        25, max(16, (jis_linear - 1500) // 150 + 16)
-                    )  # 16+ strokes
+                    return min(25, max(16, (jis_linear - 1500) // 150 + 16))  # 16+ strokes
 
             return 1  # Default fallback
 
@@ -593,7 +568,7 @@ def create_character_mapping(data_dir, image_size, accuracy):
     """Legacy function for backward compatibility - ETL9G has 3,036 classes"""
     NUM_CLASSES = 3036
     try:
-        with open(f"{data_dir}/character_mapping.json", "r", encoding="utf-8") as f:
+        with open(f"{data_dir}/character_mapping.json", encoding="utf-8") as f:
             char_details = json.load(f)
 
         model_info = {
@@ -630,9 +605,7 @@ def main():
         default=None,
         help="Output path for ONNX model (auto-generated if not specified)",
     )
-    parser.add_argument(
-        "--image-size", type=int, default=64, help="Image size used in training"
-    )
+    parser.add_argument("--image-size", type=int, default=64, help="Image size used in training")
     parser.add_argument(
         "--pooling-type",
         type=str,
@@ -704,9 +677,7 @@ def main():
             print("   📜 Legacy TorchScript export")
 
         print("Files ready for deployment:")
-        print(
-            f"  - {onnx_filename} ({Path(onnx_filename).stat().st_size / (1024 * 1024):.1f} MB)"
-        )
+        print(f"  - {onnx_filename} ({Path(onnx_filename).stat().st_size / (1024 * 1024):.1f} MB)")
         print(f"  - {onnx_filename.replace('.onnx', '_mapping.json')}")
     else:
         print("❌ ONNX conversion failed")

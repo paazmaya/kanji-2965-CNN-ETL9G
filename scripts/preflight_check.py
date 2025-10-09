@@ -45,9 +45,7 @@ def check_gpu_availability():
 
             for i in range(gpu_count):
                 gpu_name = torch.cuda.get_device_name(i)
-                gpu_memory = torch.cuda.get_device_properties(i).total_memory / (
-                    1024**3
-                )
+                gpu_memory = torch.cuda.get_device_properties(i).total_memory / (1024**3)
                 print(f"  GPU {i}: {gpu_name} ({gpu_memory:.1f} GB)")
 
             # Test GPU memory allocation
@@ -65,9 +63,7 @@ def check_gpu_availability():
             print("Please check:")
             print("  - NVIDIA GPU drivers are installed")
             print("  - PyTorch with CUDA support is installed")
-            print(
-                "  - pip install torch --index-url https://download.pytorch.org/whl/cu129"
-            )
+            print("  - pip install torch --index-url https://download.pytorch.org/whl/cu129")
             return False
 
     except ImportError:
@@ -281,9 +277,7 @@ def main():
         print("2. python scripts/test_etl9g_setup.py --data-dir dataset --test-model")
         print("3. python scripts/train_etl9g_model.py --data-dir dataset --epochs 30")
         print("4. python scripts/convert_to_onnx.py --model-path best_kanji_model.pth")
-        print(
-            "5. python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth"
-        )
+        print("5. python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth")
     else:
         print("✗ Some checks failed. Please resolve issues before training.")
 

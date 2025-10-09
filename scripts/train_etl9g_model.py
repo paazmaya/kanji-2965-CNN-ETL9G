@@ -4,15 +4,16 @@ Lightweight Kanji Recognition Model for ETL9G Dataset
 Optimized for ONNX/WASM deployment with 3,036 character classes
 """
 
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
-import json
-import argparse
-from pathlib import Path
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 
@@ -63,13 +64,9 @@ class ChannelAttention(nn.Module):
 
         self.global_pool = nn.AdaptiveAvgPool2d(1)  # Squeeze: H×W -> 1×1
         self.fc = nn.Sequential(
-            nn.Linear(
-                in_channels, in_channels // reduction, bias=False
-            ),  # Reduction layer
+            nn.Linear(in_channels, in_channels // reduction, bias=False),  # Reduction layer
             nn.ReLU(inplace=True),  # Non-linearity
-            nn.Linear(
-                in_channels // reduction, in_channels, bias=False
-            ),  # Excitation layer
+            nn.Linear(in_channels // reduction, in_channels, bias=False),  # Excitation layer
             nn.Sigmoid(),  # Gating function (0-1 scale per channel)
         )
 
@@ -119,12 +116,8 @@ class LightweightKanjiNet(nn.Module):
         self.attention3 = ChannelAttention(
             128, reduction=8
         )  # After conv3 (smaller reduction for fewer channels)
-        self.attention4 = ChannelAttention(
-            256, reduction=16
-        )  # After conv4 (standard reduction)
-        self.attention5 = ChannelAttention(
-            512, reduction=16
-        )  # After conv5 (standard reduction)
+        self.attention4 = ChannelAttention(256, reduction=16)  # After conv4 (standard reduction)
+        self.attention5 = ChannelAttention(512, reduction=16)  # After conv5 (standard reduction)
 
         # Alternative architectures (commented out):
         # self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1)  # Regular convolution
@@ -213,9 +206,7 @@ class LightweightKanjiNet(nn.Module):
                 nn.init.constant_(m.weight, 1)  # BatchNorm scale parameter
                 nn.init.constant_(m.bias, 0)  # BatchNorm shift parameter
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(
-                    m.weight, 0, 0.01
-                )  # Small normal distribution for linear layers
+                nn.init.normal_(m.weight, 0, 0.01)  # Small normal distribution for linear layers
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)  # Zero bias initialization
 
@@ -348,9 +339,7 @@ class ProgressiveTrainer:
         # Current: AdamW with weight_decay=1e-4, lr=0.001
         # Purpose: Adam with decoupled weight decay, better generalization than Adam
         # Benefits: Adaptive learning rates per parameter + L2 regularization
-        optimizer = optim.AdamW(
-            self.model.parameters(), lr=learning_rate, weight_decay=1e-4
-        )
+        optimizer = optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=1e-4)
 
         # Alternative optimizers (commented out):
         # SGD with momentum: optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
@@ -363,9 +352,7 @@ class ProgressiveTrainer:
         # Current: CosineAnnealingLR with T_max=epochs, eta_min=1e-6
         # Purpose: Smooth learning rate decay from initial LR to minimum LR
         # Pattern: Cosine curve, allows model to fine-tune in later epochs
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=epochs, eta_min=1e-6
-        )
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
 
         # Alternative schedulers (commented out):
         # Step decay: optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
@@ -543,7 +530,7 @@ def load_chunked_dataset(data_dir):
     chunk_info_path = data_path / "chunk_info.json"
     if chunk_info_path.exists():
         print("Loading chunked dataset...")
-        with open(chunk_info_path, "r") as f:
+        with open(chunk_info_path) as f:
             chunk_info = json.load(f)
 
         # Load all chunks
@@ -574,12 +561,8 @@ def load_chunked_dataset(data_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Train Lightweight Kanji Model for ETL9G"
-    )
-    parser.add_argument(
-        "--data-dir", required=True, help="Directory containing ETL9G dataset"
-    )
+    parser = argparse.ArgumentParser(description="Train Lightweight Kanji Model for ETL9G")
+    parser.add_argument("--data-dir", required=True, help="Directory containing ETL9G dataset")
 
     # =========================
     # TRAINING HYPERPARAMETERS - ADJUSTABLE
@@ -589,23 +572,17 @@ def main():
     # Epochs: Number of complete passes through dataset
     # Current: 30 (moderate training, prevents overfitting on large dataset)
     # Alternatives: 20 (faster), 50 (longer training), 100 (extensive)
-    parser.add_argument(
-        "--epochs", type=int, default=30, help="Number of epochs (default: 30)"
-    )
+    parser.add_argument("--epochs", type=int, default=30, help="Number of epochs (default: 30)")
 
     # Batch size: Number of samples processed together
     # Current: 64 (good balance for memory and convergence)
     # GPU memory dependent: 32 (low memory), 128 (high memory), 256 (very high memory)
-    parser.add_argument(
-        "--batch-size", type=int, default=64, help="Batch size (default: 64)"
-    )
+    parser.add_argument("--batch-size", type=int, default=64, help="Batch size (default: 64)")
 
     # Learning rate: Step size for parameter updates
     # Current: 0.001 (moderate rate, works well with AdamW + cosine scheduling)
     # Alternatives: 0.0001 (conservative), 0.01 (aggressive), 0.005 (moderate-high)
-    parser.add_argument(
-        "--learning-rate", type=float, default=0.001, help="Learning rate"
-    )
+    parser.add_argument("--learning-rate", type=float, default=0.001, help="Learning rate")
 
     # Image size: Input image dimensions (square)
     # Current: 64x64 (good balance for kanji detail and computational efficiency)
@@ -625,7 +602,7 @@ def main():
     print("Loading ETL9G dataset...")
     X, y = load_chunked_dataset(args.data_dir)
 
-    with open(data_path / "metadata.json", "r") as f:
+    with open(data_path / "metadata.json") as f:
         metadata = json.load(f)
 
     # ETL9G dataset has exactly 3,036 character classes (fixed)
@@ -643,9 +620,7 @@ def main():
     print(f"Memory usage: {X.nbytes / (1024**3):.1f} GB")
 
     # Create data loaders
-    train_loader, val_loader, test_loader = create_balanced_loaders(
-        X, y, args.batch_size
-    )
+    train_loader, val_loader, test_loader = create_balanced_loaders(X, y, args.batch_size)
 
     # Initialize model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

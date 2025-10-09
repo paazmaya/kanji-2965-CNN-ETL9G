@@ -70,9 +70,7 @@ def create_enhanced_character_mapping():
 
     if not mapping_file.exists():
         print(f"❌ Mapping file not found: {mapping_file}")
-        print(
-            "💡 Run 'python convert_to_onnx.py --model-path models/best_kanji_model.pth' first"
-        )
+        print("💡 Run 'python convert_to_onnx.py --model-path models/best_kanji_model.pth' first")
         return False
 
     if not char_details_file.exists():
@@ -80,7 +78,7 @@ def create_enhanced_character_mapping():
         return False
 
     # Load class-to-JIS mapping from characters
-    with open(mapping_file, "r", encoding="utf-8") as f:
+    with open(mapping_file, encoding="utf-8") as f:
         mapping_data = json.load(f)
         class_to_jis = {
             class_idx: char_info["jis_code"]
@@ -88,7 +86,7 @@ def create_enhanced_character_mapping():
         }
 
     # Load character details
-    with open(char_details_file, "r", encoding="utf-8") as f:
+    with open(char_details_file, encoding="utf-8") as f:
         char_details = json.load(f)
 
     print(f"✅ Loaded {len(class_to_jis)} class mappings")
@@ -166,9 +164,7 @@ def create_enhanced_character_mapping():
     print(f"   Hiragana: {enhanced_mapping['statistics']['hiragana_count']}")
     print(f"   Katakana: {enhanced_mapping['statistics']['katakana_count']}")
     print(f"   Kanji: {enhanced_mapping['statistics']['kanji_count']}")
-    print(
-        f"   Average strokes: {enhanced_mapping['statistics']['average_stroke_count']}"
-    )
+    print(f"   Average strokes: {enhanced_mapping['statistics']['average_stroke_count']}")
 
     # Show sample characters
     print("\n🔍 Sample characters:")

@@ -5,8 +5,9 @@ Demonstrates how to load and use the SafeTensors model for kanji recognition
 """
 
 import json
-import torch
+
 import numpy as np
+import torch
 from PIL import Image
 from safetensors.torch import load_file
 
@@ -29,7 +30,7 @@ def load_safetensors_model(
     print(f"📁 Loading SafeTensors model: {safetensors_path}")
 
     # Load model info
-    with open(info_path, "r") as f:
+    with open(info_path) as f:
         model_info = json.load(f)
 
     num_classes = model_info["num_classes"]
@@ -78,7 +79,7 @@ def predict_kanji(
     """Predict kanji character from preprocessed image."""
 
     # Load character mapping
-    with open(character_mapping_path, "r", encoding="utf-8") as f:
+    with open(character_mapping_path, encoding="utf-8") as f:
         mapping_data = json.load(f)
 
     characters = mapping_data["characters"]
@@ -153,9 +154,7 @@ def main():
             confidence = pred["confidence"] * 100
             strokes = pred["stroke_count"]
             jis = pred["jis_code"]
-            print(
-                f"   {i}. {char} ({confidence:.1f}% confidence, {strokes} strokes, JIS: {jis})"
-            )
+            print(f"   {i}. {char} ({confidence:.1f}% confidence, {strokes} strokes, JIS: {jis})")
 
         print("\n✅ SafeTensors inference example completed!")
 

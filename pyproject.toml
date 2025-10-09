@@ -78,7 +78,3 @@ target-version = "py38"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "ISC", "PIE", "T20", "Q"]
 ignore = ["E501", "S101", "S311"]
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"

@@ -51,9 +51,7 @@ def demonstrate_pooling_differences():
     print("🔍 Verification - Are outputs identical?")
     are_identical = torch.allclose(global_output, avg_output_8x8, atol=1e-6)
     print(f"   - Results identical: {'✅ YES' if are_identical else '❌ NO'}")
-    print(
-        f"   - Max difference: {torch.max(torch.abs(global_output - avg_output_8x8)).item():.2e}"
-    )
+    print(f"   - Max difference: {torch.max(torch.abs(global_output - avg_output_8x8)).item():.2e}")
     print()
 
     # 3. Show what happens with wrong kernel size
@@ -72,9 +70,7 @@ def demonstrate_pooling_differences():
 
     # GlobalAveragePool adapts automatically
     global_output_4x4 = global_pool(different_input)
-    print(
-        f"   - GlobalAveragePool: {different_input.shape} → {global_output_4x4.shape} ✅"
-    )
+    print(f"   - GlobalAveragePool: {different_input.shape} → {global_output_4x4.shape} ✅")
 
     # AveragePool with 8x8 kernel fails on 4x4 input
     print("   - AveragePool(8x8) on 4x4 input: WOULD FAIL ❌")

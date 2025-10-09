@@ -7,10 +7,11 @@ This script measures and tracks CO2 emissions during model training and inferenc
 """
 
 import json
-import psutil
 import platform
 from datetime import datetime
 from pathlib import Path
+
+import psutil
 import torch
 
 # Try to import CodeCarbon for CO2 tracking
@@ -96,9 +97,7 @@ def estimate_training_emissions():
         "cpu_idle_watts": 50,
         "cpu_training_watts": 150,
         "gpu_idle_watts": 30 if sys_info["gpu_available"] else 0,
-        "gpu_training_watts": 250
-        if sys_info["gpu_available"]
-        else 0,  # Assuming mid-range GPU
+        "gpu_training_watts": 250 if sys_info["gpu_available"] else 0,  # Assuming mid-range GPU
         "system_overhead_watts": 100,  # PSU, cooling, etc.
     }
 
@@ -172,8 +171,7 @@ def estimate_training_emissions():
             "energy_kwh": total_training_kwh,
             "power_watts": total_training_watts,
             "co2_emissions_kg": {
-                region: total_training_kwh * factor
-                for region, factor in emission_factors.items()
+                region: total_training_kwh * factor for region, factor in emission_factors.items()
             },
         },
         "inference_daily_example": {
