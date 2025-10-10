@@ -1,10 +1,10 @@
 # ETL9G Kanji Recognition Training
 
-This project trains an enhanced Lightweight [Convolutional Neural Network (CNN)](https://learnopencv.com/understanding-convolutional-neural-networks-cnn/) with **SENet-style channel attention** for Japanese kanji character recognition using the ETL9G dataset.
+This project trains a Lightweight [Convolutional Neural Network (CNN)](https://learnopencv.com/understanding-convolutional-neural-networks-cnn/) with **SENet-style channel attention** for Japanese kanji character recognition using the ETL9G dataset.
 
 ## Overview
 
-### Enhanced CNN Architecture (v2.1)
+### CNN Architecture
 
 - **5-Layer CNN**: Depthwise separable convolutions with progressive channel expansion (1→32→64→128→256→512)
 - **Channel Attention**: 3 SENet-style attention modules for adaptive feature weighting
@@ -310,7 +310,7 @@ The training pipeline supports multiple output formats, each optimized for diffe
 | **ONNX**        | `.onnx`        | ~15 MB | ✅ Safe         | Excellent     | Universal      | Good     | **Web/WASM Deployment** |
 | **SafeTensors** | `.safetensors` | ~15 MB | ✅ Secure       | Excellent     | Universal      | Rich     | Production/Security     |
 
-**Note**: Enhanced model (v2.1) with 5 layers + channel attention has increased from ~6.6MB to ~15MB while maintaining web-deployment viability.
+**Note**: Model (v2.1) with 5 layers + channel attention has increased from ~6.6MB to ~15MB while maintaining web-deployment viability.
 
 ### Format Details:
 
@@ -353,9 +353,9 @@ python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
 python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth --verify
 # → models/kanji_model_etl9g_64x64_3036classes.safetensors
 
-# Enhanced character mapping (all formats)
-python scripts/generate_enhanced_mapping.py
-# → kanji_etl9g_enhanced_mapping.json
+# Character mapping (all formats)
+python scripts/generate_mapping.py
+# → kanji_etl9g_mapping.json
 ```
 
 **Backend Configuration Options:**
@@ -451,7 +451,7 @@ python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth --poo
 
 - `models/kanji_model_etl9g_64x64_3036classes_tract.onnx`: Optimized ONNX model (6.6 MB)
 - `models/kanji_model_etl9g_64x64_3036classes_tract_mapping.json`: Class-to-character mappings
-- `models/kanji_etl9g_enhanced_mapping.json`: Enhanced character mapping with Unicode characters and stroke counts
+- `models/kanji_etl9g_mapping.json`: Character mapping with Unicode characters and stroke counts
 - `models/kanji_model_etl9g_64x64_3036classes.safetensors`: SafeTensors model format (6.6 MB)
 
 ## Memory Management
@@ -472,22 +472,22 @@ The training pipeline is optimized for memory efficiency:
 
 ## Model Architecture
 
-### Enhanced LightweightKanjiNet Features
+### LightweightKanjiNet Features
 
 - **Depthwise Separable Convolutions**: Efficient feature extraction with MobileNet-style blocks
 - **SENet-Style Channel Attention**: Adaptive feature recalibration for better stroke discrimination
-- **5-Layer CNN Architecture**: Enhanced capacity with progressive channel expansion
+- **5-Layer CNN Architecture**: Increased capacity with progressive channel expansion
 - **Global Average Pooling**: Reduces parameters vs. large FC layers
-- **Progressive Feature Maps**: 1→32→64→128→256→512 channels (enhanced capacity)
+- **Progressive Feature Maps**: 1→32→64→128→256→512 channels (increased capacity)
 - **Dropout Regularization**: Prevents overfitting with 3,036 classes
 
-### Architecture Enhancements (v2.0)
+### Architecture Improvements (v2.0)
 
 #### **Core Improvements:**
 
 - **Added 5th Convolutional Layer**: 256→512 channels for deeper feature learning
 - **Channel Attention Modules**: 3 SENet-style attention layers for adaptive feature weighting
-- **Enhanced Classifier**: 512→1024→3036 neurons for improved pattern recognition
+- **Improved Classifier**: 512→1024→3036 neurons for improved pattern recognition
 
 #### **Channel Attention (SENet Integration):**
 
@@ -499,7 +499,7 @@ Purpose: Focus on discriminative kanji stroke patterns, suppress noise
 
 #### **Architecture Comparison:**
 
-| Component             | Original Model  | **Enhanced Model (v2.0)** |
+| Component             | Original Model  | **Current Model (v2.0)** |
 | --------------------- | --------------- | ------------------------- |
 | **Conv Layers**       | 4 layers        | **5 layers**              |
 | **Channels**          | 1→32→64→128→256 | **1→32→64→128→256→512**   |
@@ -512,7 +512,7 @@ Purpose: Focus on discriminative kanji stroke patterns, suppress noise
 
 - **Input**: 64×64 grayscale images (flattened to 4,096 values)
 - **Output**: 3,036 class probabilities
-- **Parameters**: ~3.9M (enhanced capacity for complex kanji patterns)
+- **Parameters**: ~3.9M (increased capacity for complex kanji patterns)
 - **Model Size**: ~15 MB (ONNX format) - still web-deployment friendly
 - **Architecture**: 5-layer CNN with channel attention for optimal kanji recognition
 
@@ -546,10 +546,10 @@ The model has undergone significant optimizations to achieve state-of-the-art ac
 - **Accuracy**: 85% validation
 - **Focus**: Lightweight design for web deployment
 
-#### **Version 2.0 (Enhanced Capacity)**
+#### **Version 2.0 (Increased Capacity)**
 
 - **Added**: 5th convolutional layer (256→512 channels)
-- **Enhanced**: Larger classifier (512→1024→3036)
+- **Improved**: Larger classifier (512→1024→3036)
 - **Parameters**: ~3.8M
 - **Expected**: +3-5% accuracy improvement
 - **Focus**: Increased model capacity for complex patterns
@@ -566,7 +566,7 @@ The model has undergone significant optimizations to achieve state-of-the-art ac
 
 #### **Implemented Optimizations:**
 
-1. **Enhanced Architecture**
+1. **Improved Architecture**
    - 5th convolutional layer for deeper feature learning
    - Expanded classifier capacity (1024 hidden neurons)
    - **Impact**: +3-5% accuracy
@@ -616,7 +616,7 @@ All generated model files follow a consistent naming pattern that includes:
 | -------------------------------------------------------- | --------------------------------------- |
 | `kanji_model_etl9g_64x64_3036classes_tract.onnx`         | ONNX model for Tract backend            |
 | `kanji_model_etl9g_64x64_3036classes.safetensors`        | SafeTensors model format                |
-| `kanji_etl9g_enhanced_mapping.json`                      | Enhanced character mapping with Unicode |
+| `kanji_etl9g_mapping.json`                      | Character mapping with Unicode |
 | `kanji_model_etl9g_64x64_3036classes_tract_mapping.json` | Basic class-to-JIS mapping              |
 
 This naming ensures you can easily identify model configurations and avoid confusion during deployment.
@@ -635,14 +635,14 @@ torch.onnx.export(model, dummy_input, 'kanji_model_etl9g_64x64_3036classes_tract
 
 ### Class Mapping Integration
 
-The enhanced character mapping provides comprehensive character information:
+The character mapping provides comprehensive character information:
 
 ```json
 {
   "model_info": {
     "dataset": "ETL9G",
     "total_classes": 3036,
-    "description": "Enhanced character mapping with Unicode characters and stroke counts"
+    "description": "Character mapping with Unicode characters and stroke counts"
   },
   "characters": {
     "0": {
@@ -883,18 +883,18 @@ python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --out
 
 ### Utility Scripts
 
-#### 7. `generate_enhanced_mapping.py` - Character Mapping Enhancement
+#### 7. `generate_mapping.py` - Character Mapping
 
-Creates enhanced character mapping with Unicode characters and stroke counts.
+Creates character mapping with Unicode characters and stroke counts.
 
 ```powershell
-python scripts/generate_enhanced_mapping.py
+python scripts/generate_mapping.py
 ```
 
 **Purpose**: Generates comprehensive character mappings for web deployment.
 
 **Outputs**:
-- Enhanced mapping with Unicode characters
+- Mapping with Unicode characters
 - Stroke count information
 - Character statistics
 
@@ -985,7 +985,7 @@ training/
 │   ├── train_etl9g_model.py        # Main training script
 │   ├── convert_to_onnx.py          # ONNX export script
 │   ├── convert_to_safetensors.py   # SafeTensors export script
-│   ├── generate_enhanced_mapping.py # Enhanced character mapping
+│   ├── generate_mapping.py # Character mapping
 │   ├── inspect_onnx_model.py       # ONNX model inspector
 │   ├── measure_co2_emissions.py    # Carbon footprint measurement
 │   ├── onnx_operations_comparison.py # Operations analysis
@@ -1037,10 +1037,10 @@ Remove-Item -Recurse -Force venv
 
 ## Expected Results
 
-### Enhanced Training Performance (v2.0)
+### Training Performance (v2.0)
 
 - **Validation Accuracy**: **90-92%** (improved with channel attention)
-- **Top-3 Accuracy**: **96-99%** (enhanced feature discrimination)
+- **Top-3 Accuracy**: **96-99%** (improved feature discrimination)
 - **Training Stability**: Consistent convergence with attention-guided learning
 - **Model Size**: ~15 MB (ONNX) - still web-deployment friendly
 
@@ -1057,7 +1057,7 @@ Remove-Item -Recurse -Force venv
 
 - **Better Stroke Discrimination**: Attention focuses on critical kanji features
 - **Noise Suppression**: Reduced emphasis on irrelevant background patterns
-- **Complex Pattern Recognition**: Enhanced capability for intricate character details
+- **Complex Pattern Recognition**: Improved capability for intricate character details
 - **Adaptive Feature Weighting**: SENet-style recalibration for optimal representation
 
 ### Character Coverage
@@ -1070,7 +1070,7 @@ Remove-Item -Recurse -Force venv
 ### Web Deployment Ready
 
 - ✅ ONNX model optimized for WASM
-- ✅ Enhanced architecture with attention (still efficient for web)
+- ✅ Improved architecture with attention (still efficient for web)
 - ✅ Direct class-to-JIS mapping
 - ✅ Compatible with existing Rust/WASM code
 
@@ -1080,8 +1080,8 @@ After successful training:
 
 1. **Copy Model Files**: Move ONNX/SafeTensors files to your web assets:
    - `kanji_model_etl9g_64x64_3036classes_tract.onnx` → Main inference model
-   - `kanji_etl9g_enhanced_mapping.json` → Character mappings with Unicode
-2. **Update Rust Code**: Integrate enhanced character mappings
+   - `kanji_etl9g_mapping.json` → Character mappings with Unicode
+2. **Update Rust Code**: Integrate character mappings
 3. **Test Integration**: Verify model works with your WASM interface
 4. **Performance Tuning**: Optimize inference speed if needed
 
@@ -1249,7 +1249,7 @@ This demonstrates that **data quantity is critical** for deep learning success, 
 | File                                                     | Size   | Purpose                                   |
 | -------------------------------------------------------- | ------ | ----------------------------------------- |
 | **`kanji_model_etl9g_64x64_3036classes_tract.onnx`**     | 6.6 MB | 🎯 **Main ONNX model for web deployment** |
-| **`kanji_etl9g_enhanced_mapping.json`**                  | 0.3 MB | 🗾 **Enhanced character mappings**        |
+| **`kanji_etl9g_mapping.json`**                  | 0.3 MB | 🗾 **Character mappings**        |
 | **`kanji_model_etl9g_64x64_3036classes.safetensors`**    | 6.6 MB | 🔒 **Secure SafeTensors format**          |
 | `kanji_model_etl9g_64x64_3036classes_tract_mapping.json` | 0.5 MB | Basic class-to-JIS mappings               |
 | `best_kanji_model.pth`                                   | 6.6 MB | PyTorch checkpoint (training backup)      |

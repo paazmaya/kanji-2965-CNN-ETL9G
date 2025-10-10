@@ -295,19 +295,19 @@ def export_to_onnx(
         print(f"⚠️  ONNX validation warning: {e}")
         print("Model exported but validation failed. Check ONNX compatibility.")
 
-    # Create enhanced character mapping for inference
+    # Create character mapping for inference
     mapping_path = onnx_path.replace(".onnx", "_mapping.json")
 
-    # Load the enhanced character mapping
-    enhanced_mapping_file = "kanji_etl9g_enhanced_mapping.json"
+    # Load the character mapping
+    mapping_file = "kanji_etl9g_mapping.json"
     try:
-        with open(enhanced_mapping_file, encoding="utf-8") as f:
-            enhanced_mapping = json.load(f)
-        print(f"📚 Loaded enhanced character mapping from {enhanced_mapping_file}")
+        with open(mapping_file, encoding="utf-8") as f:
+            character_mapping = json.load(f)
+        print(f"📚 Loaded character mapping from {mapping_file}")
 
-        # Convert enhanced mapping to the format expected by create_enhanced_character_mapping
+        # Convert mapping to the format expected by create_character_mapping
         char_details = {}
-        for class_id, char_info in enhanced_mapping.items():
+        for class_id, char_info in character_mapping.items():
             # Skip metadata entries that aren't class mappings
             if not class_id.isdigit():
                 continue
@@ -319,7 +319,7 @@ def export_to_onnx(
             }
 
     except FileNotFoundError:
-        print(f"⚠️ Enhanced character mapping not found: {enhanced_mapping_file}")
+        print(f"⚠️ Character mapping not found: {mapping_file}")
         # Fallback to dataset mapping
         try:
             with open("dataset/character_mapping.json", encoding="utf-8") as f:
@@ -330,7 +330,7 @@ def export_to_onnx(
             char_details = {}
 
     # Create comprehensive mapping
-    mapping = create_enhanced_character_mapping(
+    mapping = create_character_mapping(
         char_details,
         {
             "image_size": image_size,
@@ -339,28 +339,28 @@ def export_to_onnx(
             "opset_version": opset_version,
             "export_method": "torch.export" if use_dynamo else "TorchScript",
         },
-        enhanced_mapping if "enhanced_mapping" in locals() else None,
+        character_mapping if "character_mapping" in locals() else None,
     )
 
     with open(mapping_path, "w", encoding="utf-8") as f:
         json.dump(mapping, f, indent=2, ensure_ascii=False)
 
-    print(f"📄 Enhanced character mapping saved to {mapping_path}")
+    print(f"📄 Character mapping saved to {mapping_path}")
 
     return onnx_path
 
 
-def create_enhanced_character_mapping(char_details, model_info, enhanced_mapping=None):
-    """Create enhanced character mapping for ETL9G dataset (3,036 classes)"""
+def create_character_mapping(char_details, model_info, character_mapping=None):
+    """Create character mapping for ETL9G dataset (3,036 classes)"""
     NUM_CLASSES = 3036
 
-    # If enhanced mapping is provided directly, use it
-    if enhanced_mapping:
+    # If character mapping is provided directly, use it
+    if character_mapping:
         characters = {}
-        enhanced_chars = enhanced_mapping.get("characters", {})
+        mapping_chars = character_mapping.get("characters", {})
         for class_idx in range(NUM_CLASSES):
             class_str = str(class_idx)
-            char_info = enhanced_chars.get(class_str, {})
+            char_info = mapping_chars.get(class_str, {})
 
             if char_info:
                 characters[class_str] = {
@@ -580,12 +580,12 @@ def create_character_mapping(data_dir, image_size, accuracy):
             "export_method": "TorchScript",
         }
 
-        mapping = create_enhanced_character_mapping(char_details, model_info)
+        mapping = create_character_mapping(char_details, model_info)
 
         with open("kanji_etl9g_mapping.json", "w", encoding="utf-8") as f:
             json.dump(mapping, f, indent=2, ensure_ascii=False)
 
-        print("📄 Enhanced character mapping created: kanji_etl9g_mapping.json")
+        print("📄 Character mapping created: kanji_etl9g_mapping.json")
 
     except FileNotFoundError:
         print("⚠️  Character mapping file not found in dataset directory")

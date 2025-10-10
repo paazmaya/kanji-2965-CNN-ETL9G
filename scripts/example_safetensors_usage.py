@@ -73,7 +73,7 @@ def preprocess_image(image_path, target_size=64):
 def predict_kanji(
     model,
     image_tensor,
-    character_mapping_path="kanji_etl9g_enhanced_mapping.json",
+    character_mapping_path="kanji_etl9g_mapping.json",
     top_k=5,
 ):
     """Predict kanji character from preprocessed image."""

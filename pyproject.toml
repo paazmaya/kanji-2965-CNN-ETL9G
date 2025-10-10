@@ -1,7 +1,7 @@
 [project]
 name = "kanji-2965-cnn-etl9g"
 version = "0.1.0"
-description = "Enhanced Lightweight CNN for Japanese kanji character recognition using ETL9G dataset"
+description = "Lightweight CNN for Japanese kanji character recognition using ETL9G dataset"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [

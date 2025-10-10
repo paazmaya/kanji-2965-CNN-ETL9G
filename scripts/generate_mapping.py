@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate Enhanced Character Mapping for ETL9G Kanji Dataset
+Generate Character Mapping for ETL9G Kanji Dataset
 Creates a comprehensive mapping with actual kanji characters and stroke counts
 """
 
@@ -61,8 +61,8 @@ def estimate_stroke_count(character):
     return 1
 
 
-def create_enhanced_character_mapping():
-    """Create enhanced character mapping with actual characters and stroke counts."""
+def create_character_mapping():
+    """Create character mapping with actual characters and stroke counts."""
 
     # Load existing mappings - use the latest generated mapping file
     mapping_file = Path("kanji_model_etl9g_64x64_3036classes_tract_mapping.json")
@@ -92,12 +92,12 @@ def create_enhanced_character_mapping():
     print(f"✅ Loaded {len(class_to_jis)} class mappings")
     print(f"✅ Loaded {len(char_details)} character details")
 
-    # Create enhanced mapping
-    enhanced_mapping = {
+    # Create character mapping
+    mapping = {
         "model_info": {
             "dataset": "ETL9G",
             "total_classes": len(class_to_jis),
-            "description": "Enhanced character mapping with Unicode characters and stroke counts",
+            "description": "Character mapping with Unicode characters and stroke counts",
         },
         "characters": {},
         "statistics": {
@@ -135,15 +135,15 @@ def create_enhanced_character_mapping():
             elif 0x4E00 <= code_point <= 0x9FAF:
                 kanji_count += 1
 
-        # Add to enhanced mapping
-        enhanced_mapping["characters"][class_idx_str] = {
+        # Add to character mapping
+        mapping["characters"][class_idx_str] = {
             "character": character,
             "jis_code": jis_code,
             "stroke_count": stroke_count,
         }
 
     # Update statistics
-    enhanced_mapping["statistics"].update(
+    mapping["statistics"].update(
         {
             "total_characters": len(class_to_jis),
             "hiragana_count": hiragana_count,
@@ -153,22 +153,22 @@ def create_enhanced_character_mapping():
         }
     )
 
-    # Save enhanced mapping
-    output_file = "kanji_etl9g_enhanced_mapping.json"
+    # Save character mapping
+    output_file = "kanji_etl9g_mapping.json"
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(enhanced_mapping, f, ensure_ascii=False, indent=2)
+        json.dump(mapping, f, ensure_ascii=False, indent=2)
 
-    print(f"🎉 Enhanced mapping saved to {output_file}")
+    print(f"🎉 Character mapping saved to {output_file}")
     print("📊 Statistics:")
-    print(f"   Total characters: {enhanced_mapping['statistics']['total_characters']}")
-    print(f"   Hiragana: {enhanced_mapping['statistics']['hiragana_count']}")
-    print(f"   Katakana: {enhanced_mapping['statistics']['katakana_count']}")
-    print(f"   Kanji: {enhanced_mapping['statistics']['kanji_count']}")
-    print(f"   Average strokes: {enhanced_mapping['statistics']['average_stroke_count']}")
+    print(f"   Total characters: {mapping['statistics']['total_characters']}")
+    print(f"   Hiragana: {mapping['statistics']['hiragana_count']}")
+    print(f"   Katakana: {mapping['statistics']['katakana_count']}")
+    print(f"   Kanji: {mapping['statistics']['kanji_count']}")
+    print(f"   Average strokes: {mapping['statistics']['average_stroke_count']}")
 
     # Show sample characters
     print("\n🔍 Sample characters:")
-    for i, (class_idx, char_info) in enumerate(enhanced_mapping["characters"].items()):
+    for i, (class_idx, char_info) in enumerate(mapping["characters"].items()):
         if i >= 10:
             break
         char = char_info["character"]
@@ -180,4 +180,4 @@ def create_enhanced_character_mapping():
 
 
 if __name__ == "__main__":
-    create_enhanced_character_mapping()
+    create_character_mapping()

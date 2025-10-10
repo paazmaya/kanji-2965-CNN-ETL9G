@@ -94,11 +94,11 @@ class LightweightKanjiNet(nn.Module):
         self.num_classes = num_classes
 
         # =========================
-        # CNN ARCHITECTURE WITH CHANNEL ATTENTION - ENHANCED
+        # CNN ARCHITECTURE WITH CHANNEL ATTENTION
         # =========================
         # Current: Depthwise separable convolutions + SENet-style channel attention
         # Attention placement: After conv3, conv4, conv5 (deeper layers benefit most)
-        # Channel progression: 1 -> 32 -> 64 -> 128 -> 256 -> 512 (enhanced capacity)
+        # Channel progression: 1 -> 32 -> 64 -> 128 -> 256 -> 512 (increased capacity)
         # Stride pattern: 2 for downsampling layers, 1 for feature refinement
         self.conv1 = self._depthwise_separable_conv(1, 32, stride=2)  # 64x64 -> 32x32
         self.conv2 = self._depthwise_separable_conv(32, 64, stride=2)  # 32x32 -> 16x16
@@ -133,13 +133,13 @@ class LightweightKanjiNet(nn.Module):
         # =========================
         # CLASSIFIER HEAD ALGORITHMS - ADJUSTABLE
         # =========================
-        # Enhanced: Two-layer MLP with increased capacity for 512 input features
+        # Two-layer MLP with increased capacity for 512 input features
         # Hidden layer size: 1024 (larger intermediate representation for complex patterns)
         # Dropout rates: 0.3 and 0.2 (prevent overfitting with larger model)
         # Activation: ReLU (could use GELU, Swish, etc.)
         self.classifier = nn.Sequential(
             nn.Dropout(0.3),  # First dropout layer
-            nn.Linear(512, 1024),  # Enhanced hidden layer (512->1024)
+            nn.Linear(512, 1024),  # Hidden layer (512->1024)
             nn.ReLU(inplace=True),  # Activation function
             nn.Dropout(0.2),  # Second dropout layer
             nn.Linear(1024, num_classes),  # Output layer
@@ -221,7 +221,7 @@ class LightweightKanjiNet(nn.Module):
         batch_size = x.size(0)
         x = x.view(batch_size, 1, self.image_size, self.image_size)
 
-        # Enhanced feature extraction with Channel Attention
+        # Feature extraction with Channel Attention
         x = self.conv1(x)  # 64x64 -> 32x32, channels: 1->32
         x = self.conv2(x)  # 32x32 -> 16x16, channels: 32->64
 
