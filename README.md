@@ -2,6 +2,19 @@
 
 This project trains a Lightweight [Convolutional Neural Network (CNN)](https://learnopencv.com/understanding-convolutional-neural-networks-cnn/) with **SENet-style channel attention** for Japanese kanji character recognition using the ETL9G dataset.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start) - Get started with environment setup
+- [Dataset Setup](#dataset-setup) - Download and prepare ETL9G data
+- [Training Workflow](#training-workflow) - Step-by-step training guide
+- [Command Reference](#command-reference) - All commands and parameters
+- [Model Output Format Comparison](#model-output-format-comparison) - Export formats
+- [Scripts Reference](#scripts-reference) - Available Python scripts
+- [Output Files](#output-files) - Generated files and artifacts
+- [Package Management Reference](#package-management-reference) - UV and pip commands
+- [Troubleshooting](#troubleshooting) - Common issues and solutions
+
 ## Overview
 
 ### CNN Architecture
@@ -26,58 +39,62 @@ Downloaded from http://etlcdb.db.aist.go.jp/download-links/
 
 Data set definition http://etlcdb.db.aist.go.jp/etlcdb/etln/form_e9g.htm
 
-## Prerequisites
+## Quick Start
 
 ### System Requirements
 
-- **OS**: Windows 11
-- **Shell**: PowerShell 5.1 or PowerShell 7+
+- **OS**: Windows 11, Linux, or macOS
+- **Shell**: PowerShell 5.1+ (Windows) or bash/zsh (Unix)
 - **RAM**: 8+ GB (16+ GB recommended)
 - **GPU**: NVIDIA GPU with CUDA support (GTX 1060/RTX 2060 or better recommended)
-- **Disk Space**: 10+ GB free
-- **Python**: 3.8 or later
+- **Storage**: 15+ GB free space for dataset and models
+- **Python**: 3.11+ (tested with Python 3.13)
 - **CUDA**: CUDA 11.8 or 12.x (automatically installed with PyTorch)
 
-### Python Dependencies
+### Environment Setup
 
-This project uses [uv](https://docs.astral.sh/uv/) for fast and reliable Python package management:
+Choose one method below based on your preference:
+
+#### Method 1: Using uv (Recommended)
+
+[uv](https://docs.astral.sh/uv/) provides fast and reliable Python package management:
 
 ```powershell
-# Install uv (if not already installed)
-# Via pip: pip install uv
-# Via pipx: pipx install uv
-# Via winget: winget install astral-sh.uv
+# Install uv
+winget install astral-sh.uv
+# Alternative: pip install uv  or  pipx install uv
 
-# Create project with uv (automatically creates virtual environment)
+# Create project environment and install dependencies
 uv sync
 
-# Install PyTorch with CUDA support (special index configuration in pyproject.toml)
+# Install PyTorch with CUDA support
 uv add torch torchvision --index pytorch
 
-# Activate the virtual environment
+# Activate environment
 .venv\Scripts\Activate.ps1
 
-# Alternatively, run commands directly with uv:
+# Verify setup
 uv run python scripts/preflight_check.py
 ```
 
-**Alternative pip installation** (if you prefer traditional pip):
+#### Method 2: Using Pip
 
 ```powershell
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
-
-# Activate virtual environment (PowerShell)
 .\venv\Scripts\Activate.ps1
 
-# Install PyTorch with CUDA support for NVIDIA GPU
+# Install PyTorch with CUDA support
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 
-# Install other required packages
+# Install other dependencies
 pip install -r requirements.txt
+
+# Verify setup
+python scripts/preflight_check.py
 ```
 
-**Note**: Always ensure your virtual environment is activated before running any Python scripts. You should see `(venv)` or `(.venv)` in your PowerShell prompt. Ensure your NVIDIA drivers are up to date.
+> **Note**: Ensure your virtual environment is activated before running scripts. You should see `(.venv)` or `(venv)` in your prompt. Keep NVIDIA drivers updated.
 
 ## Dataset Setup
 
@@ -135,33 +152,7 @@ kanji-2965-CNN-ETL9G/
 
 ## Training Workflow
 
-### Step 0: Environment Setup
-
-Before running any training commands, set up your environment with uv:
-
-```powershell
-# Install uv (if not already installed)
-winget install astral-sh.uv
-
-# Create project environment and install dependencies
-uv sync
-
-# Activate the virtual environment
-.venv\Scripts\Activate.ps1
-```
-
-**Alternative with pip**:
-
-```powershell
-# Create and activate virtual environment (first time only)
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-
-# Install dependencies with CUDA support (first time only)
-pip install -r requirements.txt
-```
-
-**Important**: Always ensure your virtual environment is activated before running any Python scripts. You should see `(.venv)` or `(venv)` in your PowerShell prompt.
+> **Prerequisites**: Complete the [Environment Setup](#quick-start) section before proceeding.
 
 ### Step 1: Pre-flight Check
 
@@ -299,6 +290,53 @@ python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pt
 - `--image-size`: Image size used in training (default: 64)
 - `--pooling-type`: Pooling layer configuration (default: adaptive_avg)
 - `--target-backend`: Target inference backend (default: tract)
+
+## Command Reference
+
+Quick reference for all training scripts and common commands:
+
+### Core Training Commands
+
+```powershell
+# Data preparation
+python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
+
+# Quick test training (2 epochs, limited samples)
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 2 --batch-size 32 --sample-limit 15000
+
+# Full production training
+python scripts/train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 64
+
+# Model conversion to ONNX
+python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
+
+# Model conversion to SafeTensors
+python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth --verify
+```
+
+### Common Parameters
+
+| Parameter         | Purpose                 | Default | Example                  |
+| ----------------- | ----------------------- | ------- | ------------------------ |
+| `--epochs`        | Training iterations     | 30      | `--epochs 50`            |
+| `--batch-size`    | Batch size              | 64      | `--batch-size 32`        |
+| `--learning-rate` | Learning rate           | 0.001   | `--learning-rate 0.0005` |
+| `--sample-limit`  | Limit samples (testing) | None    | `--sample-limit 50000`   |
+| `--workers`       | Data loader workers     | 4       | `--workers 2`            |
+| `--size`          | Image size              | 64      | `--size 128`             |
+
+### Performance Optimization
+
+```powershell
+# Reduce memory usage
+python scripts/train_etl9g_model.py --batch-size 32 --workers 2
+
+# Speed up data preparation
+python scripts/prepare_etl9g_dataset.py --workers 8 --etl-dir ETL9G --output-dir dataset
+
+# Test with fewer samples
+python scripts/train_etl9g_model.py --sample-limit 50000 --epochs 5
+```
 
 ## Model Output Format Comparison
 
@@ -665,56 +703,31 @@ The character mapping provides comprehensive character information:
 }
 ```
 
-## UV Package Management
+## Package Management Reference
 
-This project uses [uv](https://docs.astral.sh/uv/) for fast and reliable Python package management. Here are common uv commands:
-
-### Environment Management
+### uv Commands
 
 ```powershell
-# Create project environment with dependencies
-uv sync
+# Environment management
+uv sync                          # Install/sync dependencies
+uv add package-name              # Add dependency
+uv add --dev pytest              # Add dev dependency
+uv remove package-name           # Remove dependency
+uv run python script.py          # Run without activating environment
 
-# Add new dependency
-uv add package-name
-
-# Add development dependency
-uv add --dev pytest
-
-# Remove dependency
-uv remove package-name
-
-# Update all dependencies
-uv lock --upgrade
-
-# Activate virtual environment
-.venv\Scripts\Activate.ps1
-```
-
-### Running Scripts
-
-```powershell
-# Run script without activating environment
-uv run python scripts/train_etl9g_model.py --help
-
-# Run with project scripts (defined in pyproject.toml)
-uv run train-kanji --help
-uv run prepare-dataset --help
-uv run convert-to-onnx --help
-uv run convert-to-safetensors --help
-```
-
-### PyTorch CUDA Installation
-
-Due to PyTorch's special CUDA requirements, install with the configured index:
-
-```powershell
-# Install PyTorch with CUDA support
+# PyTorch CUDA installation
 uv add torch torchvision --index pytorch
-
-# Or manually specify the index URL
-uv add torch torchvision --index-url https://download.pytorch.org/whl/cu129
 ```
+
+### Pip Alternative
+
+```powershell
+# Traditional pip workflow
+pip install -r requirements.txt
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
+```
+
+> **Tip**: Use [Command Reference](#command-reference) for common training commands.
 
 ## Troubleshooting
 
@@ -738,10 +751,14 @@ python scripts/prepare_etl9g_dataset.py --workers 2
 
 ### Training Issues
 
+## Troubleshooting
+
+### Memory Issues
+
+- **Out of Memory**: See [Performance Optimization](#command-reference) in Command Reference
 - **Low Accuracy**: Increase epochs, check learning rate
 - **Overfitting**: Reduce model size, increase dropout
 - **Slow Training**: Use GPU, increase batch size
-- **Memory Errors**: Reduce batch size, use sample limiting
 
 ### ONNX Export Issues
 
@@ -758,49 +775,27 @@ python scripts/prepare_etl9g_dataset.py --workers 2
   - ✅ **Fixed**: Converter now imports the correct architecture from `train_etl9g_model.py`
   - Ensures trained weights are compatible with ONNX export model
 
+> **Need help?** Check the [Command Reference](#command-reference) for parameter options and optimization commands.
+
 ## Scripts Reference
 
-The project includes several Python scripts organized in the `scripts/` folder. Each script serves a specific purpose in the kanji recognition training and deployment pipeline.
+> **Quick Start**: See [Command Reference](#command-reference) for common commands and parameters.
 
-### Core Training Scripts
+### Script Overview
 
-#### 1. `preflight_check.py` - System Verification
+| Script                      | Purpose                 | Key Parameters                                |
+| --------------------------- | ----------------------- | --------------------------------------------- |
+| `preflight_check.py`        | System verification     | None                                          |
+| `prepare_etl9g_dataset.py`  | Dataset preparation     | `--etl-dir`, `--size`, `--workers`            |
+| `test_etl9g_setup.py`       | Setup verification      | `--sample-limit`                              |
+| `train_etl9g_model.py`      | Model training          | `--epochs`, `--batch-size`, `--learning-rate` |
+| `convert_to_onnx.py`        | ONNX export             | `--model-path`, `--target-backend`            |
+| `convert_to_safetensors.py` | SafeTensors export      | `--model-path`, `--verify`                    |
+| `generate_rust_mapping.py`  | Rust mapping generation | `--mapping-file`                              |
 
-Verifies your system setup and requirements before training.
+### Usage Examples
 
-```powershell
-python scripts/preflight_check.py
-```
-
-**Purpose**: Ensures all dependencies are installed and the system is ready for training.
-
-**Checks**:
-
-- Python packages availability
-- ETL9G data files presence
-- System resources (RAM, GPU)
-- CUDA compatibility
-
-#### 2. `prepare_etl9g_dataset.py` - Dataset Preparation
-
-Converts ETL9G binary files to training-ready format.
-
-```powershell
-# Basic usage
-python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64
-
-# With custom workers
-python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64 --workers 4
-```
-
-**Parameters**:
-
-- `--etl-dir`: Directory containing ETL9G files
-- `--output-dir`: Output directory for processed dataset
-- `--size`: Target image size (default: 64x64 pixels)
-- `--workers`: Number of parallel workers (default: auto)
-
-#### 3. `test_etl9g_setup.py` - Setup Verification
+See [Command Reference](#command-reference) section for detailed usage examples and parameter combinations.
 
 Tests the prepared dataset and model architecture.
 

@@ -1,8 +1,8 @@
+# Research on Chinese character recognition
+
 The most efficient ways to recognize handwritten Kanji characters typically involve leveraging their inherent structural complexity (radicals and components) or implementing lightweight deep learning architectures designed for massive vocabularies and limited resources.
 
-Based on the sources, efficient methods reported for recognizing handwritten Kanji and related Han-based ideographs include:
-
-## I. Methods Focusing on Character Structure and Components (Radicals)
+## 1. Methods Focusing on Character Structure and Components (Radicals)
 
 Several techniques improve efficiency by decomposing characters, which aids in handling large character sets and recognizing characters with few or no training samples (zero-shot recognition).
 
@@ -21,7 +21,7 @@ Several techniques improve efficiency by decomposing characters, which aids in h
 
 4.  **Hierarchical Grammatical Modeling:** The Stochastic Context-Free Grammar (SCFG) hierarchical structure, combined with Hidden Markov Models (HMM), has been proposed to model Kanji character generation, functioning effectively as a writer-independent recognition system (Advances in online handwritten recognition in the last decades, Ghosh, Sen, Obaidullah, et al., 2022, citing Ota, Yamamoto, Sako, & Sagayama, 2007).
 
-### II. Lightweight Deep Learning Architectures
+## 2. Lightweight Deep Learning Architectures
 
 Efficiency can also be achieved by designing compressed network architectures that minimize parameters and computational load, particularly in the critical classification layer.
 
@@ -34,7 +34,7 @@ Efficiency can also be achieved by designing compressed network architectures th
 
 2.  **Ensemble of CNNs:** While complex, an ensemble approach using three distinct Convolutional Neural Networks (CNNs) demonstrated high accuracy for large character sets, including Kanji (Recognition of Handwritten Japanese Characters Using Ensemble of Convolutional Neural Networks, Solis, Zarkovacki, Ly, & Atyabi, 2023). This CNN-Ensemble architecture achieved 96.43% classification accuracy on the top 150 classes of the imbalanced Kuzushiji-Kanji dataset (Recognition of Handwritten Japanese Characters Using Ensemble of Convolutional Neural Networks, Solis, Zarkovacki, Ly, & Atyabi, 2023). Furthermore, using transfer learning in one component of the ensemble (CNN-3) was shown to reduce training time by 48% on the K-49 dataset compared to training from scratch (Recognition of Handwritten Japanese Characters Using Ensemble of Convolutional Neural Networks, Solis, Zarkovacki, Ly, & Atyabi, 2023).
 
-### I. Libraries and Frameworks for Deep Learning and Machine Learning
+## 3. Libraries and Frameworks for Deep Learning and Machine Learning
 
 Based on the suggested methods for recognizing handwritten Kanji characters, the following libraries and frameworks, often implemented in Python, are mentioned or implied by the sources, particularly within the context of online handwriting recognition (OHR), general deep learning for computer vision, and transformer-based models for complex text processing:
 
@@ -53,7 +53,7 @@ The core of many efficient recognition techniques relies on deep learning and ma
     - It is suitable for implementing classifiers mentioned in the context of handwriting recognition, such as **Support Vector Machines (SVMs)** and **k-Nearest Neighbor (k-NN)**.
     - Specifically, **Nearest Neighbor (NN) classifiers** were utilized in the framework proposed for recognizing historical Japanese characters (_kuzushiji_) by leveraging feature matching between test images and trained images (Japanese historical character recognition by focusing on character parts, Ishikawa, Miyazaki, & Omachi, 2024).
 
-## II. Toolkits and Systems for Handwriting and Document Recognition
+## 4. Toolkits and Systems for Handwriting and Document Recognition
 
 The sources identify specific toolkits designed for handling handwriting data and annotation, which are typically used within a Python environment:
 
@@ -64,13 +64,13 @@ The sources identify specific toolkits designed for handling handwriting data an
 
 3.  **[igraph](https://python.igraph.org/) (Python)**: The `igraph` Python package is mentioned for graph construction and projection tasks related to connectivity analysis. This could be relevant in advanced ideograph recognition systems that model relationships or structure beyond individual characters.
 
-## III. Libraries for Implementing Specific Techniques
+## 5. Libraries for Implementing Specific Techniques
 
 1.  **Dynamic Time Warping (DTW) and Kernels**: The concept of integrating DTW kernels with Support Vector Machines (SVMs) is discussed for handling variable-sized sequential data in online handwriting recognition (Advances in online handwritten recognition in the last decades, Ghosh, Sen, Obaidullah, et al., 2022). While DTW is a concept, its implementation often relies on specialized libraries, although Python implementations exist outside of the provided sources.
 
 2.  **Markov Random Field (MRF) and Hidden Markov Models (HMM)**: These statistical models, used in radical-based and hierarchical systems for Kanji and related scripts (Advances in online handwritten recognition in the last decades, Ghosh, Sen, Obaidullah, et al., 2022), are typically implemented using dedicated libraries or custom solutions within Python, though the sources do not name specific Python implementations.
 
-### Summary of Implementable Concepts
+## 6. Summary of Implementable Concepts
 
 The most efficient methods for Kanji recognition mentioned, such as those relying on:
 
@@ -84,47 +84,47 @@ Yes, several sources explicitly point to publicly available source code, models,
 
 Here are the details and links mentioned in the documents:
 
-### I. Code and Models for Information Retrieval and Text Encoding
+## 7. Code and Models for Information Retrieval and Text Encoding
 
 The research focused on comparing Lion and AdamW optimizers for Cross-Encoder reranking provides direct links to the code and trained models:
 
-| Project / Resource                                         | Type                             | Link                                                                                                            | Source |
-| :--------------------------------------------------------- | :------------------------------- | :-------------------------------------------------------------------------------------------------------------- | :----- |
-| **Training and Evaluation Code** (Cross-Encoder Reranking) | GitHub Repository                | `https://github.com/skfrost19/Cross-Encoder-Lion-vs-AdamW`                                                      |        |
-| **Trained Models** (Cross-Encoder Reranking)               | Huggingface Model Hub Collection | `https://huggingface.co/collections/skfrost19/rerenkers-681320776cfb45e44b18f5f1`                               |        |
-| **PySerini**                                               | Information Retrieval Software   | `https://github.com/usnistgov/trec eval` (implied via the mention of `trec eval` and the link provided for it), |
-| **trec eval**                                              | Evaluation Software              | `https://github.com/usnistgov/trec eval`                                                                        | ,      |
-| **Weights & Biases (W&B)**                                 | Experiment Tracking Software     | `https://www.wandb.com/`                                                                                        |        |
+| Project / Resource                                                                                                              | Type                             |
+| :------------------------------------------------------------------------------------------------------------------------------ | :------------------------------- |
+| [**Training and Evaluation Code** (Cross-Encoder Reranking)](https://github.com/skfrost19/Cross-Encoder-Lion-vs-AdamW)          | GitHub Repository                |
+| [**Trained Models** (Cross-Encoder Reranking)](https://huggingface.co/collections/skfrost19/rerenkers-681320776cfb45e44b18f5f1) | Huggingface Model Hub Collection |
+| [**PySerini**](https://github.com/usnistgov/trec_eval) (implied via the mention of `trec eval` and the link provided for it)    | Information Retrieval Software   |
+| [**trec eval**](https://github.com/usnistgov/trec_eval)                                                                         | Evaluation Software              |
+| [**Weights & Biases (W&B)**](https://www.wandb.com/)                                                                            | Experiment Tracking Software     |
 
-### II. Code and Models for General/Next-Generation BERT Models
+## 8. Code and Models for General/Next-Generation BERT Models
 
 The paper introducing NeoBERT explicitly releases its implementation to foster reproducible research:
 
-| Project / Resource                       | Type                    | Link                                         | Source |
-| :--------------------------------------- | :---------------------- | :------------------------------------------- | :----- |
-| **NeoBERT Checkpoints and Model**        | Hugging Face Repository | `https://huggingface.co/chandar-lab/NeoBERT` | ,      |
-| **NeoBERT Code, Data, Training Scripts** | GitHub Repository       | `https://github.com/chandar-lab/NeoBERT`     | ,      |
+| Project / Resource                                                                 | Type                    |
+| :--------------------------------------------------------------------------------- | :---------------------- |
+| [**NeoBERT Checkpoints and Model**](https://huggingface.co/chandar-lab/NeoBERT)    | Hugging Face Repository |
+| [**NeoBERT Code, Data, Training Scripts**](https://github.com/chandar-lab/NeoBERT) | GitHub Repository       |
 
 The research introducing a Japanese ModernBERT model also provides links to its resources:
 
-| Project / Resource                          | Type                    | Link                                                    | Source |
-| :------------------------------------------ | :---------------------- | :------------------------------------------------------ | :----- |
-| **`llm-jp-modernbert-base` Model**          | Hugging Face Repository | `https://huggingface.co/llm-jp/ llm-jp-modernbert-base` | ,      |
-| **Training and Evaluation Code**            | GitHub Repository       | `https://github.com/llm-jp/ llm-jp-modernbert`          | ,      |
-| **Tokenizer Code** (Modified for the model) | GitHub Repository       | `https://github.com/llm-jp/llm-jp-tokenizer`            |        |
+| Project / Resource                                                                         | Type                    |
+| :----------------------------------------------------------------------------------------- | :---------------------- |
+| [**`llm-jp-modernbert-base` Model**](https://huggingface.co/llm-jp/llm-jp-modernbert-base) | Hugging Face Repository |
+| [**Training and Evaluation Code**](https://github.com/llm-jp/llm-jp-modernbert)            | GitHub Repository       |
+| [**Tokenizer Code** (Modified for the model)](https://github.com/llm-jp/llm-jp-tokenizer)  | GitHub Repository       |
 
 ### III. Code for Online Handwriting Recognition Tools
 
 The review on advances in online handwritten recognition lists several open-source resources and device-specific information:
 
-| Project / Resource                             | Type                                    | Link                                                               | Source |
-| :--------------------------------------------- | :-------------------------------------- | :----------------------------------------------------------------- | :----- |
-| **Lipi Toolkit (LipiTk)** Datasets/Information | Open-source HWR Toolkit (HP Labs India) | `http://lipitk.sourceforge.net/hpl-datasets.htm`                   | ,      |
-| **UNIPEN** (Data Exchange Standard)            | Standards Organization/Information      | `http://www.unipen.org/index.html`                                 | ,      |
-| **IAPR TC-11 Dataset** (Online Devanagari)     | Dataset Download                        | `http://www.iapr-tc11.org`                                         |        |
-| **Assamese Handwritten Digits dataset**        | IEEE Dataport                           | `https://ieee-dataport.org/documents/assamese-handw ritten-digits` |        |
+| Project / Resource                                                                                         | Type                                    |
+| :--------------------------------------------------------------------------------------------------------- | :-------------------------------------- |
+| [**Lipi Toolkit (LipiTk)** Datasets/Information](http://lipitk.sourceforge.net/hpl-datasets.htm)           | Open-source HWR Toolkit (HP Labs India) |
+| [**UNIPEN** (Data Exchange Standard)](http://www.unipen.org/index.html)                                    | Standards Organization/Information      |
+| [**IAPR TC-11 Dataset** (Online Devanagari)](http://www.iapr-tc11.org)                                     | Dataset Download                        |
+| [**Assamese Handwritten Digits dataset**](https://ieee-dataport.org/documents/assamese-handwritten-digits) | IEEE Dataport                           |
 
-### IV. Commercial/Application-Related Links
+## 9. Commercial/Application-Related Links
 
 While typically used for commercial software or models, these links reference tools that implement text and handwriting recognition capabilities:
 
