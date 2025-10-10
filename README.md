@@ -500,13 +500,13 @@ Purpose: Focus on discriminative kanji stroke patterns, suppress noise
 #### **Architecture Comparison:**
 
 | Component             | Original Model  | **Current Model (v2.0)** |
-| --------------------- | --------------- | ------------------------- |
-| **Conv Layers**       | 4 layers        | **5 layers**              |
-| **Channels**          | 1→32→64→128→256 | **1→32→64→128→256→512**   |
-| **Attention**         | None            | **3 SENet modules**       |
-| **Classifier**        | 256→512→3036    | **512→1024→3036**         |
-| **Parameters**        | ~1.7M           | **~3.9M**                 |
-| **Expected Accuracy** | 85%             | **90-92%**                |
+| --------------------- | --------------- | ------------------------ |
+| **Conv Layers**       | 4 layers        | **5 layers**             |
+| **Channels**          | 1→32→64→128→256 | **1→32→64→128→256→512**  |
+| **Attention**         | None            | **3 SENet modules**      |
+| **Classifier**        | 256→512→3036    | **512→1024→3036**        |
+| **Parameters**        | ~1.7M           | **~3.9M**                |
+| **Expected Accuracy** | 85%             | **90-92%**               |
 
 ### Model Specifications
 
@@ -612,12 +612,12 @@ All generated model files follow a consistent naming pattern that includes:
 
 ### Examples:
 
-| File                                                     | Purpose                                 |
-| -------------------------------------------------------- | --------------------------------------- |
-| `kanji_model_etl9g_64x64_3036classes_tract.onnx`         | ONNX model for Tract backend            |
-| `kanji_model_etl9g_64x64_3036classes.safetensors`        | SafeTensors model format                |
-| `kanji_etl9g_mapping.json`                      | Character mapping with Unicode |
-| `kanji_model_etl9g_64x64_3036classes_tract_mapping.json` | Basic class-to-JIS mapping              |
+| File                                                     | Purpose                        |
+| -------------------------------------------------------- | ------------------------------ |
+| `kanji_model_etl9g_64x64_3036classes_tract.onnx`         | ONNX model for Tract backend   |
+| `kanji_model_etl9g_64x64_3036classes.safetensors`        | SafeTensors model format       |
+| `kanji_etl9g_mapping.json`                               | Character mapping with Unicode |
+| `kanji_model_etl9g_64x64_3036classes_tract_mapping.json` | Basic class-to-JIS mapping     |
 
 This naming ensures you can easily identify model configurations and avoid confusion during deployment.
 
@@ -775,6 +775,7 @@ python scripts/preflight_check.py
 **Purpose**: Ensures all dependencies are installed and the system is ready for training.
 
 **Checks**:
+
 - Python packages availability
 - ETL9G data files presence
 - System resources (RAM, GPU)
@@ -793,8 +794,9 @@ python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --s
 ```
 
 **Parameters**:
+
 - `--etl-dir`: Directory containing ETL9G files
-- `--output-dir`: Output directory for processed dataset  
+- `--output-dir`: Output directory for processed dataset
 - `--size`: Target image size (default: 64x64 pixels)
 - `--workers`: Number of parallel workers (default: auto)
 
@@ -809,6 +811,7 @@ python scripts/test_etl9g_setup.py --data-dir dataset --test-model
 **Purpose**: Validates dataset preparation and model architecture before full training.
 
 **Outputs**:
+
 - Dataset statistics and sample visualization
 - Model architecture verification
 - Character mapping analysis
@@ -830,6 +833,7 @@ python scripts/train_etl9g_model.py --data-dir dataset --epochs 30 --batch-size 
 ```
 
 **Key Parameters**:
+
 - `--data-dir`: Directory containing prepared dataset
 - `--epochs`: Number of training epochs (default: 30)
 - `--batch-size`: Training batch size (default: 64)
@@ -855,6 +859,7 @@ python scripts/convert_to_onnx.py --model-path best_kanji_model.pth --pooling-ty
 ```
 
 **Parameters**:
+
 - `--model-path`: Path to trained model (default: best_kanji_model.pth)
 - `--target-backend`: Backend (tract, ort-tract, strict)
 - `--pooling-type`: Pooling configuration (adaptive_avg, adaptive_max, etc.)
@@ -876,6 +881,7 @@ python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth --out
 ```
 
 **Parameters**:
+
 - `--model-path`: Path to trained model
 - `--output-path`: Output SafeTensors file (auto-generated if not specified)
 - `--verify`: Verify the converted model
@@ -894,6 +900,7 @@ python scripts/generate_mapping.py
 **Purpose**: Generates comprehensive character mappings for web deployment.
 
 **Outputs**:
+
 - Mapping with Unicode characters
 - Stroke count information
 - Character statistics
@@ -909,6 +916,7 @@ python scripts/inspect_onnx_model.py
 **Purpose**: Analyzes ONNX models for backend compatibility and operations used.
 
 **Features**:
+
 - Lists all operations in the model
 - Identifies problematic operations
 - Shows pooling operation details
@@ -1249,7 +1257,7 @@ This demonstrates that **data quantity is critical** for deep learning success, 
 | File                                                     | Size   | Purpose                                   |
 | -------------------------------------------------------- | ------ | ----------------------------------------- |
 | **`kanji_model_etl9g_64x64_3036classes_tract.onnx`**     | 6.6 MB | 🎯 **Main ONNX model for web deployment** |
-| **`kanji_etl9g_mapping.json`**                  | 0.3 MB | 🗾 **Character mappings**        |
+| **`kanji_etl9g_mapping.json`**                           | 0.3 MB | 🗾 **Character mappings**                 |
 | **`kanji_model_etl9g_64x64_3036classes.safetensors`**    | 6.6 MB | 🔒 **Secure SafeTensors format**          |
 | `kanji_model_etl9g_64x64_3036classes_tract_mapping.json` | 0.5 MB | Basic class-to-JIS mappings               |
 | `best_kanji_model.pth`                                   | 6.6 MB | PyTorch checkpoint (training backup)      |
