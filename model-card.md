@@ -289,7 +289,7 @@ This carbon footprint estimate is calculated using:
    - European Grid: 0.345 kg CO2 (276g CO2/kWh)
    - With Renewable Energy: 0.051 kg CO2 (41g CO2/kWh)
 
-**Note**: These are estimates based on system specifications. For precise measurements, use tools like [CodeCarbon](https://codecarbon.io/) during actual training.
+**Note**: These are estimates based on system specifications. For precise measurements, use tools like [CodeCarbon](https://codecarbon.io/) during actual training. #2
 
 ### Environmental Impact Comparison
 
