@@ -25,6 +25,41 @@ Several techniques improve efficiency by decomposing characters, which aids in h
 
 Efficiency can also be achieved by designing compressed network architectures that minimize parameters and computational load, particularly in the critical classification layer.
 
+### RNN-Based Approaches for Kanji Recognition
+
+Several research findings indicate that **Recurrent Neural Networks (RNNs)** can be highly effective for kanji recognition, particularly when combined with other techniques:
+
+1.  **Radical-level RNN Encoding**: The research by Ke & Hagiwara (2017) demonstrates that **bi-directional RNN document feature encoders** combined with CNN word feature encoders achieve cost-effective kanji recognition with 90% smaller vocabulary and 13-91% fewer parameters compared to traditional character/word embedding approaches.
+
+2.  **Sequential Stroke Processing**: RNNs are naturally suited for processing **stroke sequences** in handwritten kanji, as they can model the temporal dependencies between strokes. This approach aligns with how humans write kanji characters - stroke by stroke in a specific order.
+
+3.  **Hierarchical RNN-CNN Hybrid**: The research shows that combining CNN feature extraction with RNN sequence modeling creates an efficient hybrid architecture where:
+    - **CNN layers** extract spatial features from character images
+    - **RNN layers** process temporal or structural sequences (stroke order, radical decomposition)
+    - **Attention mechanisms** can focus on important character components
+
+4.  **Memory Efficiency**: RNNs, especially **LSTM** and **GRU** variants, can process variable-length sequences while maintaining compact model sizes, making them suitable for deployment scenarios.
+
+### Potential RNN Implementation Strategies:
+
+- **Stroke-based RNN**: Process kanji as sequences of strokes with coordinate information
+- **Radical-sequence RNN**: Decompose characters into radical sequences and process with bidirectional RNNs
+- **Multi-modal RNN**: Combine visual features from CNN with sequential features from RNN
+- **Attention-enhanced RNN**: Use attention mechanisms to focus on important character parts
+
+### CNN vs RNN Comparison for Kanji Recognition:
+
+| Aspect                    | CNN Approach | RNN Approach | Hybrid CNN-RNN  |
+| ------------------------- | ------------ | ------------ | --------------- |
+| **Spatial Features**      | ✅ Excellent | ❌ Limited   | ✅ Best of both |
+| **Temporal/Sequential**   | ❌ Limited   | ✅ Excellent | ✅ Best of both |
+| **Parameter Efficiency**  | Medium       | ✅ High      | Medium-High     |
+| **Stroke Order Modeling** | ❌ No        | ✅ Yes       | ✅ Yes          |
+| **Deployment Size**       | ~15MB        | ~5-10MB      | ~10-20MB        |
+| **Training Complexity**   | Medium       | Medium       | High            |
+
+### Traditional CNN and Deep Learning Architectures
+
 1.  **[HierCode (Hierarchical Multi-hot Encoding)](https://huggingface.co/papers/2025.0001.00002):** This method proposes a novel and **lightweight hierarchical codebook** named HierCode, which uses a multi-hot encoding strategy to represent Han-based scripts (HierCode: A lightweight hierarchical codebook for zero-shot Chinese text recognition, Zhang, Zhu, Peng, et al., 2025).
     - Traditional one-hot encoding introduces extremely large classification layers that constitute over 60% of a model's total parameters, posing a significant barrier to deployment (HierCode: A lightweight hierarchical codebook for zero-shot Chinese text recognition, Zhang, Zhu, Peng, et al., 2025).
     - HierCode overcomes this limitation by significantly **reducing the number of parameters** in the classification layer (HierCode: A lightweight hierarchical codebook for zero-shot Chinese text recognition, Zhang, Zhu, Peng, et al., 2025).

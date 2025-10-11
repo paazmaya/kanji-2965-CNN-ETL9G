@@ -2,6 +2,8 @@
 
 This project trains a Lightweight [Convolutional Neural Network (CNN)](https://learnopencv.com/understanding-convolutional-neural-networks-cnn/) with **SENet-style channel attention** for Japanese kanji character recognition using the ETL9G dataset.
 
+![Training statistics](./training_comparison_comprehensive.png)
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -38,6 +40,29 @@ Details at http://etlcdb.db.aist.go.jp/database-development/#ETL9
 Downloaded from http://etlcdb.db.aist.go.jp/download-links/
 
 Data set definition http://etlcdb.db.aist.go.jp/etlcdb/etln/form_e9g.htm
+
+## Alternative RNN Approach
+
+This project also includes RNN-based models as an alternative to the CNN approach:
+
+```bash
+# Train basic RNN model
+python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type basic_rnn
+
+# Train stroke-based RNN model
+python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type stroke_rnn
+
+# Train hybrid CNN-RNN model
+python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type hybrid_cnn_rnn
+
+# Evaluate RNN models
+python scripts/rnn/evaluate_rnn_models.py --data-dir dataset --model-dir models
+
+# Deploy RNN model for inference
+python scripts/rnn/deploy_rnn_model.py --model-path models/rnn/best_hybrid_model.pth --model-type hybrid_cnn_rnn --image test.png
+```
+
+See [scripts/rnn/README.md](scripts/rnn/README.md) for detailed RNN documentation.
 
 ## Quick Start
 
