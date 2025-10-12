@@ -43,6 +43,8 @@ Data set definition http://etlcdb.db.aist.go.jp/etlcdb/etln/form_e9g.htm
 
 ## Alternative RNN Approach
 
+![RNN stats](./hybrid_cnn_rnn_training_curves_corrected.png)
+
 This project also includes RNN-based models as an alternative to the CNN approach:
 
 ```bash
@@ -989,6 +991,8 @@ python scripts/example_safetensors_usage.py
 **Purpose**: Example code for integrating SafeTensors models in applications.
 
 #### 13. `codecarbon_integration_guide.py` - CodeCarbon Integration
+
+#2
 
 Guide and example for integrating CodeCarbon emission tracking.
 
