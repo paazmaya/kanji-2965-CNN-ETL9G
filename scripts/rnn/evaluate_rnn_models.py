@@ -4,25 +4,24 @@ RNN Model Evaluation and Comparison
 Provides tools for evaluating and comparing RNN models with the existing CNN model.
 """
 
-import torch
-import torch.nn as nn
-import numpy as np
 import argparse
 import json
+
+# Import existing CNN model for comparison
+import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List
+
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+import torch
+import torch.nn as nn
+from rnn_model import create_rnn_model
 from torch.utils.data import DataLoader
 
 # Import RNN components
 from train_rnn_model import RNNKanjiDataset, collate_fn_factory
-from rnn_model import create_rnn_model
-
-# Import existing CNN model for comparison
-import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
 

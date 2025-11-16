@@ -11,7 +11,6 @@ Implements various RNN-based approaches:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Optional, List
 
 
 class KanjiRNN(nn.Module):

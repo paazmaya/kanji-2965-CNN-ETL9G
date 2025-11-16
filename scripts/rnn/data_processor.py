@@ -7,14 +7,13 @@ Handles conversion of kanji images to various sequential representations:
 3. Spatial sequences (for hybrid models)
 """
 
-import torch
-import numpy as np
-from typing import List, Tuple, Dict, Optional, Any
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import cv2
-from sklearn.cluster import KMeans
-import pickle
+import numpy as np
+import torch
 
 
 class StrokeSequenceProcessor:
@@ -188,7 +187,7 @@ class RadicalSequenceProcessor:
 
     def load_radical_vocab(self, vocab_path: Path):
         """Load radical vocabulary from file."""
-        with open(vocab_path, "r", encoding="utf-8") as f:
+        with open(vocab_path, encoding="utf-8") as f:
             vocab_data = json.load(f)
 
         self.radical_to_idx = vocab_data["radical_to_idx"]

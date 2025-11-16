@@ -4,24 +4,24 @@ RNN Model Deployment and Inference
 Provides tools for deploying trained RNN models and performing inference on new kanji images.
 """
 
-import torch
-import torch.nn as nn
-import numpy as np
 import argparse
 import json
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Any, Dict, List, Tuple
+
 import cv2
-from PIL import Image
+import numpy as np
+import torch
+import torch.nn as nn
+from data_processor import (
+    RadicalSequenceProcessor,
+    SpatialSequenceProcessor,
+    StrokeSequenceProcessor,
+)
 
 # Import RNN components
 from rnn_model import create_rnn_model
-from data_processor import (
-    StrokeSequenceProcessor,
-    RadicalSequenceProcessor,
-    SpatialSequenceProcessor,
-)
 
 
 class KanjiRNNInference:
@@ -300,7 +300,7 @@ def main():
 
     if args.compare_models and args.model_config:
         # Model comparison mode
-        with open(args.model_config, "r") as f:
+        with open(args.model_config) as f:
             model_configs = json.load(f)
 
         comparator = ModelComparisonInference(model_configs, device)
@@ -359,7 +359,7 @@ def main():
             total_time = sum(time for _, time in results)
             avg_time = total_time / len(results) if results else 0
 
-            print(f"\nBatch Results:")
+            print("\nBatch Results:")
             print(f"Total time: {total_time * 1000:.1f}ms")
             print(f"Average time per image: {avg_time * 1000:.1f}ms")
 

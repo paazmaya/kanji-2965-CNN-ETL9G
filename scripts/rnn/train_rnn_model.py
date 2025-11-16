@@ -8,30 +8,30 @@ Supports training various RNN architectures:
 4. Hybrid CNN-RNN
 """
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
-import numpy as np
 import argparse
 import json
-import time
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
 import logging
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
-# Import our RNN models and data processors
-from rnn_model import create_rnn_model
-from data_processor import (
-    StrokeSequenceProcessor,
-    RadicalSequenceProcessor,
-    SpatialSequenceProcessor,
-)
 
 # Import existing data utilities (assuming they exist in parent directory)
 import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, Tuple
+
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from data_processor import (
+    RadicalSequenceProcessor,
+    SpatialSequenceProcessor,
+    StrokeSequenceProcessor,
+)
+
+# Import our RNN models and data processors
+from rnn_model import create_rnn_model
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 sys.path.append(str(Path(__file__).parent.parent))
 from train_etl9g_model import load_chunked_dataset
@@ -49,9 +49,9 @@ class RNNKanjiDataset(Dataset):
         self.transform = transform
 
         # Load metadata and character mapping
-        with open(self.data_dir / "metadata.json", "r", encoding="utf-8") as f:
+        with open(self.data_dir / "metadata.json", encoding="utf-8") as f:
             self.metadata = json.load(f)
-        
+
         self.num_classes = self.metadata["num_classes"]
         self.class_to_jis = self.metadata["class_to_jis"]
 
@@ -79,7 +79,7 @@ class RNNKanjiDataset(Dataset):
         # Get image and label
         image = self.X[idx].reshape(self.image_size, self.image_size)  # Reshape from flattened
         label = self.y[idx]
-        
+
         # Get character from class index
         character = self.class_to_jis.get(str(label), f"UNK_{label}")
 
