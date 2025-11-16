@@ -124,7 +124,9 @@ def export_to_onnx(
         return None
 
     if not ONNXRUNTIME_AVAILABLE:
-        print("⚠️  ONNX/ONNXRuntime not available. Install with: pip install onnx onnxruntime")
+        print(
+            "⚠️  ONNX/ONNXRuntime not available. Install with: uv pip install onnx onnxruntime-gpu"
+        )
         return None
 
     print(f"Loading model from {model_path}...")

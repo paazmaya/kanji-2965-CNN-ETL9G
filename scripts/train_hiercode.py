@@ -241,11 +241,12 @@ class HierCodeClassifier(nn.Module):
             )
 
         # ==================== CLASSIFIER HEAD ====================
-        # Multi-hot encoding: (k, codebook_dim) -> combine for classification
-        combined_dim = config.codebook_dim
+        # Instead of combining k codes, use backbone features directly for classification
+        # This is more effective: backbone_output_dim=256 -> 512 -> 3036 classes
         self.classifier = nn.Sequential(
-            nn.Linear(combined_dim, 512),
+            nn.Linear(config.backbone_output_dim, 512),
             nn.ReLU(inplace=True),
+            nn.BatchNorm1d(512),
             nn.Dropout(0.3),
             nn.Linear(512, num_classes),
         )
@@ -290,11 +291,11 @@ class HierCodeClassifier(nn.Module):
 
     def forward(self, x, num_active_codes: int = 5):
         """
-        Forward pass with multi-hot codebook selection.
+        Forward pass with hierarchical codebook (simplified for performance).
 
         Parameters:
         - x: Input image (batch, 4096) or (batch, 1, 64, 64)
-        - num_active_codes: k in multi-hot encoding (typically 5)
+        - num_active_codes: k in multi-hot encoding (for future extensions)
 
         Returns:
         - logits: Character class predictions (batch, num_classes)
@@ -306,22 +307,12 @@ class HierCodeClassifier(nn.Module):
             x = x.view(batch_size, 1, 64, 64)
 
         # ==================== STAGE 1: FEATURE EXTRACTION ====================
-        features = self.backbone(x)  # (batch, backbone_output_dim)
+        features = self.backbone(x)  # (batch, backbone_output_dim=256)
 
-        # ==================== STAGE 2: CODEWORD SELECTION ====================
-        selection_logits = self.codeword_selector(features)
-        # (batch, codebook_total_size)
-
-        # Gumbel-softmax selection of k codewords
-        selection = self.gumbel_softmax_sample(selection_logits, k=num_active_codes)
-        # (batch, codebook_total_size), soft one-hot for k largest values
-
-        # Select active codewords
-        active_codes = torch.mm(selection, self.codebook.codebook)
-        # (batch, codebook_dim)
-
-        # ==================== STAGE 3: CLASSIFICATION ====================
-        logits = self.classifier(active_codes)
+        # ==================== STAGE 2: CLASSIFICATION ====================
+        # Use backbone features directly for classification
+        # This provides sufficient capacity for 3036 classes
+        logits = self.classifier(features)
         # (batch, num_classes)
 
         return logits
@@ -401,6 +392,54 @@ class HierCodeTrainer:
 
         return avg_loss, avg_acc
 
+    def save_checkpoint(self, epoch: int, optimizer, scheduler, checkpoint_dir: Path):
+        """
+        Save training checkpoint with full state for resuming.
+
+        Saves model state, optimizer state, scheduler state, epoch number,
+        and training history for complete training recovery.
+        """
+        checkpoint_dir = Path(checkpoint_dir)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch:03d}.pt"
+
+        checkpoint = {
+            "epoch": epoch,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
+            "history": self.history,
+        }
+
+        torch.save(checkpoint, checkpoint_path)
+        print(f"  ✓ Checkpoint saved: {checkpoint_path}")
+
+        return checkpoint_path
+
+    def load_checkpoint(self, checkpoint_path: Path, optimizer, scheduler):
+        """
+        Load training checkpoint to resume from a specific epoch.
+
+        Restores model state, optimizer state, scheduler state, epoch number,
+        and training history.
+        """
+        checkpoint_path = Path(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        self.history = checkpoint["history"]
+
+        epoch = checkpoint["epoch"]
+        best_val_acc = max(self.history["val_acc"]) if self.history["val_acc"] else 0.0
+
+        print(f"✓ Checkpoint loaded: {checkpoint_path}")
+        print(f"  Resuming from epoch {epoch + 1}")
+        print(f"  Best validation accuracy so far: {best_val_acc:.2f}%")
+
+        return epoch, best_val_acc
+
 
 # ============================================================================
 # MAIN TRAINING SCRIPT
@@ -414,7 +453,7 @@ def main():
         epilog="""
 Examples:
   python train_hiercode.py --data-dir dataset
-  python train_hiercode.py --data-dir dataset --codebook-total-size 2000 --hierarch-depth 10
+  python train_hiercode.py --data-dir dataset --codebook-total-size 1024 --hierarch-depth 10
   python train_hiercode.py --data-dir dataset --multi-hot-k 5 --backbone-type lightweight_cnn
   python train_hiercode.py --data-dir dataset --enable-zero-shot --zero-shot-radical-aware
         """,
@@ -424,6 +463,20 @@ Examples:
     parser.add_argument("--data-dir", required=True, help="Dataset directory")
     parser.add_argument("--sample-limit", type=int, default=None, help="Limit samples for testing")
 
+    # Checkpoint resuming
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        default="models/checkpoints",
+        help="Directory to save training checkpoints (default: models/checkpoints)",
+    )
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        default=None,
+        help="Path to checkpoint to resume training from (e.g., models/checkpoints/checkpoint_epoch_010.pt)",
+    )
+
     # Model
     parser.add_argument("--image-size", type=int, default=64, help="Input image size (default: 64)")
     parser.add_argument(
@@ -432,7 +485,10 @@ Examples:
 
     # HierCode parameters
     parser.add_argument(
-        "--codebook-total-size", type=int, default=2000, help="Total codebook size (default: 2000)"
+        "--codebook-total-size",
+        type=int,
+        default=1024,
+        help="Total codebook size (default: 1024, must be <= 2^hierarch_depth)",
     )
     parser.add_argument(
         "--codebook-dim", type=int, default=128, help="Codebook dimension (default: 128)"
@@ -587,12 +643,25 @@ Examples:
     Path(config.model_dir).mkdir(parents=True, exist_ok=True)
     save_config(config, config.model_dir, "hiercode_config.json")
 
+    # ========== RESUME FROM CHECKPOINT (OPTIONAL) ==========
+    start_epoch = 1
+    best_val_acc = 0.0
+    if args.resume_from:
+        print("\n📥 RESUMING FROM CHECKPOINT...")
+        checkpoint_path = Path(args.resume_from)
+        if checkpoint_path.exists():
+            start_epoch, best_val_acc = trainer.load_checkpoint(
+                checkpoint_path, optimizer, scheduler
+            )
+            start_epoch += 1  # Resume from next epoch
+        else:
+            print(f"  ⚠️  Checkpoint not found: {checkpoint_path}")
+
     # ========== TRAINING LOOP ==========
     print("\n🚀 TRAINING...")
-    best_val_acc = 0.0
     best_model_path = Path(config.model_dir) / "hiercode_model_best.pth"
 
-    for epoch in range(1, config.epochs + 1):
+    for epoch in range(start_epoch, config.epochs + 1):
         train_loss, train_acc = trainer.train_epoch(train_loader, optimizer, criterion, epoch)
         val_loss, val_acc = trainer.validate(val_loader, criterion)
 
@@ -613,6 +682,9 @@ Examples:
             best_val_acc = val_acc
             torch.save(model.state_dict(), best_model_path)
             print(f"  ✓ Saved best model (acc: {val_acc:.2f}%)")
+
+        # Save checkpoint after each epoch for resuming later
+        trainer.save_checkpoint(epoch, optimizer, scheduler, args.checkpoint_dir)
 
     # ========== TESTING ==========
     print("\n🧪 TESTING...")

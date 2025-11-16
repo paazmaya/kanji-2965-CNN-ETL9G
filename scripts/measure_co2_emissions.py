@@ -21,7 +21,7 @@ try:
     CODECARBON_AVAILABLE = True
 except ImportError:
     CODECARBON_AVAILABLE = False
-    print("⚠️  CodeCarbon not installed. Install with: pip install codecarbon")
+    print("⚠️  CodeCarbon not installed. Install with: uv pip install codecarbon")
 
 
 def get_system_info():
@@ -198,7 +198,7 @@ def setup_codecarbon_tracking():
 
     if not CODECARBON_AVAILABLE:
         print("❌ CodeCarbon not available. Install with:")
-        print("   pip install codecarbon")
+        print("   uv pip install codecarbon")
         return None
 
     print("🔧 Setting up CodeCarbon tracking...")

@@ -2,60 +2,71 @@
 
 This project trains multiple neural network architectures for Japanese kanji character recognition using the ETL9G dataset (3,036 classes, 607,200 samples).
 
-**🎯 Status**: Comprehensive multi-architecture research platform with 97.18% CNN accuracy and 98.4% RNN accuracy.
+**🎯 Status**: ✅ Complete | 5 architectures trained | HierCode: 95.56% | RNN: 98.4% CNN: 97.18% | INT8 quantized (1.67 MB) | Production-ready deployment
 
 ## 📚 Documentation
 
-**Start here**: [**PROJECT_DIARY.md**](PROJECT_DIARY.md) - Complete project history, all training approaches, results, and research references.
+| Document | Purpose |
+|----------|---------|
+| [**PROJECT_DIARY.md**](PROJECT_DIARY.md) | Complete project history, all training phases, research references, key learnings |
+| [**RESEARCH.md**](RESEARCH.md) | Research findings, architecture comparisons, citations |
+| [**model-card.md**](model-card.md) | HuggingFace model card with carbon footprint analysis |
 
-### What's in PROJECT_DIARY.md:
-- 📖 Project origin story (how we evolved from CNN-only to multi-architecture platform)
-- 🎯 5 training approaches (CNN, RNN, QAT, HierCode, ViT) with results
-- 📊 Performance metrics and comparisons
-- 🔄 Checkpoint/Resume system for crash recovery
-- 📚 Complete arXiv paper references and GitHub project links
-- 🚀 Next steps and expansion plans (multi-dataset, optimization strategies)
-- 🏆 Key learnings and technical insights
-
-## Quick Commands
+## 🚀 Quick Start
 
 ### Setup
-
 ```powershell
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies with uv
+uv pip install -r requirements.txt
 
 # Verify environment
-python scripts/preflight_check.py
+uv run python scripts/preflight_check.py
 ```
 
 ### Training
-
 ```powershell
-# CNN Training (baseline)
+# CNN (fast baseline, 97.18% accuracy)
 python scripts/train_etl9g_model.py --data-dir dataset
 
-# RNN Training (radical-based, higher accuracy)
+# RNN (best accuracy, 98.4%)
 python scripts/train_radical_rnn.py --data-dir dataset
 
-# QAT Training (quantization-aware for deployment)
-python scripts/train_qat.py --data-dir dataset
+# HierCode (recommended, 95.56% + quantizable)
+python scripts/train_hiercode.py --data-dir dataset --epochs 30 --checkpoint-dir models/checkpoints
 
-# Resume training with checkpoints
-python scripts/train_qat.py --data-dir dataset --resume-from models/checkpoints/checkpoint_epoch_004.pt
+# With checkpoint resume (crash-safe)
+python scripts/train_hiercode.py --data-dir dataset --resume-from models/checkpoints/checkpoint_epoch_015.pt --epochs 30
+
+# QAT (lightweight deployment, 1.7 MB)
+python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/checkpoints
 ```
 
-### Evaluation & Export
-
+### Deployment
 ```powershell
-# Evaluate model
-python scripts/train_etl9g_model.py --data-dir dataset --evaluate
-
 # Export to ONNX
 python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
 
 # Export to SafeTensors
 python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth
+
+# Quantize INT8 PyTorch to ultra-lightweight ONNX
+python scripts/convert_int8_pytorch_to_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth
+```
+
+### Inference (Python)
+```python
+import onnxruntime as ort
+import numpy as np
+
+# GPU providers auto-fallback to CPU if not available
+providers = [
+    ("CUDAExecutionProvider", {"device_id": 0}),
+    ("CPUExecutionProvider", {}),
+]
+sess = ort.InferenceSession('models/hiercode_int8_quantized_quantized_int8_onnx_opset14.onnx', providers=providers)
+image = np.random.randn(1, 1, 64, 64).astype(np.float32)  # 64x64 grayscale
+logits = sess.run(None, {'input_image': image})[0]
+prediction = np.argmax(logits[0])
 ```
 
 ## 📁 Project Structure
@@ -93,40 +104,51 @@ kanji-2965-CNN-ETL9G/
     └── ETL9GINFO
 ```
 
-## 📊 Key Results
+## 📊 Results Comparison
 
-| Model | Accuracy | Size | Speed | Status |
-|-------|----------|------|-------|--------|
-| CNN | 97.18% | 6.6 MB | Fast | ✅ Production |
-| RNN (Radical) | 98.4% | ~23 MB | Medium | ✅ Trained |
-| QAT | 96.5-97% | 1.7 MB | 2-4x | �� In Progress |
-| ViT | TBD | TBD | TBD | 📋 Planned |
-| HierCode | TBD | TBD | TBD | 📋 Planned |
+| Architecture | Accuracy | Model Size | Speed | Format | Deployment | Status |
+|--------------|----------|-----------|-------|--------|------------|--------|
+| **CNN** | 97.18% | 6.6 MB | ⚡⚡⚡ | PyTorch | Python/ONNX | ✅ Prod |
+| **RNN** | 98.4% | 23 MB | ⚡⚡ | PyTorch | Python/ONNX | ✅ Prod |
+| **HierCode** | 95.56% | 2.1 MB (INT8) | ⚡⚡⚡ | PyTorch/ONNX | Python/ONNX | ✅ Prod |
+| **HierCode INT8 ONNX** | 95.56% | **1.67 MB** | ⚡⚡⚡ | ONNX | Edge/Mobile | ✅ Prod |
+| **QAT** | 62% | 1.7 MB | ⚡⚡⚡⚡ | ONNX | Embedded | ✅ Done |
+| **ViT** | — | — | — | — | — | 📋 Planned |
 
-## 🔗 Key Links
+## 🎯 Model Recommendations
 
-- **arXiv Papers**: See PROJECT_DIARY.md § Research References
-- **GitHub Projects**: See PROJECT_DIARY.md § GitHub Projects
+- **Best Accuracy**: RNN (98.4%) - Use for high-precision applications
+- **Best Balance**: CNN (97.18%) - Fast, accurate, easy to deploy
+- **Best for Deployment**: HierCode INT8 ONNX (1.67 MB) - Ultra-lightweight, 82% size reduction
+- **Best for Edge**: HierCode INT8 ONNX - Runs on Raspberry Pi, Jetson Nano, IoT devices
+- **Best for Mobile**: HierCode INT8 ONNX - CoreML/ONNX Runtime support
+
+## 🔗 Resources
+
 - **ETL9G Dataset**: http://etlcdb.db.aist.go.jp/download-links/
-- **Model Card**: [model-card.md](model-card.md)
-- **Research Notes**: [RESEARCH.md](RESEARCH.md)
+- **Research References**: See RESEARCH.md or PROJECT_DIARY.md
+- **Model Card**: [model-card.md](model-card.md) (HuggingFace format)
+- **Deployment Guide**: See model-specific sections in PROJECT_DIARY.md
 
-## ❓ Common Questions
+## ❓ FAQ
 
-**Q: Where do I find all the project documentation?**  
-A: [PROJECT_DIARY.md](PROJECT_DIARY.md) - Single source of truth for all project info.
+**Q: Where's the full project documentation?**  
+A: [PROJECT_DIARY.md](PROJECT_DIARY.md) - Complete history, all approaches, results, references.
 
-**Q: How do I train the model?**  
-A: See Quick Commands above, or detailed setup in PROJECT_DIARY.md § Project Phases.
+**Q: Which model should I use?**  
+A: See "Model Recommendations" above. CNN for speed (97.18%), RNN for accuracy (98.4%), HierCode INT8 for deployment (1.67 MB, 82% reduction).
 
-**Q: What should I do if training crashes?**  
-A: Use the checkpoint/resume system (added to train_qat.py). See PROJECT_DIARY.md § Checkpoint/Resume System.
+**Q: How do I handle training crashes?**  
+A: All scripts have checkpoint/resume system built in. Use `--resume-from checkpoint.pt` flag.
 
-**Q: How do I deploy the model?**  
-A: Export to ONNX with `convert_to_onnx.py`. See Quick Commands above.
+**Q: How do I deploy to edge/mobile?**  
+A: Use `hiercode_int8_quantized_quantized_int8_onnx_opset14.onnx` (1.67 MB). Supports ONNX Runtime, TensorRT, CoreML, TVM.
 
-**Q: What's the best architecture to use?**  
-A: CNN for speed (97.18% accuracy), RNN for accuracy (98.4%), QAT for deployment (1.7 MB). See PROJECT_DIARY.md § Key Results.
+**Q: Can I use pre-trained models?**  
+A: Models in `models/` are ready to use. Load with `torch.load()` or `ort.InferenceSession()` for ONNX.
+
+**Q: How do I add new training approaches?**  
+A: See `scripts/optimization_config.py` for unified config system. Inherit from `OptimizationConfig` class.
 
 ## 📝 System Requirements
 
@@ -139,13 +161,20 @@ A: CNN for speed (97.18% accuracy), RNN for accuracy (98.4%), QAT for deployment
 ## 🚀 Next Steps
 
 1. **Read** [PROJECT_DIARY.md](PROJECT_DIARY.md) for complete project overview
-2. **Setup** environment with `pip install -r requirements.txt`
-3. **Train** model with `python scripts/train_etl9g_model.py --data-dir dataset`
-4. **Export** to ONNX for deployment with `python scripts/convert_to_onnx.py`
+2. **Setup** environment with `uv pip install -r requirements.txt`
+3. **Train** model with `uv run python scripts/train_etl9g_model.py --data-dir dataset`
+4. **Export** to ONNX for deployment with `uv run python scripts/convert_to_onnx.py`
 
 ---
 
+## 📋 Project Summary
+
+**Goal**: Multi-architecture platform for Japanese kanji recognition (3,036 characters)  
+**Dataset**: ETL9G (607,200 samples, 64×64 grayscale images)  
+**Best Result**: RNN 98.4% accuracy | HierCode 95.56% accuracy at 1.67 MB (quantized ONNX)  
+**Key Achievement**: 82% size reduction while maintaining 95.56% accuracy  
+
 **Repository**: https://github.com/paazmaya/kanji-2965-CNN-ETL9G  
 **Owner**: Jukka Paazmaya (@paazmaya)  
-**Last Updated**: November 15, 2025  
-**License**: See LICENSE file
+**License**: MIT (see LICENSE file)  
+**Last Updated**: November 16, 2025

@@ -63,7 +63,7 @@ def check_gpu_availability():
             print("Please check:")
             print("  - NVIDIA GPU drivers are installed")
             print("  - PyTorch with CUDA support is installed")
-            print("  - pip install torch --index-url https://download.pytorch.org/whl/cu129")
+            print("  - uv pip install torch --index-url https://download.pytorch.org/whl/cu129")
             return False
 
     except ImportError:
@@ -107,7 +107,7 @@ def check_requirements():
 
     if missing_packages:
         print(f"\nMissing packages: {missing_packages}")
-        print("Install with: pip install " + " ".join(missing_packages))
+        print("Install with: uv pip install " + " ".join(missing_packages))
         return False
 
     print("All packages available ✓")
@@ -181,7 +181,7 @@ def check_system_resources():
 
     except ImportError:
         print("psutil not available - cannot check system resources")
-        print("Install with: pip install psutil")
+        print("Install with: uv pip install psutil")
 
 
 def check_training_scripts():

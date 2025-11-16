@@ -214,3 +214,4 @@ ETL9G/
 *.onnx
 *.ckpt
 *.safetensors
+models/

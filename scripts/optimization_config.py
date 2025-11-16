@@ -167,8 +167,9 @@ class HierCodeConfig(OptimizationConfig):
 
     # ========== HIERCODE SPECIFIC PARAMETERS ==========
     # HierCode uses hierarchical binary tree encoding and multi-hot representation
+    # NOTE: codebook_total_size MUST be <= 2^hierarch_depth (number of leaf nodes)
 
-    codebook_total_size: int = 2000  # Total codebook entries across hierarchy
+    codebook_total_size: int = 1024  # Total codebook entries (must be <= 2^hierarch_depth)
     codebook_dim: int = 128  # Dimension of codebook vectors
     hierarch_depth: int = 10  # Depth of binary tree (2^10 = 1024 leaf nodes)
 
