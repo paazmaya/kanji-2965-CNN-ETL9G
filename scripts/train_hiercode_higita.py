@@ -72,14 +72,52 @@ class HiGITAConfig:
 
 
 def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
-    """Load ETL9G dataset from preprocessed chunks"""
-    print(f"Loading ETL9G dataset from {data_dir}...")
+    """Load ETLCDB dataset from preprocessed chunks.
+    Auto-detects: combined_all_etl > etl9g > etl8g > etl7 > etl6 > etl1"""
+    print(f"Loading dataset from {data_dir}...")
 
     data_dir = Path(data_dir)
-    chunk_files = sorted(data_dir.glob("etl9g_dataset_chunk_*.npz"))
 
-    if not chunk_files:
-        raise FileNotFoundError(f"No chunk files found in {data_dir}")
+    # Priority order for dataset selection
+    dataset_priority = [
+        "combined_all_etl",
+        "etl9g",
+        "etl8g",
+        "etl7",
+        "etl6",
+        "etl1",
+    ]
+
+    # Find the best available dataset
+    selected_dataset = None
+    for dataset_name in dataset_priority:
+        dataset_subdir = data_dir / dataset_name
+        if dataset_subdir.exists():
+            chunk_files = sorted(dataset_subdir.glob(f"{dataset_name}_dataset_chunk_*.npz"))
+            if not chunk_files:
+                # Try without "_dataset" part
+                chunk_files = sorted(dataset_subdir.glob(f"{dataset_name}_chunk_*.npz"))
+            if chunk_files:
+                selected_dataset = dataset_name
+                print(f"🔍 Auto-detected dataset: {dataset_name}")
+                break
+
+    if selected_dataset is None:
+        # Check legacy flat structure
+        chunk_files = sorted(data_dir.glob("etl9g_dataset_chunk_*.npz"))
+        if chunk_files:
+            selected_dataset = "legacy"
+            print("🔍 Auto-detected legacy dataset structure")
+        else:
+            raise FileNotFoundError(f"No chunk files found in {data_dir}")
+    
+    if selected_dataset == "legacy":
+        chunk_files = sorted(data_dir.glob("etl9g_dataset_chunk_*.npz"))
+    else:
+        dataset_subdir = data_dir / selected_dataset
+        chunk_files = sorted(dataset_subdir.glob(f"{selected_dataset}_dataset_chunk_*.npz"))
+        if not chunk_files:
+            chunk_files = sorted(dataset_subdir.glob(f"{selected_dataset}_chunk_*.npz"))
 
     images_list = []
     labels_list = []
@@ -87,8 +125,17 @@ def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.n
 
     for chunk_file in chunk_files:
         chunk = np.load(chunk_file)
-        images = chunk["images"]  # (N, 64, 64)
-        labels = chunk["labels"]  # (N,)
+        
+        # Handle both key formats: (images, labels) or (X, y)
+        if "images" in chunk:
+            images = chunk["images"]  # (N, 64, 64)
+            labels = chunk["labels"]  # (N,)
+        else:
+            images = chunk["X"]  # Flattened (N, 4096)
+            labels = chunk["y"]  # (N,)
+            # Reshape if flattened
+            if images.ndim == 2 and images.shape[1] == 4096:
+                images = images.reshape(-1, 64, 64)
 
         # Load subset if limit specified
         if limit and total_samples + len(images) > limit:

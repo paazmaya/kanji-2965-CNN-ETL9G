@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""
+Integration template for loading multi-ETLCDB datasets in training scripts
+
+Use this as a reference for updating your existing training scripts.
+"""
+
+import json
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
+
+
+def load_etl_dataset(
+    dataset_path: str | Path, dataset_name: Optional[str] = None
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+    """
+    Load processed ETLCDB dataset (single or combined)
+
+    Args:
+        dataset_path: Path to processed dataset directory
+        dataset_name: Optional specific dataset to load (e.g., "etl9g")
+
+    Returns:
+        X: Features (N, 4096) - 64x64 grayscale images flattened
+        y: Labels (N,) - class indices
+        metadata: Dataset metadata dict
+    """
+    dataset_path = Path(dataset_path)
+
+    # Find the dataset directory
+    if dataset_name:
+        target_dir = dataset_path / dataset_name.lower()
+    else:
+        # Use parent if dataset_path is the actual dataset dir
+        if (dataset_path / "metadata.json").exists():
+            target_dir = dataset_path
+        else:
+            # Find first subdirectory with metadata
+            subdirs = [d for d in dataset_path.iterdir() if d.is_dir()]
+            for subdir in subdirs:
+                if (subdir / "metadata.json").exists():
+                    target_dir = subdir
+                    break
+            else:
+                raise FileNotFoundError(f"No dataset found in {dataset_path}")
+
+    # Load metadata
+    metadata_file = target_dir / "metadata.json"
+    if not metadata_file.exists():
+        raise FileNotFoundError(f"Metadata not found in {target_dir}")
+
+    with open(metadata_file) as f:
+        metadata = json.load(f)
+
+    print(f"\n{'=' * 60}")
+    print(f"Loading Dataset: {metadata.get('dataset_name', 'Unknown')}")
+    print(f"{'=' * 60}")
+    print(f"Total classes: {metadata['num_classes']}")
+    print(f"Total samples: {metadata['total_samples']}")
+    print(f"Image size: {metadata.get('target_size', 64)}×{metadata.get('target_size', 64)}")
+
+    if "dataset_info" in metadata:
+        info = metadata["dataset_info"]
+        print(f"Source: {info.get('source', 'Unknown')}")
+        print(f"Description: {info.get('description', 'N/A')}")
+
+    if "datasets_combined" in metadata:
+        print(f"Combined from: {', '.join(metadata['datasets_combined'])}")
+
+    print(f"{'=' * 60}\n")
+
+    # Load data chunks
+    X_chunks = []
+    y_chunks = []
+
+    chunk_files = sorted(target_dir.glob("*_chunk_*.npz"))
+
+    if not chunk_files:
+        # Try single file
+        single_file = list(target_dir.glob("*_dataset.npz"))
+        if single_file:
+            chunk_files = single_file
+
+    if not chunk_files:
+        raise FileNotFoundError(f"No dataset chunks found in {target_dir}")
+
+    print(f"Loading {len(chunk_files)} chunk file(s)...")
+    for chunk_file in chunk_files:
+        print(f"  Loading {chunk_file.name}...")
+        data = np.load(chunk_file)
+        X_chunks.append(data["X"])
+        y_chunks.append(data["y"])
+
+    # Concatenate chunks
+    X = np.vstack(X_chunks)
+    y = np.concatenate(y_chunks)
+
+    # Reshape X if needed (should be flat 4096 for 64x64 images)
+    if X.ndim == 1 or X.shape[-1] != 4096:
+        target_size = metadata.get("target_size", 64)
+        expected_features = target_size * target_size
+        if X.shape[-1] != expected_features:
+            print(f"Warning: Expected {expected_features} features, got {X.shape[-1]}")
+
+    print(f"Data loaded: X shape = {X.shape}, y shape = {y.shape}")
+    print(f"Feature range: [{X.min():.3f}, {X.max():.3f}]")
+    print(f"Class range: [{y.min()}, {y.max()}]")
+
+    return X, y, metadata
+
+
+# Example usage in training scripts:
+"""
+# OLD CODE (ETL9G only):
+# =====================
+def main():
+    args = parse_args()
+    X = np.load(f"{args.data_dir}/etl9g_dataset.npz")["X"]
+    y = np.load(f"{args.data_dir}/etl9g_dataset.npz")["y"]
+    num_classes = 3036
+
+# NEW CODE (Multi-ETLCDB compatible):
+# ===================================
+def main():
+    args = parse_args()
+    
+    # Load dataset (works with single or combined)
+    X, y, metadata = load_etl_dataset(args.data_dir)
+    num_classes = metadata["num_classes"]
+    
+    # Rest of training code remains the same!
+    train_model(X, y, num_classes=num_classes)
+"""
+
+
+def load_combined_etl_datasets(
+    dataset_path: str | Path, *dataset_names: str
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+    """
+    Load and combine multiple pre-processed ETLCDB datasets
+
+    Useful if you want to load already-combined datasets or combine multiple
+    datasets on-the-fly during training.
+
+    Args:
+        dataset_path: Path containing processed datasets
+        *dataset_names: Names of datasets to combine (e.g., "etl8g", "etl9g")
+
+    Returns:
+        X: Combined features
+        y: Combined labels (with updated class indices)
+        metadata: Combined metadata
+    """
+    dataset_path = Path(dataset_path)
+
+    all_X = []
+    all_y = []
+    all_metadata = []
+    current_class_offset = 0
+
+    for dataset_name in dataset_names:
+        print(f"\nLoading {dataset_name}...")
+
+        X, y, metadata = load_etl_dataset(dataset_path, dataset_name)
+
+        # Offset class indices to avoid conflicts
+        y_offset = y + current_class_offset
+
+        all_X.append(X)
+        all_y.append(y_offset)
+        all_metadata.append(metadata)
+
+        # Update offset for next dataset
+        current_class_offset += metadata["num_classes"]
+
+    # Combine all data
+    X_combined = np.vstack(all_X)
+    y_combined = np.concatenate(all_y)
+
+    # Create combined metadata
+    combined_metadata = {
+        "dataset_name": f"combined_{len(dataset_names)}",
+        "num_classes": current_class_offset,
+        "total_samples": len(X_combined),
+        "datasets_combined": list(dataset_names),
+        "source_metadata": all_metadata,
+    }
+
+    print(f"\n{'=' * 60}")
+    print("Combined Dataset Created")
+    print(f"{'=' * 60}")
+    print(f"Total classes: {combined_metadata['num_classes']}")
+    print(f"Total samples: {combined_metadata['total_samples']}")
+    print(f"{'=' * 60}\n")
+
+    return X_combined, y_combined, combined_metadata
+
+
+# Quick-start configurations
+DATASET_CONFIGS = {
+    "baseline": {
+        "description": "Original ETL9G dataset (current setup)",
+        "datasets": ["etl9g"],
+        "num_classes": 3036,
+        "samples": 607200,
+    },
+    "enhanced_kanji": {
+        "description": "ETL8G + ETL9G for better kanji coverage",
+        "datasets": ["etl8g", "etl9g"],
+        "num_classes": 3900,
+        "samples": 760000,
+    },
+    "comprehensive": {
+        "description": "All kanji + hiragana + katakana datasets",
+        "datasets": ["etl6", "etl7", "etl8g", "etl9g"],
+        "num_classes": 4000,
+        "samples": 975000,
+    },
+    "all_etl": {
+        "description": "All available ETLCDB datasets",
+        "datasets": ["etl1", "etl2", "etl3", "etl4", "etl5", "etl6", "etl7", "etl8g", "etl9g"],
+        "num_classes": 5000,
+        "samples": 1357000,
+    },
+}
+
+
+def get_dataset_config(config_name: str = "baseline") -> Dict[str, Any]:
+    """Get predefined dataset configuration"""
+    if config_name not in DATASET_CONFIGS:
+        available = ", ".join(DATASET_CONFIGS.keys())
+        raise ValueError(f"Unknown config: {config_name}. Available: {available}")
+
+    return DATASET_CONFIGS[config_name]
+
+
+def main_example():
+    """Example usage"""
+
+    # Method 1: Load pre-combined dataset
+    print("\n--- Method 1: Load Pre-Combined Dataset ---")
+    X, y, metadata = load_etl_dataset("dataset/processed/kanji_etl89_combined")
+    print(f"Loaded: {metadata['dataset_name']}")
+    print(f"Shape: X={X.shape}, y={y.shape}, classes={metadata['num_classes']}\n")
+
+    # Method 2: Load specific single dataset
+    print("--- Method 2: Load Single Dataset ---")
+    X_single, y_single, meta_single = load_etl_dataset("dataset/processed", dataset_name="etl9g")
+    print(f"Loaded: {meta_single['dataset_name']}")
+    print(f"Shape: X={X_single.shape}, y={y_single.shape}\n")
+
+    # Method 3: Get dataset configuration
+    print("--- Method 3: Use Predefined Configs ---")
+    config = get_dataset_config("enhanced_kanji")
+    print(f"Config: {config['description']}")
+    print(f"Datasets: {config['datasets']}")
+    print(f"Expected samples: {config['samples']:,}\n")
+
+
+if __name__ == "__main__":
+    main_example()

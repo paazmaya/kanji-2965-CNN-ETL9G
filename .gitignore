@@ -207,11 +207,11 @@ marimo/_lsp/
 __marimo__/
 
 # Training
-dataset/
-ETL9G/
+dataset*
+ETL*/
 *.pth
 *.json
 *.onnx
 *.ckpt
 *.safetensors
-models/
+models*

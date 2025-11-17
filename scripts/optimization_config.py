@@ -302,6 +302,7 @@ class ETL9GDataset(Dataset):
 def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load dataset from chunks if available, otherwise load single file.
+    Auto-detects: combined_all_etl > etl9g > etl8g > etl7 > etl6 > etl1
 
     Args:
         data_dir: Directory containing dataset chunks
@@ -312,11 +313,40 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     data_path = Path(data_dir)
 
-    # Check if chunked dataset exists
-    chunk_info_path = data_path / "chunk_info.json"
-    if chunk_info_path.exists():
-        print("Loading chunked dataset...")
-        with open(chunk_info_path) as f:
+    # Priority order for dataset selection
+    dataset_priority = [
+        "combined_all_etl",
+        "etl9g",
+        "etl8g",
+        "etl7",
+        "etl6",
+        "etl1",
+    ]
+
+    # Find the best available dataset
+    selected_dataset = None
+    for dataset_name in dataset_priority:
+        chunk_info_path = data_path / dataset_name / "chunk_info.json"
+        if chunk_info_path.exists():
+            selected_dataset = dataset_name
+            print(f"🔍 Auto-detected dataset: {dataset_name}")
+            break
+
+    if selected_dataset is None:
+        # Check for legacy flat structure (backwards compatibility)
+        chunk_info_path = data_path / "chunk_info.json"
+        if chunk_info_path.exists():
+            selected_dataset = "legacy"
+            print("🔍 Auto-detected legacy dataset structure")
+        else:
+            raise FileNotFoundError(
+                f"No dataset found in {data_path}. Available datasets should have chunk_info.json"
+            )
+
+    if selected_dataset == "legacy":
+        # Legacy flat structure
+        print("Loading legacy chunked dataset...")
+        with open(data_path / "chunk_info.json") as f:
             chunk_info = json.load(f)
 
         all_X = []
@@ -335,11 +365,44 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
         print(f"✓ Total samples loaded: {len(X)}")
         return X, y
     else:
-        # Load single file
-        print("Loading single dataset file...")
-        dataset = np.load(data_path / "etl9g_dataset.npz")
-        print(f"✓ Loaded {len(dataset['X'])} samples")
-        return dataset["X"], dataset["y"]
+        # New directory structure
+        dataset_dir = data_path / selected_dataset
+        chunk_info_path = dataset_dir / "chunk_info.json"
+
+        if chunk_info_path.exists():
+            print(f"Loading {selected_dataset} dataset from chunks...")
+            with open(chunk_info_path) as f:
+                chunk_info = json.load(f)
+
+            all_X = []
+            all_y = []
+
+            for i in range(chunk_info["num_chunks"]):
+                chunk_file = dataset_dir / f"{selected_dataset}_chunk_{i:02d}.npz"
+                if chunk_file.exists():
+                    chunk = np.load(chunk_file)
+                    all_X.append(chunk["X"])
+                    all_y.append(chunk["y"])
+                    print(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
+                else:
+                    print(f"  ⚠️  Missing chunk {i:02d}, continuing...")
+
+            X = np.concatenate(all_X, axis=0) if all_X else np.array([])
+            y = np.concatenate(all_y, axis=0) if all_y else np.array([])
+            print(f"✓ Total samples loaded: {len(X)}")
+            return X, y
+        else:
+            # Try single file
+            single_file = dataset_dir / f"{selected_dataset}_dataset.npz"
+            if single_file.exists():
+                print(f"Loading {selected_dataset} dataset from single file...")
+                dataset = np.load(single_file)
+                print(f"✓ Loaded {len(dataset['X'])} samples")
+                return dataset["X"], dataset["y"]
+            else:
+                raise FileNotFoundError(
+                    f"No valid dataset files found in {dataset_dir}"
+                )
 
 
 def create_data_loaders(

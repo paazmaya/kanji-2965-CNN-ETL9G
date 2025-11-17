@@ -6,27 +6,27 @@ This directory contains RNN-based implementations for kanji recognition as an al
 
 1. **Train a basic RNN model:**
 ```bash
-python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type basic_rnn --epochs 50
+uv run python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type basic_rnn --epochs 50
 ```
 
 2. **Train a stroke-based RNN model:**
 ```bash
-python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type stroke_rnn --epochs 50
+uv run python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type stroke_rnn --epochs 50
 ```
 
 3. **Train a hybrid CNN-RNN model:**
 ```bash
-python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type hybrid_cnn_rnn --epochs 50
+uv run python scripts/rnn/train_rnn_model.py --data-dir dataset --model-type hybrid_cnn_rnn --epochs 50
 ```
 
 4. **Evaluate trained models:**
 ```bash
-python scripts/rnn/evaluate_rnn_models.py --data-dir dataset --model-dir models
+uv run python scripts/rnn/evaluate_rnn_models.py --data-dir dataset --model-dir models
 ```
 
 5. **Perform inference:**
 ```bash
-python scripts/rnn/deploy_rnn_model.py --model-path models/rnn/best_hybrid_cnn_rnn_model.pth --model-type hybrid_cnn_rnn --image path/to/kanji.png
+uv run python scripts/rnn/deploy_rnn_model.py --model-path models/rnn/best_hybrid_cnn_rnn_model.pth --model-type hybrid_cnn_rnn --image path/to/kanji.png
 ```
 
 ## Model Types
@@ -72,7 +72,7 @@ python scripts/rnn/deploy_rnn_model.py --model-path models/rnn/best_hybrid_cnn_r
 
 ### Basic Training
 ```bash
-python scripts/rnn/train_rnn_model.py \
+uv run python scripts/rnn/train_rnn_model.py \
     --data-dir dataset \
     --model-type basic_rnn \
     --batch-size 32 \
@@ -82,7 +82,7 @@ python scripts/rnn/train_rnn_model.py \
 
 ### Advanced Training with Hyperparameter Tuning
 ```bash
-python scripts/rnn/train_rnn_model.py \
+uv run python scripts/rnn/train_rnn_model.py \
     --data-dir dataset \
     --model-type hybrid_cnn_rnn \
     --batch-size 64 \
@@ -99,7 +99,7 @@ python scripts/rnn/train_rnn_model.py \
 
 ### Single Model Evaluation
 ```bash
-python scripts/rnn/evaluate_rnn_models.py \
+uv run python scripts/rnn/evaluate_rnn_models.py \
     --data-dir dataset \
     --model-dir models/rnn \
     --batch-size 32 \
@@ -109,7 +109,7 @@ python scripts/rnn/evaluate_rnn_models.py \
 ### Model Comparison
 ```bash
 # Compare multiple models
-python scripts/rnn/deploy_rnn_model.py \
+uv run python scripts/rnn/deploy_rnn_model.py \
     --compare-models \
     --model-config model_comparison_config.json \
     --image test_kanji.png
@@ -200,7 +200,7 @@ For detailed research background and methodology comparison, see the main projec
 ### CUDA Out of Memory
 ```bash
 # Reduce memory usage
-python scripts/rnn/train_rnn_model.py \
+uv run python scripts/rnn/train_rnn_model.py \
     --data-dir dataset \
     --model-type basic_rnn \
     --batch-size 8 \

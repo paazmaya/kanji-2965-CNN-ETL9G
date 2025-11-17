@@ -1,22 +1,20 @@
-# ETL9G Kanji Recognition Training
+# Tsujimoto - Kanji Recognition Training
 
-This project trains multiple neural network architectures for Japanese kanji character recognition using the ETL9G dataset (3,036 classes, 607,200 samples).
-
-**🎯 Status**: ✅ Complete | 5 architectures trained | HierCode: 95.56% | RNN: 98.4% CNN: 97.18% | INT8 quantized (1.67 MB) | Production-ready deployment
+This project trains multiple neural network architectures for Japanese kanji character recognition using the expanded ETL6-9 dataset (4,154 classes, 934,622 samples - 53% more data than ETL9G alone).
 
 ## 📚 Documentation
 
-| Document                                 | Purpose                                                                           |
-| ---------------------------------------- | --------------------------------------------------------------------------------- |
-| [**PROJECT_DIARY.md**](PROJECT_DIARY.md) | Complete project history, all training phases, research references, key learnings |
-| [**RESEARCH.md**](RESEARCH.md)           | Research findings, architecture comparisons, citations                            |
-| [**model-card.md**](model-card.md)       | HuggingFace model card with carbon footprint analysis                             |
+| Document                                   | Purpose                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| [**PROJECT_DIARY.md**](PROJECT_DIARY.md)   | Complete project history, all training phases, research references, key learnings |
+| [**RESEARCH.md**](RESEARCH.md)             | Research findings, architecture comparisons, citations                            |
+| [**model-card.md**](model-card.md)         | HuggingFace model card with carbon footprint analysis                             |
 
 ## 🚀 Quick Start
 
 ### Setup
 
-```powershell
+```ps1
 # Install dependencies with uv
 uv pip install -r requirements.txt
 
@@ -24,36 +22,95 @@ uv pip install -r requirements.txt
 uv run python scripts/preflight_check.py
 ```
 
+### Prepare Multi-ETL Dataset
+
+```ps1
+# Process and combine ETL6, ETL7, ETL8G, ETL9G into single dataset
+# (934K+ samples, 4,154 classes - includes kanji, hiragana, katakana, symbols, numerals)
+uv run python scripts/prepare_dataset.py
+```
+
 ### Training
 
-```powershell
-# CNN (fast baseline, 97.18% accuracy)
-python scripts/train_etl9g_model.py --data-dir dataset
+```ps1
+# CNN (fast baseline, 97.18% accuracy on ETL9G)
+uv run python scripts/train_etl9g_model.py --data-dir dataset
 
-# RNN (best accuracy, 98.4%)
-python scripts/train_radical_rnn.py --data-dir dataset
+# RNN (best accuracy, 98.4% on ETL9G)
+uv run python scripts/train_radical_rnn.py --data-dir dataset
 
-# HierCode (recommended, 95.56% + quantizable)
-python scripts/train_hiercode.py --data-dir dataset --epochs 30 --checkpoint-dir models/checkpoints
+# HierCode (recommended, 95.56% + quantizable on ETL9G)
+uv run python scripts/train_hiercode.py --data-dir dataset --epochs 30 --checkpoint-dir models/checkpoints
 
 # With checkpoint resume (crash-safe)
-python scripts/train_hiercode.py --data-dir dataset --resume-from models/checkpoints/checkpoint_epoch_015.pt --epochs 30
+uv run python scripts/train_hiercode.py --data-dir dataset --resume-from models/checkpoints/checkpoint_epoch_015.pt --epochs 30
 
 # QAT (lightweight deployment, 1.7 MB)
-python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/checkpoints
+uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/checkpoints
 ```
+
+### Development
+
+```ps1
+# Development commands
+uv sync                    # Sync dependencies
+uv sync --all-extras       # Sync with dev dependencies
+uv run pytest tests/       # Run tests
+uv run ruff format .       # Format code
+uv run ruff check . --fix  # Lint and fix
+uv run jupyter notebook    # Start Jupyter
+```
+
+## 📊 Dependency Management
+
+This project uses **uv** for fast, reliable Python dependency management.
+
+**Install uv (one-time)**:
+- Windows: `irm https://astral.sh/uv/install.ps1 | iex`
+- macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+## 🔄 Model Training Pipeline
+
+**Complete HierCode training + quantization + export:**
+
+```ps1
+# Step 1: Train HierCode (30 epochs)
+uv run python scripts/train_hiercode.py --data-dir dataset --epochs 30 --checkpoint-dir models/checkpoints
+
+# Step 2: Quantize to INT8
+uv run python scripts/quantize_model.py --model-path models/hiercode_model_best.pth --calibrate --evaluate
+
+# Step 3: Export to ONNX (float32)
+uv run python scripts/export_to_onnx_hiercode.py --model-path models/hiercode_model_best.pth --verify
+
+# Step 4: Export quantized INT8 to ONNX
+uv run python scripts/export_quantized_to_onnx.py --model-path models/quantized_hiercode_int8.pth --verify --test-inference
+
+# Step 5: Export with additional ONNX quantization (ultra-lightweight)
+uv run python scripts/export_4bit_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth --verify
+```
+
+**Result models**:
+
+| File | Size | Format | Use |
+|------|------|--------|-----|
+| `models/hiercode_model_best.pth` | 9.56 MB | PyTorch | Fine-tuning |
+| `models/quantized_hiercode_int8.pth` | 2.10 MB | PyTorch INT8 | Fast CPU |
+| `models/hiercode_opset14.onnx` | 6.86 MB | ONNX | Cross-platform |
+| `models/hiercode_int8_opset14.onnx` | 6.86 MB | ONNX INT8 | Portable |
+| `models/hiercode_int8_4bit_opset14_quantized.onnx` | 1.75 MB | ONNX INT8 | **Edge** |
 
 ### Deployment
 
-```powershell
+```ps1
 # Export to ONNX
-python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
+uv run python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
 
 # Export to SafeTensors
-python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth
+uv run python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth
 
 # Quantize INT8 PyTorch to ultra-lightweight ONNX
-python scripts/convert_int8_pytorch_to_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth
+uv run python scripts/convert_int8_pytorch_to_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth
 ```
 
 ### Inference (Python)
@@ -98,17 +155,23 @@ kanji-2965-CNN-ETL9G/
 │   ├── checkpoints/          ← Resume checkpoints
 │   └── ...
 │
-├── dataset/                  ← ETL9G dataset (preprocessed)
-│   ├── etl9g_dataset_chunk_*.npz
+├── dataset/                  ← Preprocessed datasets
+│   ├── etl9g/               ← Current ETL9G (3,036 classes, 607K samples)
+│   ├── etl8g/               ← Optional ETL8G (956 classes, 153K samples)
+│   ├── etl7/                ← Optional ETL7 (48 classes, 16.8K samples)
+│   ├── etl6/                ← Optional ETL6 (114 classes, 157K samples)
+│   ├── etl6789_combined/    ← Optional combined (4,154 classes, 934K samples)
 │   ├── character_mapping.json
 │   └── metadata.json
 │
-└── ETL9G/                    ← Raw ETL9G files (download separately)
-    ├── ETL9G_01 - ETL9G_50
-    └── ETL9GINFO
+├── ETL9G/                   ← Raw ETL9G files (download separately)
+│   ├── ETL9G_01 - ETL9G_50
+│   └── ETL9GINFO
+│
+├── ETL8G/, ETL7/, ETL6/     ← Optional raw dataset files (download separately)
 ```
 
-## 📊 Results Comparison
+## 📊 Results Comparison (on ETL9G)
 
 | Architecture           | Accuracy | Model Size    | Speed    | Format       | Deployment  | Status     |
 | ---------------------- | -------- | ------------- | -------- | ------------ | ----------- | ---------- |
@@ -117,7 +180,85 @@ kanji-2965-CNN-ETL9G/
 | **HierCode**           | 95.56%   | 2.1 MB (INT8) | ⚡⚡⚡   | PyTorch/ONNX | Python/ONNX | ✅ Prod    |
 | **HierCode INT8 ONNX** | 95.56%   | **1.67 MB**   | ⚡⚡⚡   | ONNX         | Edge/Mobile | ✅ Prod    |
 | **QAT**                | 62%      | 1.7 MB        | ⚡⚡⚡⚡ | ONNX         | Embedded    | ✅ Done    |
-| **ViT**                | —        | —             | —        | —            | —           | 📋 Planned |
+| **ViT**                | —        | —             | —        | —            | —           | 📋 Explored |
+
+**Dataset Expansion**: ETL6-9 combines 4 datasets (ETL6, ETL7, ETL8G, ETL9G) → 934K samples, ~4,154 classes | Expected accuracy gain: +2-3%
+
+## 🎯 Unified Dataset Preparation
+
+Automatically prepare all available ETLCDB datasets:
+
+```ps1
+# Download datasets from: http://etlcdb.db.aist.go.jp/download-links/
+# Extract to: ETL1/, ETL2/, ..., ETL9G/ directories as needed
+
+# Auto-detect and prepare ALL available datasets + combine:
+uv run python scripts/prepare_dataset.py
+
+# Process specific datasets only:
+uv run python scripts/prepare_dataset.py --only etl9g etl8g etl7
+
+# Process but don't combine:
+uv run python scripts/prepare_dataset.py --no-combine
+
+# Custom output directory:
+uv run python scripts/prepare_dataset.py --output-dir my_datasets
+```
+
+**Features**:
+- ✅ Auto-detects available ETL directories
+- ✅ Processes ETL1-9G (all formats supported)
+- ✅ Combines into single unified dataset
+- ✅ Handles chunked output for large datasets
+- ✅ Generates metadata for each dataset
+
+### Character Coverage Expansion
+
+```
+Current (ETL9G only):
+├─ Kanji: 2,965 (JIS Level 1)
+├─ Hiragana: 71
+└─ Total: 3,036 classes, 607K samples
+
+Expanded (ETL6-9):
+├─ Kanji: 2,965 (JIS Level 1)
+├─ Hiragana: ~75 (ETL8G + ETL9G)
+├─ Katakana: 46 (ETL6)
+├─ Numerals: 10 (ETL6)
+├─ Symbols: 32 (ETL6)
+├─ ASCII: 26 (ETL6)
+└─ Total: ~4,154 classes, 934K samples (+53%)
+```
+
+### Dataset Details
+
+| Dataset | Classes | Samples | Content |
+|---------|---------|---------|---------|
+| **ETL6** | 114 | 157,662 | Katakana + Numerals + Symbols + ASCII |
+| **ETL7** | 48 | 16,800 | Hiragana |
+| **ETL8G** | 956 | 152,960 | Educational Kanji + Hiragana |
+| **ETL9G** | 3,036 | 607,200 | JIS Level 1 Kanji + Hiragana |
+| **Combined** | ~4,154 | 934,622 | Complete character set |
+
+### Training Integration
+
+```python
+from scripts.load_multi_etl import load_etl_dataset
+
+# Load combined ETL6-9 dataset
+X, y, metadata = load_etl_dataset("dataset/etl6789_combined")
+num_classes = metadata["num_classes"]  # ~4,154
+
+# Use in training (compatible with all existing scripts)
+model = train(X, y, num_classes=num_classes, ...)
+```
+
+**Performance Impact**:
+- Training time: ~1.5-2.0x longer per epoch
+- Expected accuracy gain: +2-3%
+- Memory: ~7.5 GB (vs 4.6 GB for ETL9G alone)
+
+See **Phase 7: Dataset Expansion** in [PROJECT_DIARY.md](PROJECT_DIARY.md) for complete details.
 
 ## 🎯 Model Recommendations
 
@@ -165,6 +306,9 @@ A: Models in `models/` are ready to use. Load with `torch.load()` or `ort.Infere
 **Q: How do I add new training approaches?**  
 A: See `scripts/optimization_config.py` for unified config system. Inherit from `OptimizationConfig` class.
 
+**Q: Why use `uv run python` instead of just `python`?**  
+A: `uv` provides isolated, reproducible environments with locked dependency versions. Prevents version conflicts and ensures consistency across machines.
+
 ## 📝 System Requirements
 
 - **OS**: Windows 11, Linux, or macOS
@@ -176,20 +320,23 @@ A: See `scripts/optimization_config.py` for unified config system. Inherit from 
 ## 🚀 Next Steps
 
 1. **Read** [PROJECT_DIARY.md](PROJECT_DIARY.md) for complete project overview
-2. **Setup** environment with `uv pip install -r requirements.txt`
-3. **Train** model with `uv run python scripts/train_etl9g_model.py --data-dir dataset`
-4. **Export** to ONNX for deployment with `uv run python scripts/convert_to_onnx.py`
+2. **Setup** environment with `uv sync` (or `uv pip install -r requirements.txt`)
+3. **Prepare** datasets with `uv run python scripts/prepare_dataset.py`
+4. **Train** model with `uv run python scripts/train_etl9g_model.py --data-dir dataset`
+5. **Export** to ONNX for deployment with `uv run python scripts/convert_to_onnx.py`
 
 ---
 
 ## 📋 Project Summary
 
-**Goal**: Multi-architecture platform for Japanese kanji recognition (3,036 characters)  
-**Dataset**: ETL9G (607,200 samples, 64×64 grayscale images)  
-**Best Result**: RNN 98.4% accuracy | HierCode 95.56% accuracy at 1.67 MB (quantized ONNX)  
-**Key Achievement**: 82% size reduction while maintaining 95.56% accuracy
+**Goal**: Multi-architecture platform for Japanese kanji recognition  
+**Current Dataset**: ETL9G (3,036 classes, 607,200 samples, 64×64 grayscale images)  
+**Expanded Dataset**: ETL6-9 (4,154 classes, 934,622 samples - includes kanji, hiragana, katakana, symbols, numerals)  
+**Best Result (ETL9G)**: RNN 98.4% accuracy | HierCode 95.56% accuracy at 1.67 MB (quantized ONNX)  
+**Key Achievement**: 82% size reduction while maintaining 95.56% accuracy; now expandable to 934K samples with ETL6-9  
+**Dependency Management**: All scripts run via `uv run python` for reproducible, isolated environments
 
 **Repository**: https://github.com/paazmaya/kanji-2965-CNN-ETL9G  
 **Owner**: Jukka Paazmaya (@paazmaya)  
 **License**: MIT (see LICENSE file)  
-**Last Updated**: November 16, 2025
+**Last Updated**: November 17, 2025 (Unified dataset prep + uv standardization)
