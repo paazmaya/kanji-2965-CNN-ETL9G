@@ -12,7 +12,7 @@ Reference: T2T-ViT 2021 (arXiv:2101.11986v3)
 import argparse
 import json
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -24,6 +24,12 @@ from optimization_config import (
     load_chunked_dataset,
     save_config,
 )
+
+# ============================================================================
+# MIXED PRECISION AUTOCAST
+# ============================================================================
+from torch.amp.autocast_mode import autocast
+from torch.amp.grad_scaler import GradScaler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -34,31 +40,10 @@ from tqdm import tqdm
 
 class TokensToTokens(nn.Module):
     """
-    Tokens-to-Token (T2T) module for progressive tokenization.
-
-    ==================== T2T-ViT THEORY ====================
-
-    Problem: ViT with fixed patch size (e.g., 8x8) may lose spatial information
-    Solution: Use progressive kernel application to create "soft" patches
-
-    Example (for 64x64 image with kernels [3,3,3]):
-    1. Apply 3x3 kernel: 64x64 -> 62x62 patches
-    2. Apply 3x3 kernel: 62x62 -> 60x60 patches
-    3. Apply 3x3 kernel: 60x60 -> 58x58 patches
-
-    Benefits:
-    1. Local structure preserved: Neighboring pixels affect same patch
-    2. Progressive: Creates semantic rather than fixed patches
-    3. Efficient: Fewer parameters than fixed large patches
-    4. Better for small images: 64x64 is small, benefits from local fusion
-
-    ==================== T2T PARAMETERS ====================
-
-    - kernel_sizes: List of kernel sizes for progressive application
-    - channels: Number of output channels at each stage
+    Tokens-to-Token (T2T) module - simplified for speed.
     """
 
-    def __init__(self, kernel_sizes: Tuple[int, ...] = (3, 3, 3)):
+    def __init__(self, kernel_sizes: Tuple[int, ...] = (3,)):
         super().__init__()
 
         self.kernel_sizes = kernel_sizes
@@ -66,9 +51,9 @@ class TokensToTokens(nn.Module):
 
         layers = []
         in_channels = 1
-        out_channels = 64
+        out_channels = 16
 
-        # Progressive kernel application
+        # Single-stage progression
         for i, kernel_size in enumerate(kernel_sizes):
             padding = kernel_size // 2
 
@@ -88,29 +73,17 @@ class TokensToTokens(nn.Module):
             )
 
             in_channels = out_channels
-            out_channels = out_channels * 2
 
         self.t2t_layers = nn.Sequential(*layers)
         self.output_channels = in_channels
 
     def forward(self, x):
-        # Input: (batch, 1, 64, 64)
         x = self.t2t_layers(x)
-        # Output: (batch, channels, 64, 64) after T2T processing
         return x
 
 
 class MultiHeadAttention(nn.Module):
-    """
-    Multi-Head Attention mechanism.
-
-    ==================== MULTI-HEAD ATTENTION ====================
-
-    - Parallel attention heads, each attending to different subspaces
-    - Concatenate outputs from all heads
-    - Scale by sqrt(head_dim) to stabilize gradients
-    - Softmax to get attention weights
-    """
+    """Multi-Head Attention - simplified for speed"""
 
     def __init__(self, embedding_dim: int, num_heads: int, dropout: float = 0.0):
         super().__init__()
@@ -132,21 +105,19 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x):
         batch_size, seq_len, _ = x.shape
 
-        # Linear projections: (batch, seq_len, embedding_dim) -> (batch, num_heads, seq_len, head_dim)
+        # Linear projections
         Q = self.query(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         K = self.key(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         V = self.value(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
 
         # Scaled dot-product attention
         scores = torch.matmul(Q, K.transpose(-2, -1)) * self.scale
-        # (batch, num_heads, seq_len, seq_len)
 
         attn_weights = torch.softmax(scores, dim=-1)
         attn_weights = self.dropout(attn_weights)
 
         # Apply attention to values
         attn_output = torch.matmul(attn_weights, V)
-        # (batch, num_heads, seq_len, head_dim)
 
         # Concatenate heads
         attn_output = attn_output.transpose(1, 2).contiguous()
@@ -252,7 +223,7 @@ class VisionTransformer(nn.Module):
         else:
             self.t2t = None
             num_patches = (64 // config.patch_size) ** 2
-            patch_embed_dim = 3 * (config.patch_size**2)
+            patch_embed_dim = 1 * (config.patch_size**2)  # 1 channel for grayscale kanji
 
         self.num_patches = num_patches
 
@@ -291,31 +262,21 @@ class VisionTransformer(nn.Module):
     def forward(self, x):
         batch_size = x.size(0)
 
-        # Reshape to image format if needed
-        if len(x.shape) == 2:
+        # Ensure image format: (batch, 1, 64, 64)
+        if x.dim() == 2:
             x = x.view(batch_size, 1, 64, 64)
 
         # ==================== T2T TOKENIZATION ====================
         if self.t2t is not None:
             x = self.t2t(x)
-            # (batch, channels, 64, 64)
 
         # ==================== PATCH EMBEDDING ====================
-        # Extract patches: (batch, 1, 64, 64) -> patches
         patches = self._get_patches(x)
-        # (batch, num_patches, patch_dim)
-
-        # Project patches to embedding space
         x = self.patch_embed(patches)
-        # (batch, num_patches, embedding_dim)
 
         # ==================== PREPEND CLASS TOKEN ====================
-        # Expand class token for batch
         class_tokens = self.class_token.expand(batch_size, -1, -1)
-        # (batch, 1, embedding_dim)
-
         x = torch.cat((class_tokens, x), dim=1)
-        # (batch, 1 + num_patches, embedding_dim)
 
         # ==================== ADD POSITIONAL EMBEDDINGS ====================
         x = x + self.pos_embed
@@ -325,17 +286,14 @@ class VisionTransformer(nn.Module):
 
         # ==================== EXTRACT CLASS TOKEN & CLASSIFY ====================
         class_token_output = x[:, 0]
-        # (batch, embedding_dim)
-
         x = self.norm(class_token_output)
         logits = self.classifier(x)
-        # (batch, num_classes)
 
         return logits
 
     def _get_patches(self, x):
         """
-        Extract non-overlapping patches from image.
+        Extract non-overlapping patches from image efficiently.
 
         Parameters:
         - x: (batch, channels, height, width)
@@ -344,22 +302,17 @@ class VisionTransformer(nn.Module):
         - patches: (batch, num_patches, patch_dim)
         """
         batch_size, channels, height, width = x.shape
-
-        # Reshape to patches
         patch_size = self.config.patch_size
-        num_patches_h = height // patch_size
-        num_patches_w = width // patch_size
 
-        # (batch, channels, num_patches_h, patch_size, num_patches_w, patch_size)
-        x = x.view(batch_size, channels, num_patches_h, patch_size, num_patches_w, patch_size)
+        # Use unfold for efficient patch extraction
+        # unfold(dimension, size, step) -> (batch, channels*patch_size*patch_size, num_patches)
+        patches = torch.nn.functional.unfold(x, kernel_size=patch_size, stride=patch_size)
+        # (batch, channels*patch_size*patch_size, num_patches)
 
-        # (batch, num_patches_h, num_patches_w, channels, patch_size, patch_size)
-        x = x.permute(0, 2, 4, 1, 3, 5).contiguous()
+        # Transpose to (batch, num_patches, channels*patch_size*patch_size)
+        patches = patches.transpose(1, 2).contiguous()
 
-        # (batch, num_patches_h * num_patches_w, channels * patch_size * patch_size)
-        x = x.view(batch_size, num_patches_h * num_patches_w, channels * patch_size * patch_size)
-
-        return x
+        return patches
 
 
 # ============================================================================
@@ -375,9 +328,11 @@ class ViTTrainer:
         self.config = config
         self.device = device
         self.history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
+        # GradScaler for mixed precision training stability
+        self.scaler: Optional[GradScaler] = GradScaler(device)
 
     def train_epoch(self, train_loader: DataLoader, optimizer, criterion, epoch: int):
-        """Train one epoch"""
+        """Train one epoch with mixed precision"""
         self.model.train()
         total_loss = 0.0
         correct = 0
@@ -385,16 +340,26 @@ class ViTTrainer:
 
         with tqdm(train_loader, desc=f"Epoch {epoch} Train") as pbar:
             for images, labels in pbar:
-                images = images.to(self.device)
-                labels = labels.to(self.device)
+                images = images.to(self.device, non_blocking=True)
+                labels = labels.to(self.device, non_blocking=True)
 
                 optimizer.zero_grad()
 
-                outputs = self.model(images)
-                loss = criterion(outputs, labels)
+                # Use mixed precision for faster computation
+                with autocast(self.device, dtype=torch.float16):
+                    outputs = self.model(images)
+                    loss = criterion(outputs, labels)
 
-                loss.backward()
-                optimizer.step()
+                # Scale loss for mixed precision
+                self.scaler.scale(loss).backward()
+
+                # Gradient clipping to prevent exploding gradients
+                self.scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+
+                # Optimizer step with scaled gradients
+                self.scaler.step(optimizer)
+                self.scaler.update()
 
                 total_loss += loss.item()
                 _, predicted = outputs.max(1)
@@ -419,11 +384,13 @@ class ViTTrainer:
 
         with torch.no_grad():
             for images, labels in val_loader:
-                images = images.to(self.device)
-                labels = labels.to(self.device)
+                images = images.to(self.device, non_blocking=True)
+                labels = labels.to(self.device, non_blocking=True)
 
-                outputs = self.model(images)
-                loss = criterion(outputs, labels)
+                # Mixed precision for validation too
+                with autocast(self.device, dtype=torch.float16):
+                    outputs = self.model(images)
+                    loss = criterion(outputs, labels)
 
                 total_loss += loss.item()
                 _, predicted = outputs.max(1)
@@ -448,11 +415,19 @@ def main():
         epilog="""
 Examples:
   python train_vit.py --data-dir dataset
-  python train_vit.py --data-dir dataset --embedding-dim 256 --num-heads 8
-  python train_vit.py --data-dir dataset --num-transformer-layers 12 --patch-size 8
+  python train_vit.py --data-dir dataset --embedding-dim 192 --num-heads 6
+  python train_vit.py --data-dir dataset --num-transformer-layers 8 --patch-size 4
   python train_vit.py --data-dir dataset --use-tokens-to-tokens --t2t-kernel-sizes 3,3,3
         """,
     )
+
+    # ========== PERFORMANCE OPTIMIZATION ==========
+    # Enable cuDNN benchmarking for faster convolutions
+    torch.backends.cudnn.benchmark = True
+
+    # Use TF32 for faster matrix multiplications (minimal precision loss)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
     # Dataset
     parser.add_argument("--data-dir", required=True, help="Dataset directory")
@@ -472,21 +447,21 @@ Examples:
         help="Patch size (default: 8, results in 64 patches for 64x64)",
     )
     parser.add_argument(
-        "--embedding-dim", type=int, default=256, help="Embedding dimension (default: 256)"
+        "--embedding-dim", type=int, default=64, help="Embedding dimension (default: 64)"
     )
 
     # Transformer parameters
     parser.add_argument(
-        "--num-heads", type=int, default=8, help="Number of attention heads (default: 8)"
+        "--num-heads", type=int, default=2, help="Number of attention heads (default: 2)"
     )
     parser.add_argument(
         "--num-transformer-layers",
         type=int,
-        default=12,
-        help="Number of transformer layers (default: 12)",
+        default=2,
+        help="Number of transformer layers (default: 2)",
     )
     parser.add_argument(
-        "--mlp-dim", type=int, default=1024, help="MLP hidden dimension (default: 1024)"
+        "--mlp-dim", type=int, default=256, help="MLP hidden dimension (default: 256)"
     )
 
     # T2T parameters
@@ -500,7 +475,7 @@ Examples:
     )
 
     # Dropout
-    parser.add_argument("--dropout", type=float, default=0.1, help="Dropout rate (default: 0.1)")
+    parser.add_argument("--dropout", type=float, default=0.05, help="Dropout rate (default: 0.05)")
     parser.add_argument(
         "--attention-dropout", type=float, default=0.0, help="Attention dropout rate (default: 0.0)"
     )
@@ -509,12 +484,15 @@ Examples:
     parser.add_argument(
         "--epochs", type=int, default=30, help="Total training epochs (default: 30)"
     )
-    parser.add_argument("--batch-size", type=int, default=64, help="Batch size (default: 64)")
+    parser.add_argument("--batch-size", type=int, default=256, help="Batch size (default: 256)")
     parser.add_argument(
-        "--learning-rate", type=float, default=0.001, help="Initial learning rate (default: 0.001)"
+        "--learning-rate",
+        type=float,
+        default=0.0005,
+        help="Initial learning rate (default: 0.0005)",
     )
     parser.add_argument(
-        "--weight-decay", type=float, default=1e-5, help="L2 regularization (default: 1e-5)"
+        "--weight-decay", type=float, default=1e-4, help="L2 regularization (default: 1e-4)"
     )
 
     # Optimizer & scheduler

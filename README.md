@@ -6,15 +6,16 @@ This project trains multiple neural network architectures for Japanese kanji cha
 
 ## 📚 Documentation
 
-| Document | Purpose |
-|----------|---------|
+| Document                                 | Purpose                                                                           |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
 | [**PROJECT_DIARY.md**](PROJECT_DIARY.md) | Complete project history, all training phases, research references, key learnings |
-| [**RESEARCH.md**](RESEARCH.md) | Research findings, architecture comparisons, citations |
-| [**model-card.md**](model-card.md) | HuggingFace model card with carbon footprint analysis |
+| [**RESEARCH.md**](RESEARCH.md)           | Research findings, architecture comparisons, citations                            |
+| [**model-card.md**](model-card.md)       | HuggingFace model card with carbon footprint analysis                             |
 
 ## 🚀 Quick Start
 
 ### Setup
+
 ```powershell
 # Install dependencies with uv
 uv pip install -r requirements.txt
@@ -24,6 +25,7 @@ uv run python scripts/preflight_check.py
 ```
 
 ### Training
+
 ```powershell
 # CNN (fast baseline, 97.18% accuracy)
 python scripts/train_etl9g_model.py --data-dir dataset
@@ -42,6 +44,7 @@ python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/checkpoin
 ```
 
 ### Deployment
+
 ```powershell
 # Export to ONNX
 python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
@@ -54,6 +57,7 @@ python scripts/convert_int8_pytorch_to_quantized_onnx.py --model-path models/qua
 ```
 
 ### Inference (Python)
+
 ```python
 import onnxruntime as ort
 import numpy as np
@@ -106,14 +110,14 @@ kanji-2965-CNN-ETL9G/
 
 ## 📊 Results Comparison
 
-| Architecture | Accuracy | Model Size | Speed | Format | Deployment | Status |
-|--------------|----------|-----------|-------|--------|------------|--------|
-| **CNN** | 97.18% | 6.6 MB | ⚡⚡⚡ | PyTorch | Python/ONNX | ✅ Prod |
-| **RNN** | 98.4% | 23 MB | ⚡⚡ | PyTorch | Python/ONNX | ✅ Prod |
-| **HierCode** | 95.56% | 2.1 MB (INT8) | ⚡⚡⚡ | PyTorch/ONNX | Python/ONNX | ✅ Prod |
-| **HierCode INT8 ONNX** | 95.56% | **1.67 MB** | ⚡⚡⚡ | ONNX | Edge/Mobile | ✅ Prod |
-| **QAT** | 62% | 1.7 MB | ⚡⚡⚡⚡ | ONNX | Embedded | ✅ Done |
-| **ViT** | — | — | — | — | — | 📋 Planned |
+| Architecture           | Accuracy | Model Size    | Speed    | Format       | Deployment  | Status     |
+| ---------------------- | -------- | ------------- | -------- | ------------ | ----------- | ---------- |
+| **CNN**                | 97.18%   | 6.6 MB        | ⚡⚡⚡   | PyTorch      | Python/ONNX | ✅ Prod    |
+| **RNN**                | 98.4%    | 23 MB         | ⚡⚡     | PyTorch      | Python/ONNX | ✅ Prod    |
+| **HierCode**           | 95.56%   | 2.1 MB (INT8) | ⚡⚡⚡   | PyTorch/ONNX | Python/ONNX | ✅ Prod    |
+| **HierCode INT8 ONNX** | 95.56%   | **1.67 MB**   | ⚡⚡⚡   | ONNX         | Edge/Mobile | ✅ Prod    |
+| **QAT**                | 62%      | 1.7 MB        | ⚡⚡⚡⚡ | ONNX         | Embedded    | ✅ Done    |
+| **ViT**                | —        | —             | —        | —            | —           | 📋 Planned |
 
 ## 🎯 Model Recommendations
 
@@ -129,6 +133,17 @@ kanji-2965-CNN-ETL9G/
 - **Research References**: See RESEARCH.md or PROJECT_DIARY.md
 - **Model Card**: [model-card.md](model-card.md) (HuggingFace format)
 - **Deployment Guide**: See model-specific sections in PROJECT_DIARY.md
+
+## 📖 Related Papers (Building on HierCode)
+
+Recent research (2022-2025) extends HierCode with improved techniques:
+
+- **Hi-GITA** (2505.24837, May 2025): Hierarchical multi-granularity image-text alignment, 20% improvement
+- **RZCR** (2207.05842, July 2022): Knowledge graph reasoning over radicals
+- **STAR** (2210.08490, October 2022): Stroke + radical level decompositions
+- **MegaHan97K** (2506.04807, June 2025): 97K character benchmark dataset
+
+See [PROJECT_DIARY.md](PROJECT_DIARY.md) Phase 6 for detailed analysis and integration opportunities.
 
 ## ❓ FAQ
 
@@ -172,7 +187,7 @@ A: See `scripts/optimization_config.py` for unified config system. Inherit from 
 **Goal**: Multi-architecture platform for Japanese kanji recognition (3,036 characters)  
 **Dataset**: ETL9G (607,200 samples, 64×64 grayscale images)  
 **Best Result**: RNN 98.4% accuracy | HierCode 95.56% accuracy at 1.67 MB (quantized ONNX)  
-**Key Achievement**: 82% size reduction while maintaining 95.56% accuracy  
+**Key Achievement**: 82% size reduction while maintaining 95.56% accuracy
 
 **Repository**: https://github.com/paazmaya/kanji-2965-CNN-ETL9G  
 **Owner**: Jukka Paazmaya (@paazmaya)  

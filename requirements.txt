@@ -1,12 +1,12 @@
 # ETL9G Kanji Recognition Training Requirements
 # Windows 11 + PowerShell + NVIDIA GPU
-# Install with: pip install -r requirements.txt
+# Install with: uv pip install -r requirements.txt
 
 # Core ML framework with CUDA support
 torch>=2.0.0
 torchvision>=0.15.0
 # Note: Install PyTorch with CUDA using:
-# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
+# uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 
 # Data processing and utilities
 numpy>=1.21.0
@@ -19,6 +19,7 @@ Pillow>=9.0.0
 # Model export and deployment (GPU-accelerated)
 onnx>=1.14.0
 onnxruntime-gpu>=1.15.0
+onnxruntime-tools>=1.7.0
 
 # CO2 emissions tracking
 codecarbon>=2.3.0
