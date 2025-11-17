@@ -14,6 +14,7 @@ Reference implementations: micronet (2.2K stars), Alibaba TinyNeuralNetwork
 
 import argparse
 import json
+import logging
 from pathlib import Path
 
 import torch
@@ -30,6 +31,8 @@ from optimization_config import (
 )
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # QUANTIZATION-AWARE MODELS
@@ -226,7 +229,7 @@ class QATTrainer:
         # This inserts FakeQuantize modules and enables training-time quantization
         tq.prepare_qat(self.model, inplace=True)
 
-        print(
+        logger.info(
             f"✓ Model prepared for QAT (backend: {self.config.qat_backend}, bits: {self.config.qat_bits})"
         )
 
@@ -251,8 +254,8 @@ class QATTrainer:
         # DON'T convert to actual quantization during fine-tuning
         # Instead, keep in fake-quantize mode for gradient computation
         # The model will simulate quantization effects during training
-        print("✓ Model in QAT fine-tuning mode (FakeQuantize active)")
-        print("  Note: Final INT8 conversion happens after training")
+        logger.info("✓ Model in QAT fine-tuning mode (FakeQuantize active)")
+        logger.info("  Note: Final INT8 conversion happens after training")
 
     def train_epoch(self, train_loader: DataLoader, optimizer, criterion, epoch: int):
         """Train one epoch with QAT"""
@@ -341,7 +344,7 @@ class QATTrainer:
         }
 
         torch.save(checkpoint, checkpoint_path)
-        print(f"  ✓ Checkpoint saved: {checkpoint_path}")
+        logger.info(f"  ✓ Checkpoint saved: {checkpoint_path}")
 
         return checkpoint_path
 
@@ -374,9 +377,9 @@ class QATTrainer:
         start_epoch = checkpoint["epoch"] + 1
         best_val_acc = max(self.history["val_acc"]) if self.history["val_acc"] else 0.0
 
-        print(f"✓ Checkpoint loaded: {checkpoint_path}")
-        print(f"  Resuming from epoch {start_epoch}")
-        print(f"  Best validation accuracy so far: {best_val_acc:.2f}%")
+        logger.info(f"✓ Checkpoint loaded: {checkpoint_path}")
+        logger.info(f"  Resuming from epoch {start_epoch}")
+        logger.info(f"  Best validation accuracy so far: {best_val_acc:.2f}%")
 
         return start_epoch, best_val_acc
 
@@ -388,7 +391,7 @@ class QATTrainer:
         for deployment.
         """
         tq.convert(self.model, inplace=True)
-        print("✓ Model converted to INT8 quantization for deployment")
+        logger.info("✓ Model converted to INT8 quantization for deployment")
 
 
 # ============================================================================
@@ -511,28 +514,28 @@ Examples:
         results_dir=args.results_dir,
     )
 
-    print("=" * 70)
-    print("QUANTIZATION-AWARE TRAINING (QAT) FOR KANJI RECOGNITION")
-    print("=" * 70)
-    print("\n📋 CONFIGURATION:")
-    print(f"  Data: {config.data_dir}")
-    print(f"  Epochs: {config.epochs}")
-    print(f"  Batch size: {config.batch_size}")
-    print(f"  Learning rate: {config.learning_rate}")
-    print(f"  QAT Backend: {config.qat_backend}")
-    print(f"  QAT Bits: {config.qat_bits}")
-    print(f"  QAT Start Epoch: {config.qat_start_epoch}")
-    print(f"  Optimizer: {config.optimizer}, Scheduler: {config.scheduler}")
+    logger.info("=" * 70)
+    logger.info("QUANTIZATION-AWARE TRAINING (QAT) FOR KANJI RECOGNITION")
+    logger.info("=" * 70)
+    logger.info("📋 CONFIGURATION:")
+    logger.info(f"  Data: {config.data_dir}")
+    logger.info(f"  Epochs: {config.epochs}")
+    logger.info(f"  Batch size: {config.batch_size}")
+    logger.info(f"  Learning rate: {config.learning_rate}")
+    logger.info(f"  QAT Backend: {config.qat_backend}")
+    logger.info(f"  QAT Bits: {config.qat_bits}")
+    logger.info(f"  QAT Start Epoch: {config.qat_start_epoch}")
+    logger.info(f"  Optimizer: {config.optimizer}, Scheduler: {config.scheduler}")
 
     # ========== LOAD DATA ==========
-    print("\n📂 LOADING DATASET (auto-detecting best available)...")
+    logger.info("📂 LOADING DATASET (auto-detecting best available)...")
     X, y = load_chunked_dataset(config.data_dir)
     train_loader, val_loader, test_loader = create_data_loaders(
         X, y, config, sample_limit=args.sample_limit
     )
 
     # ========== CREATE MODEL ==========
-    print("\n🧠 CREATING MODEL...")
+    logger.info("🧠 CREATING MODEL...")
     device = torch.device(config.device)
     model = QuantizableLightweightKanjiNet(
         num_classes=config.num_classes, image_size=config.image_size
@@ -572,12 +575,12 @@ Examples:
     start_epoch = max(start_epoch, 1)  # QAT starts at epoch 1, not 0
 
     # ========== TRAINING LOOP ==========
-    print("\n🚀 TRAINING...")
+    logger.info("🚀 TRAINING...")
 
     for epoch in range(start_epoch, config.epochs + 1):
         # Switch to QAT fine-tuning after warm-up
         if epoch == config.qat_start_epoch:
-            print("\n⚡ Switching to QAT fine-tuning phase...")
+            logger.info("\n⚡ Switching to QAT fine-tuning phase...")
             trainer.convert_to_quantized()
             # Lower learning rate for fine-tuning
             for param_group in optimizer.param_groups:
@@ -593,7 +596,7 @@ Examples:
 
         scheduler.step()
 
-        print(
+        logger.info(
             f"Epoch {epoch}/{config.epochs} | "
             f"Train Loss: {train_loss:.4f}, Acc: {train_acc:.2f}% | "
             f"Val Loss: {val_loss:.4f}, Acc: {val_acc:.2f}%"
@@ -602,7 +605,7 @@ Examples:
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             torch.save(model.state_dict(), best_model_path)
-            print(f"  ✓ Saved best model (acc: {val_acc:.2f}%)")
+            logger.info(f"  ✓ Saved best model (acc: {val_acc:.2f}%)")
 
         # Save checkpoint after each epoch for resuming later
         checkpoint_manager.save_checkpoint(
@@ -622,17 +625,17 @@ Examples:
         checkpoint_manager.cleanup_old_checkpoints(keep_last_n=5)
 
     # ========== LOAD BEST MODEL BEFORE QUANTIZATION CONVERSION ==========
-    print("\n📥 Loading best model before conversion...")
+    logger.info("\n📥 Loading best model before conversion...")
     model.load_state_dict(torch.load(best_model_path, map_location=device))
 
     # ========== FINALIZE QUANTIZATION ==========
-    print("\n⚡ FINALIZING QUANTIZATION...")
+    logger.info("\n⚡ FINALIZING QUANTIZATION...")
     trainer.finalize_quantization()
 
     # ========== TESTING ==========
-    print("\n🧪 TESTING...")
+    logger.info("\n🧪 TESTING...")
     test_loss, test_acc = trainer.validate(test_loader, criterion)
-    print(f"Test Loss: {test_loss:.4f}, Acc: {test_acc:.2f}%")
+    logger.info(f"Test Loss: {test_loss:.4f}, Acc: {test_acc:.2f}%")
 
     # ========== RESULTS ==========
     results = {
@@ -648,8 +651,8 @@ Examples:
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"\n✓ Results saved to {results_path}")
-    print("=" * 70)
+    logger.info(f"✓ Results saved to {results_path}")
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":

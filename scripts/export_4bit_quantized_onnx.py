@@ -269,7 +269,7 @@ def test_inference(onnx_path: str, num_samples: int = 5):
             test_input = np.random.randn(1, 1, 64, 64).astype("float32")
 
             start = time.time()
-            output = sess.run([output_name], {input_name: test_input})
+            sess.run([output_name], {input_name: test_input})
             elapsed = time.time() - start
             times.append(elapsed * 1000)
 

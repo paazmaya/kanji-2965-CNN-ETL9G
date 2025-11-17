@@ -5,11 +5,14 @@ Demonstrates how to load and use the SafeTensors model for kanji recognition
 """
 
 import json
+import logging
 
 import numpy as np
 import torch
 from PIL import Image
 from safetensors.torch import load_file
+
+logger = logging.getLogger(__name__)
 
 try:
     from train_cnn_model import LightweightKanjiNet
@@ -131,14 +134,14 @@ def main():
         # Load the SafeTensors model
         model, model_info = load_safetensors_model()
 
-        print("\n📋 Model Metadata:")
+        logger.info("\ud83d\udccb Model Metadata:")
         metadata = model_info["metadata"]
-        print(f"   Dataset: {metadata['dataset']}")
-        print(f"   Architecture: {metadata['architecture']}")
+        logger.info(f"   Dataset: {metadata['dataset']}")
+        logger.info(f"   Architecture: {metadata['architecture']}")
         total_params = int(metadata["total_parameters"])
-        print(f"   Total Parameters: {total_params:,}")
-        print(f"   Model Size: {metadata['model_size_mb']} MB")
-        print(f"   Training Epoch: {metadata['epoch']}")
+        logger.info(f"   Total Parameters: {total_params:,}")
+        logger.info(f"   Model Size: {metadata['model_size_mb']} MB")
+        logger.info(f"   Training Epoch: {metadata['epoch']}")
 
         # Example with a synthetic image (since we don't have actual kanji images)
         print("\n🖼️  Creating synthetic test image...")

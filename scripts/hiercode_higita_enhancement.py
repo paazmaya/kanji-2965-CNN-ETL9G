@@ -72,8 +72,6 @@ class StrokeEncoder(nn.Module):
             stroke_features: (B, Ns, D_s) stroke-level embeddings
             stroke_attention: (B, Ns) attention weights for strokes
         """
-        batch_size = image.shape[0]
-
         # Extract patches (strokes)
         patches = F.unfold(image, kernel_size=8, stride=8)  # (B, 64, 64)
         patches = patches.permute(0, 2, 1)  # (B, 64, 64)
@@ -142,8 +140,6 @@ class RadicalEncoder(nn.Module):
             radical_features: (B, Nr, D_r) radical-level embeddings
             radical_attention: (B, Nr) radical attention weights
         """
-        batch_size = stroke_features.shape[0]
-
         # Soft assignment of strokes to radicals
         assignment_weights = F.softmax(self.stroke_radical_assignment, dim=0)  # (Ns, Nr)
 
@@ -209,8 +205,6 @@ class CharacterEncoder(nn.Module):
             character_features: (B, 1, D_c) character-level embedding
             fused_attention: (B, Nr) fused attention map
         """
-        batch_size = radical_features.shape[0]
-
         # Compute attention weights for radical aggregation
         radical_weights = self.radical_to_character_attention(radical_features)  # (B, Nr, 1)
         radical_weights = radical_weights.squeeze(-1)  # (B, Nr)

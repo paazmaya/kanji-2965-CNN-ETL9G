@@ -22,6 +22,7 @@ Date: November 17, 2025
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -42,6 +43,8 @@ from hiercode_higita_enhancement import (
     HierCodeWithHiGITA,
     MultiGranularityTextEncoder,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class HiGITAConfig:
@@ -79,7 +82,7 @@ class HiGITAConfig:
 def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
     """Load ETLCDB dataset from preprocessed chunks.
     Auto-detects: combined_all_etl > etl9g > etl8g > etl7 > etl6 > etl1"""
-    print(f"Loading dataset from {data_dir}...")
+    logger.info(f"Loading dataset from {data_dir}...")
 
     data_dir = Path(data_dir)
 
@@ -104,7 +107,7 @@ def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.n
                 chunk_files = sorted(dataset_subdir.glob(f"{dataset_name}_chunk_*.npz"))
             if chunk_files:
                 selected_dataset = dataset_name
-                print(f"🔍 Auto-detected dataset: {dataset_name}")
+                logger.debug(f"🔍 Auto-detected dataset: {dataset_name}")
                 break
 
     if selected_dataset is None:
@@ -112,7 +115,7 @@ def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.n
         chunk_files = sorted(data_dir.glob("etl9g_dataset_chunk_*.npz"))
         if chunk_files:
             selected_dataset = "legacy"
-            print("🔍 Auto-detected legacy dataset structure")
+            logger.debug("🔍 Auto-detected legacy dataset structure")
         else:
             raise FileNotFoundError(f"No chunk files found in {data_dir}")
 
@@ -152,7 +155,7 @@ def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.n
         labels_list.append(labels)
 
         total_samples += len(images)
-        print(f"  Loaded {chunk_file.name}: {len(images)} samples (total: {total_samples})")
+        logger.debug(f"  Loaded {chunk_file.name}: {len(images)} samples (total: {total_samples})")
 
         if limit and total_samples >= limit:
             break
@@ -167,7 +170,7 @@ def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.n
     if len(images.shape) == 3:
         images = images[:, np.newaxis, :, :]  # (N, 1, 64, 64)
 
-    print(f"✅ Loaded {len(images)} images with {len(np.unique(labels))} classes")
+    logger.info(f"✅ Loaded {len(images)} images with {len(np.unique(labels))} classes")
     return images, labels
 
 
@@ -272,7 +275,7 @@ def train_epoch(
         if (batch_idx + 1) % 10 == 0:
             batch_acc = 100 * correct / total
             avg_loss = total_loss / (batch_idx + 1)
-            print(
+            logger.info(
                 f"  Epoch {epoch} [{batch_idx + 1:3d}/{len(train_loader):3d}] "
                 f"Loss: {avg_loss:.4f} | Acc: {batch_acc:.2f}%"
             )
@@ -343,8 +346,8 @@ def main():
     config.checkpoint_dir = args.checkpoint_dir
 
     device = "cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu"
-    print(f"🔧 Device: {device}")
-    print(f"🔧 Hi-GITA enhancement: {'✅ ENABLED' if args.use_higita else '❌ DISABLED'}")
+    logger.info(f"🔧 Device: {device}")
+    logger.info(f"🔧 Hi-GITA enhancement: {'✅ ENABLED' if args.use_higita else '❌ DISABLED'}")
 
     # Create checkpoint directory
     Path(config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
@@ -373,7 +376,7 @@ def main():
     )
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, num_workers=0)
 
-    print(f"✅ Train: {len(train_loader.dataset)} | Val: {len(val_loader.dataset)}")
+    logger.info(f"✅ Train: {len(train_loader.dataset)} | Val: {len(val_loader.dataset)}")
 
     # Create model
     num_classes = len(np.unique(labels))
@@ -419,9 +422,9 @@ def main():
     start_epoch = max(start_epoch, 1)  # Epoch numbering starts at 1
 
     for epoch in range(start_epoch, config.epochs + 1):
-        print(f"\n{'=' * 60}")
-        print(f"Epoch {epoch}/{config.epochs}")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Epoch {epoch}/{config.epochs}")
+        logger.info(f"{'=' * 60}")
 
         train_metrics = train_epoch(
             model,
@@ -439,10 +442,12 @@ def main():
 
         scheduler.step()
 
-        print(
+        logger.info(
             f"\n📊 Train - Loss: {train_metrics['total_loss']:.4f} | Acc: {train_metrics['accuracy']:.2f}%"
         )
-        print(f"📊 Val   - Loss: {val_metrics['loss']:.4f} | Acc: {val_metrics['accuracy']:.2f}%")
+        logger.info(
+            f"📋 Val   - Loss: {val_metrics['loss']:.4f} | Acc: {val_metrics['accuracy']:.2f}%"
+        )
 
         history.append(
             {
@@ -462,18 +467,18 @@ def main():
             best_val_acc = val_metrics["accuracy"]
             best_path = Path(config.checkpoint_dir) / "best_hiercode_higita.pth"
             torch.save(model.state_dict(), best_path)
-            print(f"💾 Best model saved to {best_path} (Acc: {best_val_acc:.2f}%)")
+            logger.info(f"💾 Best model saved to {best_path} (Acc: {best_val_acc:.2f}%)")
 
     # Save final history
     history_path = Path(config.checkpoint_dir) / "training_history_higita.json"
     with open(history_path, "w") as f:
         json.dump(history, f, indent=2, default=str)
 
-    print(f"\n{'=' * 60}")
-    print("✅ Training complete!")
-    print(f"   Best validation accuracy: {best_val_acc:.2f}%")
-    print(f"   Model saved to: {config.checkpoint_dir}")
-    print(f"   History saved to: {history_path}")
+    logger.info(f"\n{'=' * 60}")
+    logger.info("✅ Training complete!")
+    logger.info(f"   Best validation accuracy: {best_val_acc:.2f}%")
+    logger.info(f"   Model saved to: {config.checkpoint_dir}")
+    logger.info(f"   History saved to: {history_path}")
 
 
 if __name__ == "__main__":

@@ -568,7 +568,6 @@ def create_character_mapping(char_details, model_info, character_mapping=None):
 
 def create_character_mapping(data_dir, image_size, accuracy):
     """Legacy function for backward compatibility - ETL9G has 3,036 classes"""
-    NUM_CLASSES = 3036
     try:
         with open(f"{data_dir}/character_mapping.json", encoding="utf-8") as f:
             char_details = json.load(f)

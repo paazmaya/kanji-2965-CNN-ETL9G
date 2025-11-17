@@ -182,7 +182,7 @@ def test_inference(onnx_path: str, num_samples: int = 5):
             test_input = (torch.randn(1, 1, 64, 64).numpy()).astype("float32")
 
             start = time.time()
-            output = sess.run([output_name], {input_name: test_input})
+            sess.run([output_name], {input_name: test_input})
             elapsed = time.time() - start
             times.append(elapsed * 1000)  # Convert to ms
 

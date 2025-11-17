@@ -26,7 +26,7 @@ class KanjiRNN(nn.Module):
         dropout: float = 0.3,
         bidirectional: bool = True,
     ):
-        super(KanjiRNN, self).__init__()
+        super().__init__()
 
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -107,7 +107,7 @@ class StrokeBasedRNN(nn.Module):
         max_strokes: int = 30,
         dropout: float = 0.3,
     ):
-        super(StrokeBasedRNN, self).__init__()
+        super().__init__()
 
         self.stroke_features = stroke_features
         self.hidden_size = hidden_size
@@ -190,7 +190,7 @@ class RadicalRNN(nn.Module):
         max_radicals: int = 10,
         dropout: float = 0.3,
     ):
-        super(RadicalRNN, self).__init__()
+        super().__init__()
 
         self.radical_vocab_size = radical_vocab_size
         self.radical_embed_dim = radical_embed_dim
@@ -274,7 +274,7 @@ class HybridCNNRNN(nn.Module):
         num_classes: int = 3036,
         dropout: float = 0.3,
     ):
-        super(HybridCNNRNN, self).__init__()
+        super().__init__()
 
         self.image_size = image_size
         self.cnn_features = cnn_features

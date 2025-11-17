@@ -53,9 +53,7 @@ def export_quantized_to_onnx(
         state_dict = checkpoint
 
     # Check if model is quantized by inspecting state dict keys
-    is_quantized_checkpoint = any(
-        "scale" in key or "zero_point" in key for key in state_dict.keys()
-    )
+    # (Deprecated check - all INT8 models are quantized)
 
     # Create model
     if model_type == "hiercode":
@@ -211,7 +209,7 @@ def test_inference(onnx_path: str, num_samples: int = 5):
             test_input = np.random.randn(1, 1, 64, 64).astype("float32")
 
             start = time.time()
-            output = sess.run([output_name], {input_name: test_input})
+            sess.run([output_name], {input_name: test_input})
             elapsed = time.time() - start
             times.append(elapsed * 1000)  # Convert to ms
 

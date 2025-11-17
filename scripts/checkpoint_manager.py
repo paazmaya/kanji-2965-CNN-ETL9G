@@ -13,16 +13,19 @@ Usage:
     checkpoint_data, start_epoch = manager.find_and_load_latest_checkpoint(model, optimizer, scheduler)
 
     if checkpoint_data:
-        print(f"Resumed from epoch {start_epoch}")
+        logger.info(f"Resumed from epoch {start_epoch}")
     else:
-        print("Starting fresh training")
+        logger.info("Starting fresh training")
 """
 
+import logging
 import re
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 class CheckpointManager:
@@ -75,13 +78,13 @@ class CheckpointManager:
         # Regular checkpoint
         checkpoint_path = self.approach_dir / f"checkpoint_epoch_{epoch:03d}.pt"
         torch.save(checkpoint_data, checkpoint_path)
-        print(f"  ✓ Checkpoint saved: {checkpoint_path}")
+        logger.info(f"  ✓ Checkpoint saved: {checkpoint_path}")
 
         # Best checkpoint (optional)
         if is_best:
             best_path = self.approach_dir / "checkpoint_best.pt"
             torch.save(checkpoint_data, best_path)
-            print(f"  ✓ Best checkpoint saved: {best_path}")
+            logger.info(f"  ✓ Best checkpoint saved: {best_path}")
 
         return checkpoint_path
 
@@ -111,9 +114,9 @@ class CheckpointManager:
         epoch = checkpoint["epoch"]
         metrics = checkpoint.get("metrics", {})
 
-        print(f"✓ Loaded checkpoint: {checkpoint_path} (epoch {epoch})")
+        logger.info(f"✓ Loaded checkpoint: {checkpoint_path} (epoch {epoch})")
         if metrics:
-            print(f"  Metrics: {metrics}")
+            logger.debug(f"  Metrics: {metrics}")
 
         return epoch, metrics
 
@@ -183,14 +186,14 @@ class CheckpointManager:
 
         # Skip checkpoint loading if explicitly disabled
         if args_no_checkpoint:
-            print("\n📌 Checkpoint loading disabled (--no-checkpoint flag)")
+            logger.info("📌 Checkpoint loading disabled (--no-checkpoint flag)")
             return start_epoch, best_metrics
 
         # Case 1: Explicit checkpoint path provided
         if resume_from:
             checkpoint_path = Path(resume_from)
             if checkpoint_path.exists():
-                print(f"\n📂 Loading checkpoint from: {resume_from}")
+                logger.info(f"📂 Loading checkpoint from: {resume_from}")
                 try:
                     checkpoint = torch.load(checkpoint_path, map_location=device)
                     model.load_state_dict(checkpoint["model_state_dict"])
@@ -201,22 +204,22 @@ class CheckpointManager:
                     start_epoch = checkpoint["epoch"] + 1
                     best_metrics = checkpoint.get("metrics", {})
 
-                    print(f"✓ Checkpoint loaded (epoch {checkpoint['epoch']})")
+                    logger.info(f"✓ Checkpoint loaded (epoch {checkpoint['epoch']})")
                     if best_metrics:
-                        print(f"  Metrics: {best_metrics}")
-                    print(f"📍 Will continue from epoch {start_epoch}")
+                        logger.debug(f"  Metrics: {best_metrics}")
+                    logger.info(f"📍 Will continue from epoch {start_epoch}")
                 except Exception as e:
-                    print(f"⚠️  Failed to load checkpoint: {e}")
-                    print("   Starting fresh training...")
+                    logger.warning(f"⚠️  Failed to load checkpoint: {e}")
+                    logger.info("   Starting fresh training...")
             else:
-                print(f"❌ Checkpoint not found: {checkpoint_path}")
-                print("   Starting fresh training...")
+                logger.warning(f"❌ Checkpoint not found: {checkpoint_path}")
+                logger.info("   Starting fresh training...")
             return start_epoch, best_metrics
 
         # Case 2: Auto-detect latest checkpoint
         latest_checkpoint = self.find_latest_checkpoint()
         if latest_checkpoint:
-            print(f"\n🔄 Auto-detected checkpoint: {latest_checkpoint.name}")
+            logger.info(f"🔄 Auto-detected checkpoint: {latest_checkpoint.name}")
             try:
                 checkpoint = torch.load(latest_checkpoint, map_location=device)
                 model.load_state_dict(checkpoint["model_state_dict"])
@@ -227,16 +230,16 @@ class CheckpointManager:
                 start_epoch = checkpoint["epoch"] + 1
                 best_metrics = checkpoint.get("metrics", {})
 
-                print(f"✓ Checkpoint loaded (epoch {checkpoint['epoch']})")
+                logger.info(f"✓ Checkpoint loaded (epoch {checkpoint['epoch']})")
                 if best_metrics:
-                    print(f"  Metrics: {best_metrics}")
-                print(f"📍 Will continue from epoch {start_epoch}")
+                    logger.debug(f"  Metrics: {best_metrics}")
+                logger.info(f"📍 Will continue from epoch {start_epoch}")
             except Exception as e:
-                print(f"⚠️  Failed to load checkpoint: {e}")
-                print("   Starting fresh training...")
+                logger.warning(f"⚠️  Failed to load checkpoint: {e}")
+                logger.info("   Starting fresh training...")
         else:
-            print(f"\nℹ️  No checkpoint found for '{self.approach_name}' in {self.approach_dir}")
-            print("   Starting fresh training...")
+            logger.info(f"ℹ️  No checkpoint found for '{self.approach_name}' in {self.approach_dir}")
+            logger.info("   Starting fresh training...")
 
         return start_epoch, best_metrics
 
@@ -259,23 +262,23 @@ class CheckpointManager:
         latest_checkpoint = self.find_latest_checkpoint()
 
         if latest_checkpoint is None:
-            print(f"ℹ️  No checkpoint found for '{self.approach_name}' in {self.approach_dir}")
-            print("   Starting fresh training...")
+            logger.info(f"ℹ️  No checkpoint found for '{self.approach_name}' in {self.approach_dir}")
+            logger.info("   Starting fresh training...")
             return None, 0
 
-        print(f"🔄 Auto-detected checkpoint: {latest_checkpoint.name}")
+        logger.info(f"🔄 Auto-detected checkpoint: {latest_checkpoint.name}")
 
         try:
             epoch, metrics = self.load_checkpoint(latest_checkpoint, model, optimizer, scheduler)
             start_epoch = epoch + 1
 
-            print(f"📍 Will continue from epoch {start_epoch}")
+            logger.info(f"📍 Will continue from epoch {start_epoch}")
 
             return {"epoch": epoch, "metrics": metrics}, start_epoch
 
         except Exception as e:
-            print(f"⚠️  Failed to load checkpoint: {e}")
-            print("   Starting fresh training...")
+            logger.warning(f"⚠️  Failed to load checkpoint: {e}")
+            logger.info("   Starting fresh training...")
             return None, 0
 
     def list_all_checkpoints(self) -> list:
@@ -312,7 +315,7 @@ class CheckpointManager:
         if len(checkpoints) > keep_last_n:
             for checkpoint_path in checkpoints[keep_last_n:]:
                 checkpoint_path.unlink()
-                print(f"  Removed old checkpoint: {checkpoint_path.name}")
+                logger.debug(f"  Removed old checkpoint: {checkpoint_path.name}")
 
     def get_checkpoint_info(self) -> Dict:
         """

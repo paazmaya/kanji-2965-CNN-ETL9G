@@ -136,7 +136,6 @@ def test_model_architecture():
         import sys
 
         import torch
-        import torch.nn as nn
 
         # Add current directory to path to import model
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))

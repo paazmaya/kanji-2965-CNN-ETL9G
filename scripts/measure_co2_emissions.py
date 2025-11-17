@@ -16,7 +16,7 @@ import torch
 
 # Try to import CodeCarbon for CO2 tracking
 try:
-    from codecarbon import EmissionsTracker, OfflineEmissionsTracker
+    import codecarbon  # noqa: F401
 
     CODECARBON_AVAILABLE = True
 except ImportError:
@@ -227,16 +227,16 @@ def setup_codecarbon_tracking():
     print("💡 To track training emissions, modify your training script:")
     print("""
     from codecarbon import EmissionsTracker
-    
+
     # Start tracking at beginning of training
     tracker = EmissionsTracker(
         project_name="kanji-recognition-etl9g",
         output_dir="./emissions/"
     )
     tracker.start()
-    
+
     # Your training code here...
-    
+
     # Stop tracking at end of training
     emissions = tracker.stop()
     print(f"Training emissions: {emissions:.6f} kg CO2")
@@ -298,10 +298,8 @@ This carbon footprint estimate is calculated using:
 
 For reference, daily inference usage:
 - Processing {report["inference_daily_example"]["images_processed"]:,} images/day
-- Energy consumption: {report["inference_daily_example"]["energy_kwh"]:.6f} kWh/day  
-- CO2 emissions: {report["inference_daily_example"]["co2_emissions_g"]:.3f} g CO2/day
-
----
+- Energy consumption: {report["inference_daily_example"]["energy_kwh"]:.6f} kWh/day
+- CO2 emissions: {report["inference_daily_example"]["co2_emissions_g"]:.3f} g CO2/day---
 
 *Carbon footprint measured on {report["measurement_date"][:10]}*
 """

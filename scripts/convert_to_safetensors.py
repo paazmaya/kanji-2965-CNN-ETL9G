@@ -6,10 +6,13 @@ Provides secure, fast loading format with embedded metadata.
 
 import argparse
 import json
+import logging
 from pathlib import Path
 
 import torch
 from safetensors.torch import save_file
+
+logger = logging.getLogger(__name__)
 
 try:
     from train_cnn_model import LightweightKanjiNet
@@ -27,7 +30,7 @@ def load_model_for_conversion(model_path, image_size=64):
     # ETL9G dataset has exactly 3,036 character classes (fixed)
     NUM_CLASSES = 3036
 
-    print(f"📁 Loading model from: {model_path}")
+    logger.info(f"📁 Loading model from: {model_path}")
 
     # Create model instance with same architecture as training
     model = LightweightKanjiNet(num_classes=NUM_CLASSES)  # Load the trained weights
@@ -35,12 +38,12 @@ def load_model_for_conversion(model_path, image_size=64):
         checkpoint = torch.load(model_path, map_location="cpu")
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             model.load_state_dict(checkpoint["model_state_dict"])
-            print("✅ Loaded model weights from checkpoint")
+            logger.info("✅ Loaded model weights from checkpoint")
         else:
             model.load_state_dict(checkpoint)
-            print("✅ Loaded model weights directly")
+            logger.info("✅ Loaded model weights directly")
     except Exception as e:
-        print(f"❌ Error loading model: {e}")
+        logger.error(f"❌ Error loading model: {e}")
         return None
 
     model.eval()
@@ -78,7 +81,7 @@ def extract_model_metadata(model_path, model, image_size):
                     }
                 )
     except Exception as e:
-        print(f"⚠️  Could not load training metadata: {e}")
+        logger.warning(f"\u26a0\ufe0f  Could not load training metadata: {e}")
 
     # Add model architecture details
     total_params = sum(p.numel() for p in model.parameters())
@@ -116,11 +119,11 @@ def convert_to_safetensors(
     if output_path is None:
         output_path = generate_output_filename("kanji_model", image_size, ".safetensors")
 
-    print("🔄 Converting PyTorch model to SafeTensors...")
-    print(f"Input model: {model_path}")
-    print(f"Output path: {output_path}")
-    print(f"Classes: {NUM_CLASSES} (ETL9G dataset)")
-    print(f"Image size: {image_size}x{image_size}")
+    logger.info("\ud83d\udd04 Converting PyTorch model to SafeTensors...")
+    logger.info(f"Input model: {model_path}")
+    logger.info(f"Output path: {output_path}")
+    logger.info(f"Classes: {NUM_CLASSES} (ETL9G dataset)")
+    logger.info(f"Image size: {image_size}x{image_size}")
 
     # Load the model
     model = load_model_for_conversion(model_path, image_size)

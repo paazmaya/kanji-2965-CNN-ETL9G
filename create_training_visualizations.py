@@ -148,16 +148,16 @@ ax4.annotate(
     f"CNN Final: {cnn_data['val_acc'][-1]:.1f}%\n@{cnn_cumulative_time[-1]:.1f}h",
     xy=(cnn_cumulative_time[-1], cnn_data["val_acc"][-1]),
     xytext=(cnn_cumulative_time[-1] + 1, cnn_data["val_acc"][-1] - 2),
-    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7),
-    arrowprops=dict(arrowstyle="->", color="blue"),
+    bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightblue", "alpha": 0.7},
+    arrowprops={"arrowstyle": "->", "color": "blue"},
 )
 
 ax4.annotate(
     f"RNN Peak: {max(rnn_val_acc):.1f}%\n@{rnn_cumulative_time[rnn_val_acc.index(max(rnn_val_acc))]:.1f}h",
     xy=(rnn_cumulative_time[rnn_val_acc.index(max(rnn_val_acc))], max(rnn_val_acc)),
     xytext=(rnn_cumulative_time[rnn_val_acc.index(max(rnn_val_acc))] + 1, max(rnn_val_acc) + 1),
-    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightcoral", alpha=0.7),
-    arrowprops=dict(arrowstyle="->", color="red"),
+    bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightcoral", "alpha": 0.7},
+    arrowprops={"arrowstyle": "->", "color": "red"},
 )
 
 plt.tight_layout()
@@ -183,8 +183,8 @@ ax1.annotate(
     "Fast convergence",
     xy=(3, 0.5625),
     xytext=(5, 2),
-    arrowprops=dict(arrowstyle="->", color="green"),
-    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.7),
+    arrowprops={"arrowstyle": "->", "color": "green"},
+    bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightgreen", "alpha": 0.7},
 )
 
 # RNN Validation Accuracy
@@ -201,8 +201,8 @@ ax2.annotate(
     f"Peak: {max(rnn_val_acc):.2f}%\nEpoch {rnn_epochs[peak_epoch - 1]}",
     xy=(rnn_epochs[peak_epoch - 1], max(rnn_val_acc)),
     xytext=(rnn_epochs[peak_epoch - 1] + 2, max(rnn_val_acc) - 0.5),
-    bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7),
-    arrowprops=dict(arrowstyle="->", color="orange"),
+    bbox={"boxstyle": "round,pad=0.3", "facecolor": "yellow", "alpha": 0.7},
+    arrowprops={"arrowstyle": "->", "color": "orange"},
 )
 
 # Add horizontal line for CNN best performance
@@ -212,7 +212,3 @@ ax2.legend()
 plt.tight_layout()
 plt.savefig("models/rnn/hybrid_cnn_rnn_training_curves_corrected.png", dpi=300, bbox_inches="tight")
 plt.show()
-
-print("Training comparison visualizations created:")
-print("1. models/training_comparison_comprehensive.png - Full CNN vs RNN comparison")
-print("2. models/rnn/hybrid_cnn_rnn_training_curves_corrected.png - Corrected RNN curves")

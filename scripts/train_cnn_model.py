@@ -10,6 +10,7 @@ Features:
 
 import argparse
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +21,8 @@ from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 class ETL9GDataset(Dataset):
@@ -59,7 +62,7 @@ class ChannelAttention(nn.Module):
     """SENet-style Channel Attention Module for feature recalibration"""
 
     def __init__(self, in_channels, reduction=16):
-        super(ChannelAttention, self).__init__()
+        super().__init__()
         # =========================
         # CHANNEL ATTENTION ALGORITHMS - SENet STYLE
         # =========================
@@ -93,7 +96,7 @@ class LightweightKanjiNet(nn.Module):
     """Lightweight CNN optimized for web deployment with Channel Attention"""
 
     def __init__(self, num_classes: int, image_size: int = 64):
-        super(LightweightKanjiNet, self).__init__()
+        super().__init__()
 
         self.image_size = image_size
         self.num_classes = num_classes
@@ -406,8 +409,8 @@ class ProgressiveTrainer:
         }
 
         for epoch in range(start_epoch, epochs):
-            print(f"\nEpoch {epoch + 1}/{epochs}")
-            print(f"Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
+            logger.info(f"一Epoch {epoch + 1}/{epochs}")
+            logger.info(f"Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
 
             # Train
             train_loss, train_acc = self.train_epoch(train_loader, optimizer, criterion)
@@ -430,8 +433,8 @@ class ProgressiveTrainer:
             progress_log["val_acc"].append(val_acc)
             progress_log["learning_rate"].append(optimizer.param_groups[0]["lr"])
 
-            print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
-            print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+            logger.info(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
+            logger.info(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
 
             # Save progress periodically
             if (epoch + 1) % 5 == 0 or epoch == 0:
@@ -462,7 +465,7 @@ class ProgressiveTrainer:
                 best_val_acc = val_acc
                 torch.save(self.model.state_dict(), "models/best_kanji_model.pth")
                 patience_counter = 0
-                print(f"New best model saved! Accuracy: {best_val_acc:.2f}%")
+                logger.info(f"New best model saved! Accuracy: {best_val_acc:.2f}%")
 
                 # Save model info
                 model_info = {
@@ -477,10 +480,10 @@ class ProgressiveTrainer:
             else:
                 patience_counter += 1
                 if patience_counter >= max_patience:
-                    print(f"Early stopping at epoch {epoch + 1}")
+                    logger.info(f"Early stopping at epoch {epoch + 1}")
                     break
 
-        print(f"\nTraining completed! Best validation accuracy: {best_val_acc:.2f}%")
+        logger.info(f"一Training completed! Best validation accuracy: {best_val_acc:.2f}%")
 
         # Save final progress
         with open("models/training_progress.json", "w") as f:
@@ -492,17 +495,17 @@ class ProgressiveTrainer:
 def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
     """Create balanced data loaders with stratification"""
 
-    print("Creating stratified splits...")
+    logger.debug("Creating stratified splits...")
 
     # Check if we have enough samples per class for stratified splitting
     unique_classes, class_counts = np.unique(y, return_counts=True)
     min_samples = np.min(class_counts)
 
-    print(f"Classes: {len(unique_classes)}, Min samples per class: {min_samples}")
+    logger.debug(f"Classes: {len(unique_classes)}, Min samples per class: {min_samples}")
 
     if min_samples < 2:
-        print(
-            "⚠️  Warning: Some classes have only 1 sample. Using non-stratified splitting for small datasets."
+        logger.warning(
+            "⚠️Warning: Some classes have only 1 sample. Using non-stratified splitting for small datasets."
         )
         # Use simple random splitting when stratification isn't possible
 
@@ -518,7 +521,7 @@ def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
         )
     else:
         # Use stratified splitting when we have enough samples
-        print("✅ Using stratified splitting (recommended for balanced training)")
+        logger.debug("✅ Using stratified splitting (recommended for balanced training)")
 
         # First split: train+val vs test
         X_temp, X_test, y_temp, y_test = train_test_split(
@@ -531,7 +534,7 @@ def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
             X_temp, y_temp, test_size=val_size_adj, stratify=y_temp, random_state=42
         )
 
-    print(f"Data split: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
+    logger.debug(f"Data split: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
 
     # Create datasets with augmentation for training
     train_dataset = ETL9GDataset(X_train, y_train, augment=True)
@@ -585,7 +588,7 @@ def load_chunked_dataset(data_dir):
         chunk_info_path = data_path / dataset_name / "chunk_info.json"
         if chunk_info_path.exists():
             selected_dataset = dataset_name
-            print(f"🔍 Auto-detected dataset: {dataset_name}")
+            logger.debug(f"🔍 Auto-detected dataset: {dataset_name}")
             break
 
     if selected_dataset is None:
@@ -593,7 +596,7 @@ def load_chunked_dataset(data_dir):
         chunk_info_path = data_path / "chunk_info.json"
         if chunk_info_path.exists():
             selected_dataset = "legacy"
-            print("🔍 Auto-detected legacy dataset structure")
+            logger.debug("🔍 Auto-detected legacy dataset structure")
         else:
             raise FileNotFoundError(
                 f"No dataset found in {data_path}. Available datasets should have chunk_info.json"
@@ -601,7 +604,7 @@ def load_chunked_dataset(data_dir):
 
     if selected_dataset == "legacy":
         # Legacy flat structure
-        print("Loading legacy chunked dataset...")
+        logger.debug("Loading legacy chunked dataset...")
         with open(data_path / "chunk_info.json") as f:
             chunk_info = json.load(f)
 
@@ -614,13 +617,13 @@ def load_chunked_dataset(data_dir):
                 chunk = np.load(chunk_file)
                 all_X.append(chunk["X"])
                 all_y.append(chunk["y"])
-                print(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
+                logger.debug(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
             else:
-                print(f"Warning: Missing chunk file {chunk_file}")
+                logger.warning(f"Warning: Missing chunk file {chunk_file}")
 
         X = np.concatenate(all_X, axis=0) if all_X else np.array([])
         y = np.concatenate(all_y, axis=0) if all_y else np.array([])
-        print(f"Total samples loaded: {len(X)}")
+        logger.debug(f"Total samples loaded: {len(X)}")
         return X, y
     else:
         # New directory structure
@@ -628,7 +631,7 @@ def load_chunked_dataset(data_dir):
         chunk_info_path = dataset_dir / "chunk_info.json"
 
         if chunk_info_path.exists():
-            print(f"Loading {selected_dataset} dataset from chunks...")
+            logger.debug(f"Loading {selected_dataset} dataset from chunks...")
             with open(chunk_info_path) as f:
                 chunk_info = json.load(f)
 
@@ -641,21 +644,21 @@ def load_chunked_dataset(data_dir):
                     chunk = np.load(chunk_file)
                     all_X.append(chunk["X"])
                     all_y.append(chunk["y"])
-                    print(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
+                    logger.debug(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
                 else:
-                    print(f"Warning: Missing chunk file {chunk_file}")
+                    logger.warning(f"Warning: Missing chunk file {chunk_file}")
 
             X = np.concatenate(all_X, axis=0) if all_X else np.array([])
             y = np.concatenate(all_y, axis=0) if all_y else np.array([])
-            print(f"Total samples loaded: {len(X)}")
+            logger.debug(f"Total samples loaded: {len(X)}")
             return X, y
         else:
             # Try single file
             single_file = dataset_dir / f"{selected_dataset}_dataset.npz"
             if single_file.exists():
-                print(f"Loading {selected_dataset} dataset from single file...")
+                logger.debug(f"Loading {selected_dataset} dataset from single file...")
                 dataset = np.load(single_file)
-                print(f"Total samples loaded: {len(dataset['X'])}")
+                logger.debug(f"Total samples loaded: {len(dataset['X'])}")
                 return dataset["X"], dataset["y"]
             else:
                 raise FileNotFoundError(f"No valid dataset files found in {dataset_dir}")
@@ -703,7 +706,7 @@ def main():
 
     # Load dataset
     data_path = Path(args.data_dir)
-    print("Loading dataset (auto-detecting best available)...")
+    logger.info("Loading dataset (auto-detecting best available)...")
     X, y = load_chunked_dataset(args.data_dir)
 
     with open(data_path / "metadata.json") as f:
@@ -711,28 +714,28 @@ def main():
 
     # ETL9G dataset has exactly 3,036 character classes (fixed)
     num_classes = 3036
-    print(f"Dataset loaded: {X.shape}, {num_classes} classes")
+    logger.info(f"Dataset loaded: {X.shape}, {num_classes} classes")
 
     # Optional: Limit samples for faster testing/debugging
     if args.sample_limit and len(X) > args.sample_limit:
-        print(f"Limiting dataset to {args.sample_limit} samples for testing...")
+        logger.info(f"Limiting dataset to {args.sample_limit} samples for testing...")
         indices = np.random.choice(len(X), args.sample_limit, replace=False)
         X = X[indices]
         y = y[indices]
 
-    print(f"Dataset loaded: {X.shape}, {num_classes} classes")
-    print(f"Memory usage: {X.nbytes / (1024**3):.1f} GB")
+    logger.info(f"Dataset loaded: {X.shape}, {num_classes} classes")
+    logger.info(f"Memory usage: {X.nbytes / (1024**3):.1f} GB")
 
     # Create data loaders
     train_loader, val_loader, test_loader = create_balanced_loaders(X, y, args.batch_size)
 
     # Initialize model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    logger.info(f"Using device: {device}")
 
     model = LightweightKanjiNet(num_classes, args.image_size)
     model = model.to(device)
-    print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+    logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Create models directory if it doesn't exist
     Path("models").mkdir(exist_ok=True)
@@ -760,7 +763,7 @@ def main():
     best_val_acc = best_metrics.get("val_accuracy", 0.0)
 
     # Train model
-    print("\nStarting training...")
+    logger.info("一Starting training...")
     trainer.train(
         train_loader,
         val_loader,
@@ -772,7 +775,7 @@ def main():
 
     # Test final model
     test_loss, test_acc = trainer.validate(test_loader, nn.CrossEntropyLoss())
-    print(f"\nFinal test accuracy: {test_acc:.2f}%")
+    logger.info(f"一Final test accuracy: {test_acc:.2f}%")
 
 
 if __name__ == "__main__":

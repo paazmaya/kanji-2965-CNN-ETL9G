@@ -4,6 +4,7 @@ Pre-flight check for ETL9G training setup
 Run this before starting actual training
 """
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -93,11 +94,11 @@ def check_requirements():
     for package in required_packages:
         try:
             if package == "cv2":
-                import cv2
+                importlib.util.find_spec("cv2")
             elif package == "PIL":
-                import PIL
+                importlib.util.find_spec("PIL")
             elif package == "sklearn":
-                import sklearn
+                importlib.util.find_spec("sklearn")
             else:
                 __import__(package)
             print(f"✓ {package}")
