@@ -4,6 +4,10 @@ HierCode (Hierarchical Codebook) Training for Kanji Recognition
 Novel approach for zero-shot and efficient character recognition.
 Target: <2 MB model, ≥97% accuracy, zero-shot capability
 
+Features:
+- Automatic checkpoint management with resume from latest checkpoint
+- Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+
 Configuration parameters are documented inline.
 Paper: "HierCode: A Lightweight Hierarchical Codebook for Zero-shot
         Chinese Text Recognition" (arXiv:2403.13761, March 2024)
@@ -18,6 +22,7 @@ from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from optimization_config import (
     HierCodeConfig,
     create_data_loaders,
@@ -580,6 +585,9 @@ Examples:
         help="Directory to save results (default: results)",
     )
 
+    # Add checkpoint management arguments
+    setup_checkpoint_arguments(parser, "hiercode")
+
     args = parser.parse_args()
 
     # ========== CREATE CONFIG ==========
@@ -643,23 +651,25 @@ Examples:
     Path(config.model_dir).mkdir(parents=True, exist_ok=True)
     save_config(config, config.model_dir, "hiercode_config.json")
 
-    # ========== RESUME FROM CHECKPOINT (OPTIONAL) ==========
-    start_epoch = 1
-    best_val_acc = 0.0
-    if args.resume_from:
-        print("\n📥 RESUMING FROM CHECKPOINT...")
-        checkpoint_path = Path(args.resume_from)
-        if checkpoint_path.exists():
-            start_epoch, best_val_acc = trainer.load_checkpoint(
-                checkpoint_path, optimizer, scheduler
-            )
-            start_epoch += 1  # Resume from next epoch
-        else:
-            print(f"  ⚠️  Checkpoint not found: {checkpoint_path}")
+    # ========== INITIALIZE CHECKPOINT MANAGER ==========
+    checkpoint_manager = CheckpointManager(args.checkpoint_dir, "hiercode")
 
     # ========== TRAINING LOOP ==========
     print("\n🚀 TRAINING...")
+    best_val_acc = 0.0
     best_model_path = Path(config.model_dir) / "hiercode_model_best.pth"
+
+    # Resume from checkpoint using unified DRY method
+    start_epoch, best_metrics = checkpoint_manager.load_checkpoint_for_training(
+        model,
+        optimizer,
+        scheduler,
+        device,
+        resume_from=args.resume_from,
+        args_no_checkpoint=args.no_checkpoint,
+    )
+    best_val_acc = best_metrics.get("val_accuracy", 0.0)
+    start_epoch = max(start_epoch, 1)  # Epoch numbering starts at 1
 
     for epoch in range(start_epoch, config.epochs + 1):
         train_loss, train_acc = trainer.train_epoch(train_loader, optimizer, criterion, epoch)
@@ -684,7 +694,9 @@ Examples:
             print(f"  ✓ Saved best model (acc: {val_acc:.2f}%)")
 
         # Save checkpoint after each epoch for resuming later
-        trainer.save_checkpoint(epoch, optimizer, scheduler, args.checkpoint_dir)
+        checkpoint_manager.save_checkpoint(
+            epoch, model, optimizer, scheduler, {"val_accuracy": val_acc}
+        )
 
     # ========== TESTING ==========
     print("\n🧪 TESTING...")

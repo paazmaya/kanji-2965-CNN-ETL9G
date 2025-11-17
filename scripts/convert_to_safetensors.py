@@ -12,14 +12,14 @@ import torch
 from safetensors.torch import save_file
 
 try:
-    from train_etl9g_model import LightweightKanjiNet
+    from train_cnn_model import LightweightKanjiNet
 except ImportError:
     # Handle case when running from scripts directory
     import sys
     from pathlib import Path
 
     sys.path.append(str(Path(__file__).parent))
-    from train_etl9g_model import LightweightKanjiNet
+    from train_cnn_model import LightweightKanjiNet
 
 
 def load_model_for_conversion(model_path, image_size=64):

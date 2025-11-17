@@ -400,9 +400,7 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
                 print(f"✓ Loaded {len(dataset['X'])} samples")
                 return dataset["X"], dataset["y"]
             else:
-                raise FileNotFoundError(
-                    f"No valid dataset files found in {dataset_dir}"
-                )
+                raise FileNotFoundError(f"No valid dataset files found in {dataset_dir}")
 
 
 def create_data_loaders(

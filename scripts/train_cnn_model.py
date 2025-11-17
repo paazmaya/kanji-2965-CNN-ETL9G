@@ -2,6 +2,10 @@
 """
 Lightweight Kanji Recognition Model for ETL9G Dataset
 Optimized for ONNX/WASM deployment with 3,036 character classes
+
+Features:
+- Automatic checkpoint management with resume from latest checkpoint
+- Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
 """
 
 import argparse
@@ -12,6 +16,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -317,8 +322,26 @@ class ProgressiveTrainer:
         accuracy = 100.0 * correct / total
         return avg_loss, accuracy
 
-    def train(self, train_loader, val_loader, epochs, learning_rate=0.001):
-        """Progressive training with learning rate scheduling"""
+    def train(
+        self,
+        train_loader,
+        val_loader,
+        epochs,
+        learning_rate=0.001,
+        checkpoint_manager=None,
+        start_epoch=0,
+    ):
+        """
+        Progressive training with learning rate scheduling and checkpoint management.
+
+        Args:
+            train_loader: Training data loader
+            val_loader: Validation data loader
+            epochs: Total number of epochs to train
+            learning_rate: Initial learning rate
+            checkpoint_manager: Optional CheckpointManager for saving/resuming checkpoints
+            start_epoch: Epoch to start training from (default: 0, use >0 when resuming)
+        """
 
         # =========================
         # TRAINING LOSS FUNCTION - ADJUSTABLE
@@ -382,7 +405,7 @@ class ProgressiveTrainer:
             "learning_rate": [],
         }
 
-        for epoch in range(epochs):
+        for epoch in range(start_epoch, epochs):
             print(f"\nEpoch {epoch + 1}/{epochs}")
             print(f"Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
 
@@ -414,6 +437,25 @@ class ProgressiveTrainer:
             if (epoch + 1) % 5 == 0 or epoch == 0:
                 with open("models/training_progress.json", "w") as f:
                     json.dump(progress_log, f, indent=2)
+
+            # Save checkpoint after each epoch if checkpoint manager is provided
+            if checkpoint_manager:
+                is_best = val_acc > best_val_acc
+                checkpoint_manager.save_checkpoint(
+                    epoch,
+                    self.model,
+                    optimizer,
+                    scheduler,
+                    metrics={
+                        "train_loss": train_loss,
+                        "train_acc": train_acc,
+                        "val_loss": val_loss,
+                        "val_acc": val_acc,
+                    },
+                    is_best=is_best,
+                )
+                # Clean up old checkpoints
+                checkpoint_manager.cleanup_old_checkpoints(keep_last_n=5)
 
             # Save best model
             if val_acc > best_val_acc:
@@ -616,9 +658,7 @@ def load_chunked_dataset(data_dir):
                 print(f"Total samples loaded: {len(dataset['X'])}")
                 return dataset["X"], dataset["y"]
             else:
-                raise FileNotFoundError(
-                    f"No valid dataset files found in {dataset_dir}"
-                )
+                raise FileNotFoundError(f"No valid dataset files found in {dataset_dir}")
 
 
 def main():
@@ -656,11 +696,14 @@ def main():
         help="Limit samples for testing (e.g., 50000)",
     )
 
+    # Add checkpoint management arguments
+    setup_checkpoint_arguments(parser, "cnn")
+
     args = parser.parse_args()
 
     # Load dataset
     data_path = Path(args.data_dir)
-    print("Loading ETL9G dataset...")
+    print("Loading dataset (auto-detecting best available)...")
     X, y = load_chunked_dataset(args.data_dir)
 
     with open(data_path / "metadata.json") as f:
@@ -668,7 +711,7 @@ def main():
 
     # ETL9G dataset has exactly 3,036 character classes (fixed)
     num_classes = 3036
-    print(f"Dataset loaded: {X.shape}, {num_classes} classes (ETL9G fixed)")
+    print(f"Dataset loaded: {X.shape}, {num_classes} classes")
 
     # Optional: Limit samples for faster testing/debugging
     if args.sample_limit and len(X) > args.sample_limit:
@@ -688,18 +731,43 @@ def main():
     print(f"Using device: {device}")
 
     model = LightweightKanjiNet(num_classes, args.image_size)
+    model = model.to(device)
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Create models directory if it doesn't exist
     Path("models").mkdir(exist_ok=True)
 
+    # Initialize checkpoint manager
+    checkpoint_manager = CheckpointManager(args.checkpoint_dir, "cnn")
+
     # Initialize trainer
     trainer = ProgressiveTrainer(model, device, num_classes)
 
+    # Check for existing checkpoint and resume if available
+    start_epoch = 0
+    best_val_acc = 0
+    checkpoint_manager = CheckpointManager(args.checkpoint_dir, "cnn")
+
+    # Use unified checkpoint loading (DRY pattern)
+    start_epoch, best_metrics = checkpoint_manager.load_checkpoint_for_training(
+        model,
+        optimizer,
+        scheduler,
+        device,
+        resume_from=args.resume_from,
+        args_no_checkpoint=args.no_checkpoint,
+    )
+    best_val_acc = best_metrics.get("val_accuracy", 0.0)
+
     # Train model
     print("\nStarting training...")
-    best_acc = trainer.train(
-        train_loader, val_loader, epochs=args.epochs, learning_rate=args.learning_rate
+    trainer.train(
+        train_loader,
+        val_loader,
+        epochs=args.epochs,
+        learning_rate=args.learning_rate,
+        checkpoint_manager=checkpoint_manager,
+        start_epoch=start_epoch,
     )
 
     # Test final model

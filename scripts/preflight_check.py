@@ -190,7 +190,7 @@ def check_training_scripts():
 
     required_files = [
         "scripts/prepare_etl9g_dataset.py",
-        "scripts/train_etl9g_model.py",
+        "scripts/train_cnn_model.py",
         "scripts/test_etl9g_setup.py",
     ]
 
@@ -275,7 +275,7 @@ def main():
             "1. python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64"
         )
         print("2. python scripts/test_etl9g_setup.py --data-dir dataset --test-model")
-        print("3. python scripts/train_etl9g_model.py --data-dir dataset --epochs 30")
+        print("3. python scripts/train_cnn_model.py --data-dir dataset --epochs 30")
         print("4. python scripts/convert_to_onnx.py --model-path best_kanji_model.pth")
         print("5. python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth")
     else:

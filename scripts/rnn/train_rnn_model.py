@@ -34,7 +34,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 sys.path.append(str(Path(__file__).parent.parent))
-from train_etl9g_model import load_chunked_dataset
+from train_cnn_model import load_chunked_dataset
 
 
 class RNNKanjiDataset(Dataset):

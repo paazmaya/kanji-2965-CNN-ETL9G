@@ -8,6 +8,10 @@ Trains HierCode model with optional Hi-GITA improvements:
 - Contrastive image-text alignment
 - Fine-grained fusion modules
 
+Features:
+- Automatic checkpoint management with resume from latest checkpoint
+- Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+
 Usage:
     python scripts/train_hiercode_higita.py --data-dir dataset --use-higita
     python scripts/train_hiercode_higita.py --data-dir dataset  # Standard HierCode
@@ -26,6 +30,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -110,7 +115,7 @@ def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.n
             print("🔍 Auto-detected legacy dataset structure")
         else:
             raise FileNotFoundError(f"No chunk files found in {data_dir}")
-    
+
     if selected_dataset == "legacy":
         chunk_files = sorted(data_dir.glob("etl9g_dataset_chunk_*.npz"))
     else:
@@ -125,7 +130,7 @@ def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.n
 
     for chunk_file in chunk_files:
         chunk = np.load(chunk_file)
-        
+
         # Handle both key formats: (images, labels) or (X, y)
         if "images" in chunk:
             images = chunk["images"]  # (N, 64, 64)
@@ -322,11 +327,11 @@ def main():
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
     parser.add_argument("--limit-samples", type=int, default=None, help="Limit number of samples")
-    parser.add_argument(
-        "--checkpoint-dir", default="models/checkpoints_higita", help="Checkpoint directory"
-    )
-    parser.add_argument("--resume-from", help="Resume from checkpoint")
     parser.add_argument("--device", default="cuda", help="Device (cuda or cpu)")
+
+    # Add checkpoint management arguments
+    setup_checkpoint_arguments(parser, "hiercode_higita")
+
     args = parser.parse_args()
 
     # Setup
@@ -394,11 +399,26 @@ def main():
     )
     scheduler = CosineAnnealingLR(optimizer, T_max=config.epochs, eta_min=1e-6)
 
+    # ========== INITIALIZE CHECKPOINT MANAGER ==========
+    checkpoint_manager = CheckpointManager(config.checkpoint_dir, "hiercode_higita")
+
     # Training loop
     best_val_acc = 0
     history = []
 
-    for epoch in range(1, config.epochs + 1):
+    # Resume from checkpoint using unified DRY method
+    start_epoch, best_metrics = checkpoint_manager.load_checkpoint_for_training(
+        model,
+        optimizer,
+        scheduler,
+        device,
+        resume_from=args.resume_from,
+        args_no_checkpoint=args.no_checkpoint,
+    )
+    best_val_acc = best_metrics.get("val_accuracy", 0.0)
+    start_epoch = max(start_epoch, 1)  # Epoch numbering starts at 1
+
+    for epoch in range(start_epoch, config.epochs + 1):
         print(f"\n{'=' * 60}")
         print(f"Epoch {epoch}/{config.epochs}")
         print(f"{'=' * 60}")
@@ -432,18 +452,9 @@ def main():
             }
         )
 
-        # Save checkpoint
-        checkpoint_path = Path(config.checkpoint_dir) / f"checkpoint_higita_epoch_{epoch:03d}.pt"
-        torch.save(
-            {
-                "epoch": epoch,
-                "model_state": model.state_dict(),
-                "optimizer_state": optimizer.state_dict(),
-                "scheduler_state": scheduler.state_dict(),
-                "history": history,
-                "config": config.to_dict(),
-            },
-            checkpoint_path,
+        # Save checkpoint after each epoch for resuming later
+        checkpoint_manager.save_checkpoint(
+            epoch, model, optimizer, scheduler, {"val_accuracy": val_metrics["accuracy"]}
         )
 
         # Save best model

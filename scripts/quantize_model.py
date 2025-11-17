@@ -14,7 +14,7 @@ from optimization_config import (
     create_data_loaders,
     load_chunked_dataset,
 )
-from train_etl9g_model import LightweightKanjiNet
+from train_cnn_model import LightweightKanjiNet
 from train_hiercode import HierCodeClassifier
 
 

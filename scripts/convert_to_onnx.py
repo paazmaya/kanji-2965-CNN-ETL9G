@@ -14,14 +14,14 @@ import torch.nn as nn
 
 # Import the correct model architecture from training
 try:
-    from train_etl9g_model import LightweightKanjiNet as OriginalLightweightKanjiNet
+    from train_cnn_model import LightweightKanjiNet as OriginalLightweightKanjiNet
 except ImportError:
     # Handle case when running from scripts directory
     import sys
     from pathlib import Path
 
     sys.path.append(str(Path(__file__).parent))
-    from train_etl9g_model import LightweightKanjiNet as OriginalLightweightKanjiNet
+    from train_cnn_model import LightweightKanjiNet as OriginalLightweightKanjiNet
 
 try:
     import onnxruntime

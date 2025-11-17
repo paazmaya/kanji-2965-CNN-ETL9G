@@ -4,6 +4,10 @@ Radical RNN Training for Kanji Recognition
 Leverages radical (component) decomposition + RNN for efficient character recognition.
 Target: 3-5 MB model, 96-99% accuracy
 
+Features:
+- Automatic checkpoint management with resume from latest checkpoint
+- Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+
 Configuration parameters are documented inline.
 For more info: See GITHUB_IMPLEMENTATION_REFERENCES.md Section 2
 Reference papers: RAN 2017, DenseRAN 2018, STAR 2022, RSST 2022, MegaHan97K 2025
@@ -17,6 +21,7 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.nn as nn
+from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from optimization_config import (
     RadicalRNNConfig,
     create_data_loaders,
@@ -488,6 +493,9 @@ Examples:
         help="Directory to save results (default: results)",
     )
 
+    # Add checkpoint management arguments
+    setup_checkpoint_arguments(parser, "rnn")
+
     args = parser.parse_args()
 
     # Parse CNN channels
@@ -531,7 +539,7 @@ Examples:
     print(f"  Optimizer: {config.optimizer}, Scheduler: {config.scheduler}")
 
     # ========== LOAD DATA ==========
-    print("\n📂 LOADING DATASET...")
+    print("\n📂 LOADING DATASET (auto-detecting best available)...")
     X, y = load_chunked_dataset(config.data_dir)
     train_loader, val_loader, test_loader = create_data_loaders(
         X, y, config, sample_limit=args.sample_limit
@@ -552,12 +560,27 @@ Examples:
     Path(config.model_dir).mkdir(parents=True, exist_ok=True)
     save_config(config, config.model_dir, "radical_rnn_config.json")
 
+    # ========== INITIALIZE CHECKPOINT MANAGER ==========
+    checkpoint_manager = CheckpointManager(args.checkpoint_dir, "rnn")
+
     # ========== TRAINING LOOP ==========
     print("\n🚀 TRAINING...")
     best_val_acc = 0.0
     best_model_path = Path(config.model_dir) / "radical_rnn_model_best.pth"
 
-    for epoch in range(1, config.epochs + 1):
+    # Resume from checkpoint using unified DRY method
+    start_epoch, best_metrics = checkpoint_manager.load_checkpoint_for_training(
+        model,
+        optimizer,
+        scheduler,
+        device,
+        resume_from=args.resume_from,
+        args_no_checkpoint=args.no_checkpoint,
+    )
+    best_val_acc = best_metrics.get("val_accuracy", 0.0)
+    start_epoch = max(start_epoch, 1)  # Epoch numbering starts at 1
+
+    for epoch in range(start_epoch, config.epochs + 1):
         train_loss, train_acc = trainer.train_epoch(train_loader, optimizer, criterion, epoch)
         val_loss, val_acc = trainer.validate(val_loader, criterion)
 
@@ -578,6 +601,23 @@ Examples:
             best_val_acc = val_acc
             torch.save(model.state_dict(), best_model_path)
             print(f"  ✓ Saved best model (acc: {val_acc:.2f}%)")
+
+        # Save checkpoint after each epoch for resuming later
+        checkpoint_manager.save_checkpoint(
+            epoch - 1,  # Convert to 0-indexed
+            model,
+            optimizer,
+            scheduler,
+            metrics={
+                "train_loss": train_loss,
+                "train_acc": train_acc,
+                "val_loss": val_loss,
+                "val_accuracy": val_acc,
+            },
+            is_best=(val_acc > best_val_acc),
+        )
+        # Clean up old checkpoints
+        checkpoint_manager.cleanup_old_checkpoints(keep_last_n=5)
 
     # ========== TESTING ==========
     print("\n🧪 TESTING...")

@@ -140,7 +140,7 @@ def test_model_architecture():
 
         # Add current directory to path to import model
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-        from train_etl9g_model import LightweightKanjiNet
+        from train_cnn_model import LightweightKanjiNet
 
         print("\n=== Model Architecture Test ===")
 

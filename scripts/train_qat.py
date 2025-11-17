@@ -3,6 +3,10 @@
 Quantization-Aware Training (QAT) for Kanji Recognition Model
 Reduces model size to ~1.7 MB (50% reduction) while maintaining 96.5-97% accuracy
 
+Features:
+- Automatic checkpoint management with resume from latest checkpoint
+- Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+
 Configuration parameters are documented inline.
 For more info: See GITHUB_IMPLEMENTATION_REFERENCES.md Section 1
 Reference implementations: micronet (2.2K stars), Alibaba TinyNeuralNetwork
@@ -15,6 +19,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.quantization as tq
+from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from optimization_config import (
     QATConfig,
     create_data_loaders,
@@ -482,19 +487,8 @@ Examples:
         help="Directory to save results (default: results)",
     )
 
-    # Resume training
-    parser.add_argument(
-        "--resume-from",
-        type=str,
-        default=None,
-        help="Resume training from checkpoint (e.g., models/checkpoints/checkpoint_epoch_005.pt)",
-    )
-    parser.add_argument(
-        "--checkpoint-dir",
-        type=str,
-        default="models/checkpoints",
-        help="Directory to save training checkpoints (default: models/checkpoints)",
-    )
+    # Add checkpoint management arguments (replaces old --resume-from and --checkpoint-dir)
+    setup_checkpoint_arguments(parser, "qat")
 
     args = parser.parse_args()
 
@@ -531,7 +525,7 @@ Examples:
     print(f"  Optimizer: {config.optimizer}, Scheduler: {config.scheduler}")
 
     # ========== LOAD DATA ==========
-    print("\n📂 LOADING DATASET...")
+    print("\n📂 LOADING DATASET (auto-detecting best available)...")
     X, y = load_chunked_dataset(config.data_dir)
     train_loader, val_loader, test_loader = create_data_loaders(
         X, y, config, sample_limit=args.sample_limit
@@ -557,28 +551,25 @@ Examples:
     Path(config.model_dir).mkdir(parents=True, exist_ok=True)
     save_config(config, config.model_dir, "qat_config.json")
 
+    # ========== INITIALIZE CHECKPOINT MANAGER ==========
+    checkpoint_manager = CheckpointManager(args.checkpoint_dir, "qat")
+
     # ========== INITIALIZE TRAINING STATE ==========
-    checkpoint_dir = Path(args.checkpoint_dir)
     start_epoch = 1
     best_val_acc = 0.0
     best_model_path = Path(config.model_dir) / "qat_model_best.pth"
 
-    # Resume from checkpoint if specified
-    if args.resume_from:
-        checkpoint_path = Path(args.resume_from)
-        if not checkpoint_path.exists():
-            print(f"❌ Checkpoint not found: {checkpoint_path}")
-            exit(1)
-        start_epoch, best_val_acc = trainer.load_checkpoint(checkpoint_path, optimizer, scheduler)
-        print("\n📋 Resuming training from checkpoint")
-    else:
-        print("\n💡 Tip: To pause and resume training later:")
-        print(
-            f"   Run with: python train_qat.py --data-dir dataset --checkpoint-dir {args.checkpoint_dir}"
-        )
-        print(
-            f"   Resume with: python train_qat.py --data-dir dataset --resume-from {args.checkpoint_dir}/checkpoint_epoch_NNN.pt"
-        )
+    # Resume from checkpoint using unified DRY method
+    start_epoch, best_metrics = checkpoint_manager.load_checkpoint_for_training(
+        model,
+        optimizer,
+        scheduler,
+        device,
+        resume_from=args.resume_from,
+        args_no_checkpoint=args.no_checkpoint,
+    )
+    best_val_acc = best_metrics.get("val_accuracy", 0.0)
+    start_epoch = max(start_epoch, 1)  # QAT starts at epoch 1, not 0
 
     # ========== TRAINING LOOP ==========
     print("\n🚀 TRAINING...")
@@ -614,7 +605,21 @@ Examples:
             print(f"  ✓ Saved best model (acc: {val_acc:.2f}%)")
 
         # Save checkpoint after each epoch for resuming later
-        trainer.save_checkpoint(epoch, optimizer, scheduler, checkpoint_dir)
+        checkpoint_manager.save_checkpoint(
+            epoch - 1,  # Convert to 0-indexed for checkpoint manager
+            model,
+            optimizer,
+            scheduler,
+            metrics={
+                "train_loss": train_loss,
+                "train_acc": train_acc,
+                "val_loss": val_loss,
+                "val_accuracy": val_acc,
+            },
+            is_best=(val_acc > best_val_acc),
+        )
+        # Clean up old checkpoints
+        checkpoint_manager.cleanup_old_checkpoints(keep_last_n=5)
 
     # ========== LOAD BEST MODEL BEFORE QUANTIZATION CONVERSION ==========
     print("\n📥 Loading best model before conversion...")
