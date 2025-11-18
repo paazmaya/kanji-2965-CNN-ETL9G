@@ -258,10 +258,12 @@ class LightweightKanjiNet(nn.Module):
 class ProgressiveTrainer:
     """Progressive training strategy for large character sets"""
 
-    def __init__(self, model, device, num_classes):
+    def __init__(self, model, device, num_classes, results_dir="training/cnn/results"):
         self.model = model.to(device)
         self.device = device
         self.num_classes = num_classes
+        self.results_dir = Path(results_dir)
+        self.results_dir.mkdir(parents=True, exist_ok=True)
         self.history = {
             "train_loss": [],
             "val_loss": [],
@@ -443,7 +445,7 @@ class ProgressiveTrainer:
 
             # Save progress periodically
             if (epoch + 1) % 5 == 0 or epoch == 0:
-                with open("models/training_progress.json", "w") as f:
+                with open(self.results_dir / "training_progress.json", "w") as f:
                     json.dump(progress_log, f, indent=2)
 
             # Save checkpoint after each epoch if checkpoint manager is provided
@@ -468,7 +470,7 @@ class ProgressiveTrainer:
             # Save best model
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
-                torch.save(self.model.state_dict(), "models/best_kanji_model.pth")
+                torch.save(self.model.state_dict(), self.results_dir / "best_kanji_model.pth")
                 patience_counter = 0
                 logger.info(f"New best model saved! Accuracy: {best_val_acc:.2f}%")
 
@@ -480,7 +482,7 @@ class ProgressiveTrainer:
                     "train_accuracy": train_acc,
                     "learning_rate": optimizer.param_groups[0]["lr"],
                 }
-                with open("models/best_model_info.json", "w") as f:
+                with open(self.results_dir / "best_model_info.json", "w") as f:
                     json.dump(model_info, f, indent=2)
             else:
                 patience_counter += 1
@@ -491,7 +493,7 @@ class ProgressiveTrainer:
         logger.info(f"一Training completed! Best validation accuracy: {best_val_acc:.2f}%")
 
         # Save final progress
-        with open("models/training_progress.json", "w") as f:
+        with open(self.results_dir / "training_progress.json", "w") as f:
             json.dump(progress_log, f, indent=2)
 
         return best_val_acc
@@ -753,8 +755,9 @@ def main():
     # Initialize checkpoint manager
     checkpoint_manager = CheckpointManager(args.checkpoint_dir, "cnn")
 
-    # Initialize trainer
-    trainer = ProgressiveTrainer(model, device, num_classes)
+    # Initialize trainer with results directory
+    results_dir = Path(args.checkpoint_dir).parent / "results"
+    trainer = ProgressiveTrainer(model, device, num_classes, results_dir=str(results_dir))
 
     # Check for existing checkpoint and resume if available
     start_epoch = 0

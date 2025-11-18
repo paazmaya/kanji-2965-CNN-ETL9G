@@ -85,7 +85,7 @@ class HiGITAConfig:
         self.weight_decay = 1e-5
 
         # Checkpoint
-        self.checkpoint_dir = "models/checkpoints_higita"
+        self.checkpoint_dir = "training/hiercode_higita/checkpoints"
 
     def to_dict(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}

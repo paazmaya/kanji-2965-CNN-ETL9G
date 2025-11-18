@@ -82,7 +82,7 @@ class OptimizationConfig:
     # ========== DATASET PARAMETERS ==========
     data_dir: str = "dataset"
     image_size: int = 64  # Input: 64x64 pixels
-    num_classes: int = 3036  # Kanji classes
+    num_classes: int = 43528  # Kanji classes (combined_all_etl dataset)
 
     # ========== TRAINING HYPERPARAMETERS ==========
     epochs: int = 30  # Complete passes through dataset

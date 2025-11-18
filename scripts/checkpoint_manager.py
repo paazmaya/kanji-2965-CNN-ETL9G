@@ -3,13 +3,17 @@
 Checkpoint Management Utility for Training Scripts
 
 Provides unified checkpoint handling with automatic resume from latest checkpoint.
-Each training approach (cnn, rnn, hiercode, vit, qat) stores checkpoints in separate folders.
+Each training approach (cnn, rnn, hiercode, vit, qat) stores checkpoints and results
+in dedicated training/{approach_name}/ folders with organized structure:
+- training/{approach_name}/checkpoints/  - Training checkpoints
+- training/{approach_name}/results/      - Training results and metrics
+- training/{approach_name}/config/       - Configuration files
 
 Usage:
     from checkpoint_manager import CheckpointManager
 
     # Auto-detect and resume from latest checkpoint if it exists
-    manager = CheckpointManager("models/checkpoints/cnn", approach_name="cnn")
+    manager = CheckpointManager("training/cnn/checkpoints", approach_name="cnn")
     checkpoint_data, start_epoch = manager.find_and_load_latest_checkpoint(model, optimizer, scheduler)
 
     if checkpoint_data:
@@ -36,12 +40,11 @@ class CheckpointManager:
         Initialize checkpoint manager.
 
         Args:
-            checkpoint_dir: Base checkpoint directory (e.g., "models/checkpoints")
+            checkpoint_dir: Checkpoint directory (e.g., "training/cnn/checkpoints")
             approach_name: Training approach name (e.g., "cnn", "rnn", "hiercode", "vit", "qat")
         """
-        self.base_dir = Path(checkpoint_dir)
+        self.approach_dir = Path(checkpoint_dir)
         self.approach_name = approach_name
-        self.approach_dir = self.base_dir / approach_name
         self.approach_dir.mkdir(parents=True, exist_ok=True)
 
     def save_checkpoint(
@@ -350,8 +353,8 @@ def setup_checkpoint_arguments(parser, approach_name: str) -> None:
     parser.add_argument(
         "--checkpoint-dir",
         type=str,
-        default="models/checkpoints",
-        help=f"Base checkpoint directory (default: models/checkpoints, will use models/checkpoints/{approach_name})",
+        default=f"training/{approach_name}/checkpoints",
+        help=f"Checkpoint directory (default: training/{approach_name}/checkpoints)",
     )
     parser.add_argument(
         "--resume-from",

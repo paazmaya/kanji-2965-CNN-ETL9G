@@ -491,7 +491,7 @@ Examples:
     # Model
     parser.add_argument("--image-size", type=int, default=64, help="Input image size (default: 64)")
     parser.add_argument(
-        "--num-classes", type=int, default=3036, help="Number of character classes (default: 3036)"
+        "--num-classes", type=int, default=43528, help="Number of character classes (default: 43528)"
     )
 
     # HierCode parameters
@@ -582,13 +582,13 @@ Examples:
 
     # Output
     parser.add_argument(
-        "--model-dir", type=str, default="models", help="Directory to save models (default: models)"
+        "--model-dir", type=str, default="training/hiercode/config", help="Directory to save model config (default: training/hiercode/config)"
     )
     parser.add_argument(
         "--results-dir",
         type=str,
-        default="results",
-        help="Directory to save results (default: results)",
+        default="training/hiercode/results",
+        help="Directory to save results (default: training/hiercode/results)",
     )
 
     # Add checkpoint management arguments
