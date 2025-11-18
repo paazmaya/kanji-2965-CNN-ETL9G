@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-Lightweight Kanji Recognition Model for ETL9G Dataset
-Optimized for ONNX/WASM deployment with 3,036 character classes
+Lightweight Kanji Recognition Model for Combined ETL Dataset
+Optimized for ONNX/WASM deployment with up to 43,457 character classes
 
 Features:
 - Automatic checkpoint management with resume from latest checkpoint
-- Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+- Dataset auto-detection with combined_all_etl priority (43,457 classes)
+- Scalable classifier head for variable number of classes
+- NVIDIA GPU required with CUDA optimizations enabled
 """
 
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +21,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
+from optimization_config import verify_and_setup_gpu
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -141,16 +145,17 @@ class LightweightKanjiNet(nn.Module):
         # =========================
         # CLASSIFIER HEAD ALGORITHMS - ADJUSTABLE
         # =========================
-        # Two-layer MLP with increased capacity for 512 input features
-        # Hidden layer size: 1024 (larger intermediate representation for complex patterns)
+        # Scalable two-layer MLP with capacity scaled for number of classes
+        # Hidden layer size: 2048 for large number of classes, scales down for fewer classes
         # Dropout rates: 0.3 and 0.2 (prevent overfitting with larger model)
         # Activation: ReLU (could use GELU, Swish, etc.)
+        hidden_dim = max(1024, min(2048, num_classes // 20))  # Scale hidden layer with class count
         self.classifier = nn.Sequential(
             nn.Dropout(0.3),  # First dropout layer
-            nn.Linear(512, 1024),  # Hidden layer (512->1024)
+            nn.Linear(512, hidden_dim),  # Hidden layer (512->hidden_dim)
             nn.ReLU(inplace=True),  # Activation function
             nn.Dropout(0.2),  # Second dropout layer
-            nn.Linear(1024, num_classes),  # Output layer
+            nn.Linear(hidden_dim, num_classes),  # Output layer
         )
 
         # Alternative classifier options (commented out):
@@ -569,10 +574,10 @@ def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
 
 def load_chunked_dataset(data_dir):
     """Load dataset from chunks if available, otherwise load single file.
-    Auto-detects: combined_all_etl > etl9g > etl8g > etl7 > etl6 > etl1"""
+    Auto-detects with combined_all_etl as highest priority: combined_all_etl > etl9g > etl8g > etl7 > etl6 > etl1"""
     data_path = Path(data_dir)
 
-    # Priority order for dataset selection
+    # Priority order for dataset selection (always prefer combined dataset)
     dataset_priority = [
         "combined_all_etl",
         "etl9g",
@@ -712,8 +717,8 @@ def main():
     with open(data_path / "metadata.json") as f:
         metadata = json.load(f)
 
-    # ETL9G dataset has exactly 3,036 character classes (fixed)
-    num_classes = 3036
+    # Use num_classes from metadata (supports multiple dataset types)
+    num_classes = metadata.get("num_classes", 3036)
     logger.info(f"Dataset loaded: {X.shape}, {num_classes} classes")
 
     # Optional: Limit samples for faster testing/debugging
@@ -729,8 +734,9 @@ def main():
     # Create data loaders
     train_loader, val_loader, test_loader = create_balanced_loaders(X, y, args.batch_size)
 
-    # Initialize model
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Initialize GPU and enable CUDA optimizations
+    device = verify_and_setup_gpu()
+    device = torch.device(device)
     logger.info(f"Using device: {device}")
 
     model = LightweightKanjiNet(num_classes, args.image_size)
@@ -739,6 +745,10 @@ def main():
 
     # Create models directory if it doesn't exist
     Path("models").mkdir(exist_ok=True)
+
+    # Initialize optimizer and scheduler
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     # Initialize checkpoint manager
     checkpoint_manager = CheckpointManager(args.checkpoint_dir, "cnn")
@@ -749,7 +759,6 @@ def main():
     # Check for existing checkpoint and resume if available
     start_epoch = 0
     best_val_acc = 0
-    checkpoint_manager = CheckpointManager(args.checkpoint_dir, "cnn")
 
     # Use unified checkpoint loading (DRY pattern)
     start_epoch, best_metrics = checkpoint_manager.load_checkpoint_for_training(

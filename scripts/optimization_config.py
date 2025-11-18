@@ -8,10 +8,64 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+import sys
+
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
+
+
+# ============================================================================
+# GPU VERIFICATION AND INITIALIZATION
+# ============================================================================
+
+
+def verify_and_setup_gpu():
+    """
+    Verify NVIDIA GPU availability and setup CUDA optimizations.
+    Exits with explanation if GPU is not available.
+    
+    Returns:
+        str: "cuda" device string
+    """
+    if not torch.cuda.is_available():
+        print("=" * 70)
+        print("❌ NVIDIA GPU NOT FOUND")
+        print("=" * 70)
+        print("\nThese training scripts require an NVIDIA GPU with CUDA support.")
+        print("CPU training is not supported for performance reasons.")
+        print("\nError Details:")
+        print(f"  - PyTorch version: {torch.__version__}")
+        print(f"  - CUDA available: {torch.cuda.is_available()}")
+        print(f"  - CUDA version: {torch.version.cuda if torch.version.cuda else 'Not installed'}")
+        print(f"  - cuDNN version: {torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else 'Not available'}")
+        print("\nPlease ensure:")
+        print("  1. NVIDIA GPU drivers are installed")
+        print("  2. CUDA Toolkit is installed (matching PyTorch version)")
+        print("  3. cuDNN library is installed (recommended for optimal performance)")
+        print("\nInstallation guides:")
+        print("  - NVIDIA CUDA Toolkit: https://developer.nvidia.com/cuda-downloads")
+        print("  - cuDNN: https://developer.nvidia.com/cudnn")
+        print("=" * 70)
+        sys.exit(1)
+    
+    # Enable CUDA optimizations
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    
+    # Log GPU info
+    gpu_name = torch.cuda.get_device_name(0)
+    gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+    print(f"\n✅ GPU Detected: {gpu_name} ({gpu_memory_gb:.1f} GB)")
+    print(f"   CUDA Version: {torch.version.cuda}")
+    print(f"   cuDNN Version: {torch.backends.cudnn.version()}")
+    print(f"   cuDNN Benchmark: Enabled")
+    print(f"   TF32 Support: Enabled\n")
+    
+    return "cuda"
+
 
 # ============================================================================
 # SHARED CONFIGURATION
@@ -52,7 +106,7 @@ class OptimizationConfig:
     scheduler_T_max: int = 30  # For cosine annealing (usually = epochs)
 
     # ========== DEVICE & LOGGING ==========
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda"  # GPU required (verified at startup)
     log_interval: int = 100  # Batches between logs
 
     # ========== OUTPUT PATHS ==========

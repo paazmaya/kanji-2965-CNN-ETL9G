@@ -15,8 +15,10 @@ This project trains multiple neural network architectures for Japanese kanji cha
 ### Setup
 
 ```ps1
+# Expects CUDA 13 to be available
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 # Install dependencies with uv
-uv pip install -r requirements.txt
+uv sync
 
 # Verify environment
 uv run python scripts/preflight_check.py
@@ -28,9 +30,13 @@ uv run python scripts/preflight_check.py
 # Process and combine ETL6, ETL7, ETL8G, ETL9G into single dataset
 # (934K+ samples, 4,154 classes - includes kanji, hiragana, katakana, symbols, numerals)
 uv run python scripts/prepare_dataset.py
+uv run python scripts/generate_chunk_metadata.py
 ```
 
 ### Training
+
+Gotta have CUA 13 available
+https://developer.nvidia.com/cuda-downloads
 
 ```ps1
 # CNN (fast baseline, 97.18% accuracy on ETL9G)

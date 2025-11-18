@@ -7,6 +7,7 @@ Target: 3-5 MB model, 96-99% accuracy
 Features:
 - Automatic checkpoint management with resume from latest checkpoint
 - Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+- NVIDIA GPU required with CUDA optimizations enabled
 
 Configuration parameters are documented inline.
 For more info: See GITHUB_IMPLEMENTATION_REFERENCES.md Section 2
@@ -16,6 +17,7 @@ Reference papers: RAN 2017, DenseRAN 2018, STAR 2022, RSST 2022, MegaHan97K 2025
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Tuple
 
@@ -29,6 +31,7 @@ from optimization_config import (
     get_optimizer,
     get_scheduler,
     load_chunked_dataset,
+    verify_and_setup_gpu,
     save_config,
 )
 from torch.utils.data import DataLoader
@@ -526,6 +529,9 @@ Examples:
         model_dir=args.model_dir,
         results_dir=args.results_dir,
     )
+
+    # ========== VERIFY GPU ==========
+    verify_and_setup_gpu()
 
     logger.info("=" * 70)
     logger.info("RADICAL RNN TRAINING FOR KANJI RECOGNITION")

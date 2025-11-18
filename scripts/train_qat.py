@@ -6,6 +6,7 @@ Reduces model size to ~1.7 MB (50% reduction) while maintaining 96.5-97% accurac
 Features:
 - Automatic checkpoint management with resume from latest checkpoint
 - Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+- NVIDIA GPU required with CUDA optimizations enabled
 
 Configuration parameters are documented inline.
 For more info: See GITHUB_IMPLEMENTATION_REFERENCES.md Section 1
@@ -15,6 +16,7 @@ Reference implementations: micronet (2.2K stars), Alibaba TinyNeuralNetwork
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 
 import torch
@@ -24,6 +26,7 @@ from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from optimization_config import (
     QATConfig,
     create_data_loaders,
+    verify_and_setup_gpu,
     get_optimizer,
     get_scheduler,
     load_chunked_dataset,
@@ -494,6 +497,9 @@ Examples:
     setup_checkpoint_arguments(parser, "qat")
 
     args = parser.parse_args()
+
+    # ========== VERIFY GPU ==========
+    verify_and_setup_gpu()
 
     # ========== CREATE CONFIG ==========
     config = QATConfig(

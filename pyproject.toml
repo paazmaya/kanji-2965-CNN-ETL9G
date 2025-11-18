@@ -14,50 +14,50 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 
 dependencies = [
     # Core ML framework with CUDA support
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
     # Data processing and utilities
-    "numpy>=1.21.0",
-    "scikit-learn>=1.0.0",
-    "matplotlib>=3.5.0",
-    "tqdm>=4.64.0",
-    "opencv-python>=4.6.0",
-    "Pillow>=9.0.0",
+    "numpy>=2.3.3",
+    "scikit-learn>=1.7.2",
+    "matplotlib>=3.10.7",
+    "tqdm>=4.67.1",
+    "opencv-python>=4.11.0",
+    "Pillow>=11.3.0",
     # Model export and deployment (GPU-accelerated)
-    "onnx>=1.14.0",
-    "onnxruntime-gpu>=1.15.0",
+    "onnx>=1.19.1",
+    "onnxruntime-gpu>=1.23.2",
     "onnxruntime-tools>=1.7.0",
     # CO2 emissions tracking
-    "codecarbon>=2.3.0",
+    "codecarbon>=3.0.7",
     # System monitoring
-    "psutil>=5.8.0",
+    "psutil>=7.1.0",
     # Data handling
-    "pandas>=1.5.0",
-    "safetensors>=0.5.3",
+    "pandas>=2.3.3",
+    "safetensors>=0.6.2",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "jupyter>=1.0.0",
+    "jupyter>=1.1.1",
     "ruff>=0.14.5",
-    "pytest>=7.0.0",
+    "pytest>=8.4.2",
+    "pytest-cov>=5.0.0",
 ]
 
 [dependency-groups]
 dev = [
-    "jupyter>=1.0.0",
-    "ruff>=0.5.0",
-    "pytest>=7.0.0",
+    "jupyter>=1.1.1",
+    "ruff>=0.14.5",
+    "pytest>=8.4.2",
 ]
 
 [project.urls]
@@ -67,9 +67,10 @@ Issues = "https://github.com/paazmaya/kanji-2965-CNN-ETL9G/issues"
 
 # PyTorch with CUDA support requires special index
 [[tool.uv.index]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cu129"
+name = "torch"
+url = "https://download.pytorch.org/whl/cu130"
 explicit = true
+packages = ["torch", "torchvision"]
 
 [tool.ruff]
 line-length = 100

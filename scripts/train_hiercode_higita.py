@@ -11,6 +11,7 @@ Trains HierCode model with optional Hi-GITA improvements:
 Features:
 - Automatic checkpoint management with resume from latest checkpoint
 - Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+- NVIDIA GPU required with CUDA optimizations enabled
 
 Usage:
     python scripts/train_hiercode_higita.py --data-dir dataset --use-higita
@@ -29,6 +30,17 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
+from optimization_config import (
+    HierCodeConfig,
+    create_data_loaders,
+    get_optimizer,
+    get_scheduler,
+    load_chunked_dataset,
+    save_config,
+    verify_and_setup_gpu,
 import torch.nn as nn
 import torch.optim as optim
 from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
@@ -337,6 +349,9 @@ def main():
 
     args = parser.parse_args()
 
+    # ========== VERIFY GPU ==========
+    verify_and_setup_gpu()
+
     # Setup
     config = HiGITAConfig()
     config.use_higita = args.use_higita
@@ -345,7 +360,7 @@ def main():
     config.epochs = args.epochs
     config.checkpoint_dir = args.checkpoint_dir
 
-    device = "cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu"
+    device = "cuda"
     logger.info(f"🔧 Device: {device}")
     logger.info(f"🔧 Hi-GITA enhancement: {'✅ ENABLED' if args.use_higita else '❌ DISABLED'}")
 

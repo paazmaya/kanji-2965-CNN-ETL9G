@@ -7,6 +7,7 @@ Target: <2 MB model, ≥97% accuracy, zero-shot capability
 Features:
 - Automatic checkpoint management with resume from latest checkpoint
 - Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+- NVIDIA GPU required with CUDA optimizations enabled
 
 Configuration parameters are documented inline.
 Paper: "HierCode: A Lightweight Hierarchical Codebook for Zero-shot
@@ -17,6 +18,7 @@ For more info: See HIERCODE_DISCOVERY.md and GITHUB_IMPLEMENTATION_REFERENCES.md
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Tuple
 
@@ -29,6 +31,7 @@ from optimization_config import (
     create_data_loaders,
     get_optimizer,
     get_scheduler,
+    verify_and_setup_gpu,
     load_chunked_dataset,
     save_config,
 )
@@ -617,6 +620,9 @@ Examples:
         model_dir=args.model_dir,
         results_dir=args.results_dir,
     )
+
+    # ========== VERIFY GPU ==========
+    verify_and_setup_gpu()
 
     logger.info("=" * 70)
     logger.info("HIERCODE (HIERARCHICAL CODEBOOK) TRAINING")

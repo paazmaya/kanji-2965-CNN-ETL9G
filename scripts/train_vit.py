@@ -7,6 +7,7 @@ Target: 8-15 MB model, 97-99% accuracy
 Features:
 - Automatic checkpoint management with resume from latest checkpoint
 - Dataset auto-detection (combined_all_etl, etl9g, etl8g, etl7, etl6, etl1)
+- NVIDIA GPU required with CUDA optimizations enabled (TF32, cuDNN benchmarking)
 
 Configuration parameters are documented inline.
 For more info: See GITHUB_IMPLEMENTATION_REFERENCES.md Section 4
@@ -16,6 +17,7 @@ Reference: T2T-ViT 2021 (arXiv:2101.11986v3)
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -29,6 +31,7 @@ from optimization_config import (
     get_scheduler,
     load_chunked_dataset,
     save_config,
+    verify_and_setup_gpu,
 )
 
 # ============================================================================
@@ -429,14 +432,6 @@ Examples:
         """,
     )
 
-    # ========== PERFORMANCE OPTIMIZATION ==========
-    # Enable cuDNN benchmarking for faster convolutions
-    torch.backends.cudnn.benchmark = True
-
-    # Use TF32 for faster matrix multiplications (minimal precision loss)
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
-
     # Dataset
     parser.add_argument("--data-dir", required=True, help="Dataset directory")
     parser.add_argument("--sample-limit", type=int, default=None, help="Limit samples for testing")
@@ -561,6 +556,9 @@ Examples:
         model_dir=args.model_dir,
         results_dir=args.results_dir,
     )
+
+    # ========== VERIFY GPU ==========
+    verify_and_setup_gpu()
 
     logger.info("=" * 70)
     logger.info("VISION TRANSFORMER (ViT) TRAINING FOR KANJI RECOGNITION")
