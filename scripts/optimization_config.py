@@ -4,17 +4,15 @@ Centralizes common parameters and utilities to reduce code duplication.
 """
 
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional, Tuple
-
-import sys
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
-
 
 # ============================================================================
 # GPU VERIFICATION AND INITIALIZATION
@@ -25,7 +23,7 @@ def verify_and_setup_gpu():
     """
     Verify NVIDIA GPU availability and setup CUDA optimizations.
     Exits with explanation if GPU is not available.
-    
+
     Returns:
         str: "cuda" device string
     """
@@ -39,7 +37,9 @@ def verify_and_setup_gpu():
         print(f"  - PyTorch version: {torch.__version__}")
         print(f"  - CUDA available: {torch.cuda.is_available()}")
         print(f"  - CUDA version: {torch.version.cuda if torch.version.cuda else 'Not installed'}")
-        print(f"  - cuDNN version: {torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else 'Not available'}")
+        print(
+            f"  - cuDNN version: {torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else 'Not available'}"
+        )
         print("\nPlease ensure:")
         print("  1. NVIDIA GPU drivers are installed")
         print("  2. CUDA Toolkit is installed (matching PyTorch version)")
@@ -49,21 +49,21 @@ def verify_and_setup_gpu():
         print("  - cuDNN: https://developer.nvidia.com/cudnn")
         print("=" * 70)
         sys.exit(1)
-    
+
     # Enable CUDA optimizations
     torch.backends.cudnn.benchmark = True
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
-    
+
     # Log GPU info
     gpu_name = torch.cuda.get_device_name(0)
     gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
     print(f"\n✅ GPU Detected: {gpu_name} ({gpu_memory_gb:.1f} GB)")
     print(f"   CUDA Version: {torch.version.cuda}")
     print(f"   cuDNN Version: {torch.backends.cudnn.version()}")
-    print(f"   cuDNN Benchmark: Enabled")
-    print(f"   TF32 Support: Enabled\n")
-    
+    print("   cuDNN Benchmark: Enabled")
+    print("   TF32 Support: Enabled\n")
+
     return "cuda"
 
 
@@ -128,6 +128,22 @@ class OptimizationConfig:
             "optimizer": self.optimizer,
             "scheduler": self.scheduler,
         }
+
+
+@dataclass
+class CNNConfig(OptimizationConfig):
+    """
+    Configuration for Lightweight CNN approach.
+    Simple baseline for kanji recognition.
+    """
+
+
+@dataclass
+class RNNConfig(OptimizationConfig):
+    """
+    Configuration for RNN-based approaches.
+    Supports multiple RNN architectures.
+    """
 
 
 @dataclass
@@ -353,6 +369,36 @@ class ETL9GDataset(Dataset):
 # ============================================================================
 
 
+def get_dataset_directory() -> Path:
+    """
+    Auto-detect and return the dataset directory.
+
+    Priority order:
+    1. Current working directory "dataset"
+    2. Relative "dataset" path
+    3. Falls back to "dataset" (will error if not found when loading)
+
+    This function ensures all training scripts use the same dataset location
+    without requiring CLI parameter.
+
+    Returns:
+        Path: Path to dataset directory
+    """
+    # Check common locations
+    possible_paths = [
+        Path.cwd() / "dataset",
+        Path(__file__).parent.parent / "dataset",
+        Path("dataset"),
+    ]
+
+    for path in possible_paths:
+        if path.exists():
+            return path
+
+    # Default to "dataset" - will error during load if not found
+    return Path("dataset")
+
+
 def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load dataset from chunks if available, otherwise load single file.
@@ -521,6 +567,107 @@ def save_config(config: OptimizationConfig, output_dir: str, name: str = "config
     print(f"✓ Configuration saved to {config_path}")
 
 
+def prepare_dataset_and_loaders(
+    data_dir: str,
+    dataset_fn=None,
+    batch_size: int = 64,
+    sample_limit: Optional[int] = None,
+    collate_fn=None,
+    num_workers: int = 0,
+    logger=None,
+) -> Tuple[Tuple[np.ndarray, np.ndarray], int, DataLoader, DataLoader]:
+    """
+    Unified dataset preparation and loader creation helper.
+
+    Handles:
+    1. Auto-detect and load dataset
+    2. Calculate num_classes from label range
+    3. Optionally limit samples
+    4. Create train/val split (80/20)
+    5. Create dataloaders with proper collate functions
+
+    Args:
+        data_dir: Directory containing ETL dataset
+        dataset_fn: Callable that takes (x, y) and returns Dataset instance.
+                   If None, uses ETL9GDataset.
+        batch_size: Batch size for loaders
+        sample_limit: Optional limit on number of samples
+        collate_fn: Optional collate function for DataLoader
+        num_workers: Number of workers for DataLoader
+        logger: Optional logger for info messages
+
+    Returns:
+        Tuple containing:
+        - (x, y): NumPy arrays of data and labels
+        - num_classes: Number of character classes
+        - train_loader: DataLoader for training
+        - val_loader: DataLoader for validation
+
+    Example:
+        def create_dataset(x, y):
+            return RNNKanjiDataset(x, y, model_type='stroke_rnn')
+
+        (x, y), num_classes, train_loader, val_loader = prepare_dataset_and_loaders(
+            'dataset',
+            dataset_fn=create_dataset,
+            batch_size=32,
+            sample_limit=1000,
+            collate_fn=my_collate_fn
+        )
+    """
+    # Load dataset
+    if logger:
+        logger.info(f"Loading dataset from {data_dir}...")
+    x, y = load_chunked_dataset(data_dir)
+
+    # Calculate num_classes from max label value
+    num_classes = int(np.max(y)) + 1
+    if logger:
+        logger.info(f"Label range: [0, {num_classes - 1}], {len(np.unique(y))} unique classes")
+
+    # Limit samples if specified
+    if sample_limit:
+        x = x[:sample_limit]
+        y = y[:sample_limit]
+        if logger:
+            logger.info(f"Limited dataset to {len(x)} samples")
+
+    if logger:
+        logger.info(f"Dataset: {len(x)} samples, {num_classes} classes")
+
+    # Create dataset using provided function or default
+    if dataset_fn is None:
+        dataset = ETL9GDataset(x, y)
+    else:
+        dataset = dataset_fn(x, y)
+
+    # Split dataset (80/20 train/val)
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+
+    if logger:
+        logger.info(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
+
+    # Create dataloaders
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=collate_fn,
+        num_workers=num_workers,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=collate_fn,
+        num_workers=num_workers,
+    )
+
+    return (x, y), num_classes, train_loader, val_loader
+
+
 def get_optimizer(model: nn.Module, config: OptimizationConfig):
     """
     Create optimizer based on config.
@@ -554,3 +701,130 @@ def get_scheduler(optimizer, config: OptimizationConfig):
         return torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
     else:
         raise ValueError(f"Unknown scheduler: {config.scheduler}")
+
+
+def run_training_epoch(
+    epoch: int,
+    total_epochs: int,
+    trainer,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    optimizer,
+    criterion,
+    scheduler,
+    checkpoint_manager=None,
+    checkpoint_metrics_fn=None,
+    best_model_path: Optional[Path] = None,
+    logger=None,
+) -> Tuple[float, float, bool]:
+    """
+    Unified training epoch runner to reduce code duplication across all training scripts.
+
+    Handles:
+    1. Train one epoch using trainer.train_epoch()
+    2. Validate using trainer.validate()
+    3. Log metrics
+    4. Check if best model and save
+    5. Save checkpoint
+    6. Update scheduler
+
+    Args:
+        epoch: Current epoch number (1-indexed)
+        total_epochs: Total number of epochs
+        trainer: Trainer object with train_epoch() and validate() methods
+        train_loader: Training DataLoader
+        val_loader: Validation DataLoader
+        optimizer: Optimizer instance
+        criterion: Loss criterion
+        scheduler: Learning rate scheduler
+        checkpoint_manager: Optional CheckpointManager for saving checkpoints
+        checkpoint_metrics_fn: Optional callable(epoch, loss, acc) -> dict of metrics to save in checkpoint
+        best_model_path: Optional path to save best model
+        logger: Optional logger instance
+
+    Returns:
+        Tuple of (train_loss, val_loss, is_best) where:
+        - train_loss: Loss on training set
+        - val_loss: Loss on validation set
+        - is_best: Whether validation accuracy improved
+
+    Example:
+        for epoch in range(1, num_epochs + 1):
+            train_loss, val_loss, is_best = run_training_epoch(
+                epoch=epoch,
+                total_epochs=num_epochs,
+                trainer=trainer,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                optimizer=optimizer,
+                criterion=criterion,
+                scheduler=scheduler,
+                checkpoint_manager=checkpoint_manager,
+                best_model_path=Path("best_model.pth"),
+                logger=logger,
+            )
+            if is_best:
+                print(f"New best model at epoch {epoch}")
+    """
+    # Train epoch
+    if hasattr(trainer, "train_epoch"):
+        result = trainer.train_epoch(train_loader, optimizer, criterion, epoch)
+        if isinstance(result, tuple) and len(result) == 2:
+            train_loss, train_acc = result
+        else:
+            train_loss = result
+            train_acc = 0.0
+    else:
+        raise ValueError(f"Trainer must have train_epoch method, got {type(trainer)}")
+
+    # Validate
+    if hasattr(trainer, "validate"):
+        result = trainer.validate(val_loader, criterion)
+        if isinstance(result, tuple) and len(result) == 2:
+            val_loss, val_acc = result
+        else:
+            val_loss = result
+            val_acc = 0.0
+    else:
+        raise ValueError(f"Trainer must have validate method, got {type(trainer)}")
+
+    # Log progress
+    if logger:
+        logger.info(
+            f"Epoch {epoch}/{total_epochs} | "
+            f"Train Loss: {train_loss:.4f}, Acc: {train_acc:.2f}% | "
+            f"Val Loss: {val_loss:.4f}, Acc: {val_acc:.2f}%"
+        )
+
+    # Check if best model and save
+    is_best = False
+    if hasattr(trainer, "best_val_acc"):
+        if val_acc > trainer.best_val_acc:
+            is_best = True
+            trainer.best_val_acc = val_acc
+            if best_model_path:
+                torch.save(trainer.model.state_dict(), best_model_path)
+                if logger:
+                    logger.info(f"  ✓ Saved best model (acc: {val_acc:.2f}%)")
+
+    # Save checkpoint
+    if checkpoint_manager:
+        metrics = {}
+        if checkpoint_metrics_fn:
+            metrics = checkpoint_metrics_fn(epoch, val_loss, val_acc) or {}
+        else:
+            metrics = {"val_accuracy": val_acc, "val_loss": val_loss}
+
+        checkpoint_manager.save_checkpoint(
+            epoch - 1,  # Convert to 0-indexed
+            trainer.model,
+            optimizer,
+            scheduler,
+            metrics=metrics,
+            is_best=is_best,
+        )
+
+    # Update scheduler
+    scheduler.step()
+
+    return train_loss, val_loss, is_best

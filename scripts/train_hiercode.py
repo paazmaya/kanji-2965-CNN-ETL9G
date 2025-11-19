@@ -29,11 +29,12 @@ from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from optimization_config import (
     HierCodeConfig,
     create_data_loaders,
+    get_dataset_directory,
     get_optimizer,
     get_scheduler,
-    verify_and_setup_gpu,
     load_chunked_dataset,
     save_config,
+    verify_and_setup_gpu,
 )
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -55,10 +56,10 @@ class HierarchicalCodebook(nn.Module):
     Solution: Organize codebook hierarchically using binary tree structure
 
     Example (for 1024 codewords, depth=10):
-    - Root has 2 children (bits 0-1)
-    - Each node has 2 children (binary tree)
-    - Leaf nodes are codewords
-    - Path from root to leaf: 10-bit binary code
+    - Root node represents start of tree
+    - Each non-leaf node has 2 children (binary tree branching)
+    - Leaf nodes (2^10 = 1024) represent unique codewords
+    - Path from root to leaf: 10-bit binary code to reach any codeword
 
     Benefits:
     1. Memory efficient: 1024 codewords → 10 bits vs 10 bits at top
@@ -466,32 +467,20 @@ Examples:
   python train_hiercode.py --data-dir dataset
   python train_hiercode.py --data-dir dataset --codebook-total-size 1024 --hierarch-depth 10
   python train_hiercode.py --data-dir dataset --multi-hot-k 5 --backbone-type lightweight_cnn
-  python train_hiercode.py --data-dir dataset --enable-zero-shot --zero-shot-radical-aware
+  python train_hiercode.py --enable-zero-shot --zero-shot-radical-aware
         """,
     )
 
-    # Dataset
-    parser.add_argument("--data-dir", required=True, help="Dataset directory")
+    # Dataset (auto-detected from common location)
     parser.add_argument("--sample-limit", type=int, default=None, help="Limit samples for testing")
-
-    # Checkpoint resuming
-    parser.add_argument(
-        "--checkpoint-dir",
-        type=str,
-        default="models/checkpoints",
-        help="Directory to save training checkpoints (default: models/checkpoints)",
-    )
-    parser.add_argument(
-        "--resume-from",
-        type=str,
-        default=None,
-        help="Path to checkpoint to resume training from (e.g., models/checkpoints/checkpoint_epoch_010.pt)",
-    )
 
     # Model
     parser.add_argument("--image-size", type=int, default=64, help="Input image size (default: 64)")
     parser.add_argument(
-        "--num-classes", type=int, default=43528, help="Number of character classes (default: 43528)"
+        "--num-classes",
+        type=int,
+        default=43528,
+        help="Number of character classes (default: 43,528 for combined ETL6-9 dataset)",
     )
 
     # HierCode parameters
@@ -561,7 +550,7 @@ Examples:
         "--learning-rate", type=float, default=0.001, help="Initial learning rate (default: 0.001)"
     )
     parser.add_argument(
-        "--weight-decay", type=float, default=1e-5, help="L2 regularization (default: 1e-5)"
+        "--weight-decay", type=float, default=1e-4, help="L2 regularization (default: 1e-4)"
     )
 
     # Optimizer & scheduler
@@ -582,7 +571,10 @@ Examples:
 
     # Output
     parser.add_argument(
-        "--model-dir", type=str, default="training/hiercode/config", help="Directory to save model config (default: training/hiercode/config)"
+        "--model-dir",
+        type=str,
+        default="training/hiercode/config",
+        help="Directory to save model config (default: training/hiercode/config)",
     )
     parser.add_argument(
         "--results-dir",
@@ -591,14 +583,18 @@ Examples:
         help="Directory to save results (default: training/hiercode/results)",
     )
 
-    # Add checkpoint management arguments
+    # Add checkpoint management arguments (unified across all scripts)
     setup_checkpoint_arguments(parser, "hiercode")
 
     args = parser.parse_args()
 
+    # Auto-detect dataset directory
+    data_dir = str(get_dataset_directory())
+    logger.info(f"Using dataset from: {data_dir}")
+
     # ========== CREATE CONFIG ==========
     config = HierCodeConfig(
-        data_dir=args.data_dir,
+        data_dir=data_dir,
         image_size=args.image_size,
         num_classes=args.num_classes,
         epochs=args.epochs,
@@ -728,6 +724,31 @@ Examples:
         json.dump(results, f, indent=2)
 
     logger.info(f"✓ Results saved to {results_path}")
+
+    # ========== CREATE CHARACTER MAPPING ==========
+    logger.info("\n📊 Creating character mapping for inference...")
+    try:
+        from subprocess import run
+
+        result = run(
+            [
+                sys.executable,
+                "scripts/create_class_mapping.py",
+                "--metadata-path",
+                str(Path(config.data_dir) / "metadata.json"),
+                "--output-dir",
+                config.results_dir,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            logger.info("✓ Character mapping created successfully")
+        else:
+            logger.warning(f"⚠ Character mapping creation failed: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"⚠ Could not create character mapping: {e}")
+
     logger.info("=" * 70)
 
 

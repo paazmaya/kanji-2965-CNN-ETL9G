@@ -215,3 +215,4 @@ ETL*/
 *.ckpt
 *.safetensors
 models*
+training/

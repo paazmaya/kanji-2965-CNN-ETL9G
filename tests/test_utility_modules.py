@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for utility modules."""
 
-
 import pytest
 
 from scripts.generate_mapping import estimate_stroke_count, jis_to_unicode

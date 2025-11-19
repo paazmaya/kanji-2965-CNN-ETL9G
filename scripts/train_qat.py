@@ -26,11 +26,12 @@ from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from optimization_config import (
     QATConfig,
     create_data_loaders,
-    verify_and_setup_gpu,
+    get_dataset_directory,
     get_optimizer,
     get_scheduler,
     load_chunked_dataset,
     save_config,
+    verify_and_setup_gpu,
 )
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -414,14 +415,16 @@ Examples:
         """,
     )
 
-    # Dataset
-    parser.add_argument("--data-dir", required=True, help="Dataset directory")
+    # Dataset (auto-detected from common location)
     parser.add_argument("--sample-limit", type=int, default=None, help="Limit samples for testing")
 
     # Model
     parser.add_argument("--image-size", type=int, default=64, help="Input image size (default: 64)")
     parser.add_argument(
-        "--num-classes", type=int, default=43528, help="Number of character classes (default: 43528)"
+        "--num-classes",
+        type=int,
+        default=43528,
+        help="Number of character classes (default: 43,528 for combined ETL6-9 dataset)",
     )
 
     # Training hyperparameters
@@ -435,7 +438,7 @@ Examples:
         "--learning-rate", type=float, default=0.001, help="Initial learning rate (default: 0.001)"
     )
     parser.add_argument(
-        "--weight-decay", type=float, default=1e-5, help="L2 regularization (default: 1e-5)"
+        "--weight-decay", type=float, default=1e-4, help="L2 regularization (default: 1e-4)"
     )
 
     # QAT specific parameters
@@ -484,7 +487,10 @@ Examples:
 
     # Output
     parser.add_argument(
-        "--model-dir", type=str, default="training/qat/config", help="Directory to save model config (default: training/qat/config)"
+        "--model-dir",
+        type=str,
+        default="training/qat/config",
+        help="Directory to save model config (default: training/qat/config)",
     )
     parser.add_argument(
         "--results-dir",
@@ -501,9 +507,13 @@ Examples:
     # ========== VERIFY GPU ==========
     verify_and_setup_gpu()
 
+    # Auto-detect dataset directory
+    data_dir = str(get_dataset_directory())
+    logger.info(f"Using dataset from: {data_dir}")
+
     # ========== CREATE CONFIG ==========
     config = QATConfig(
-        data_dir=args.data_dir,
+        data_dir=data_dir,
         image_size=args.image_size,
         num_classes=args.num_classes,
         epochs=args.epochs,
@@ -658,6 +668,31 @@ Examples:
         json.dump(results, f, indent=2)
 
     logger.info(f"✓ Results saved to {results_path}")
+
+    # ========== CREATE CHARACTER MAPPING ==========
+    logger.info("\n📊 Creating character mapping for inference...")
+    try:
+        from subprocess import run
+
+        result = run(
+            [
+                sys.executable,
+                "scripts/create_class_mapping.py",
+                "--metadata-path",
+                str(Path(config.data_dir) / "metadata.json"),
+                "--output-dir",
+                config.results_dir,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            logger.info("✓ Character mapping created successfully")
+        else:
+            logger.warning(f"⚠ Character mapping creation failed: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"⚠ Could not create character mapping: {e}")
+
     logger.info("=" * 70)
 
 

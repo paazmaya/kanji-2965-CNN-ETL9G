@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Lightweight Kanji Recognition Model for Combined ETL Dataset
-Optimized for ONNX/WASM deployment with up to 43,457 character classes
+Optimized for ONNX deployment with variable character classes (3,036-4,154 from ETL datasets)
 
 Features:
 - Automatic checkpoint management with resume from latest checkpoint
-- Dataset auto-detection with combined_all_etl priority (43,457 classes)
+- Dataset auto-detection with combined_all_etl priority (3,036-4,154 classes)
 - Scalable classifier head for variable number of classes
 - NVIDIA GPU required with CUDA optimizations enabled
 """
@@ -21,7 +21,15 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
-from optimization_config import verify_and_setup_gpu
+from optimization_config import (
+    CNNConfig,
+    get_dataset_directory,
+    get_optimizer,
+    get_scheduler,
+    load_chunked_dataset,
+    prepare_dataset_and_loaders,
+    verify_and_setup_gpu,
+)
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -673,7 +681,6 @@ def load_chunked_dataset(data_dir):
 
 def main():
     parser = argparse.ArgumentParser(description="Train Lightweight Kanji Model for ETL9G")
-    parser.add_argument("--data-dir", required=True, help="Directory containing ETL9G dataset")
 
     # =========================
     # TRAINING HYPERPARAMETERS - ADJUSTABLE
@@ -706,35 +713,64 @@ def main():
         help="Limit samples for testing (e.g., 50000)",
     )
 
+    # Number of classes: Automatically detected from metadata, but can be overridden
+    # Default: 43,528 (combined ETL6-9 dataset)
+    parser.add_argument(
+        "--num-classes",
+        type=int,
+        default=43528,
+        help="Number of character classes (default: 43,528 for combined ETL6-9 dataset)",
+    )
+
+    # ========== OPTIMIZER & SCHEDULER ==========
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        default="adamw",
+        choices=["adamw", "sgd"],
+        help="Optimizer (default: adamw)",
+    )
+    parser.add_argument(
+        "--scheduler",
+        type=str,
+        default="cosine",
+        choices=["cosine", "step"],
+        help="Learning rate scheduler (default: cosine)",
+    )
+
     # Add checkpoint management arguments
     setup_checkpoint_arguments(parser, "cnn")
 
     args = parser.parse_args()
 
-    # Load dataset
-    data_path = Path(args.data_dir)
-    logger.info("Loading dataset (auto-detecting best available)...")
-    X, y = load_chunked_dataset(args.data_dir)
+    # Auto-detect dataset directory
+    data_path = get_dataset_directory()
+    logger.info(f"Using dataset from: {data_path}")
 
+    # Read metadata for num_classes
     with open(data_path / "metadata.json") as f:
         metadata = json.load(f)
-
-    # Use num_classes from metadata (supports multiple dataset types)
     num_classes = metadata.get("num_classes", 3036)
-    logger.info(f"Dataset loaded: {X.shape}, {num_classes} classes")
 
-    # Optional: Limit samples for faster testing/debugging
-    if args.sample_limit and len(X) > args.sample_limit:
-        logger.info(f"Limiting dataset to {args.sample_limit} samples for testing...")
-        indices = np.random.choice(len(X), args.sample_limit, replace=False)
-        X = X[indices]
-        y = y[indices]
+    # Create dataset factory for ETL9GDataset
+    def create_etl_dataset(x: np.ndarray, y: np.ndarray):
+        return ETL9GDataset(x, y, augment=False)
 
-    logger.info(f"Dataset loaded: {X.shape}, {num_classes} classes")
-    logger.info(f"Memory usage: {X.nbytes / (1024**3):.1f} GB")
+    # Prepare dataset using unified helper
+    (x, y), num_classes_calc, _, _ = prepare_dataset_and_loaders(
+        data_dir=str(data_path),
+        dataset_fn=create_etl_dataset,
+        batch_size=args.batch_size,
+        sample_limit=args.sample_limit,
+        logger=logger,
+    )
 
-    # Create data loaders
-    train_loader, val_loader, test_loader = create_balanced_loaders(X, y, args.batch_size)
+    # Use metadata num_classes if available, fallback to calculated
+    num_classes = max(num_classes, num_classes_calc)
+    logger.info(f"Memory usage: {x.nbytes / (1024**3):.1f} GB")
+
+    # Create balanced loaders with stratification
+    train_loader, val_loader, test_loader = create_balanced_loaders(x, y, args.batch_size)
 
     # Initialize GPU and enable CUDA optimizations
     device = verify_and_setup_gpu()
@@ -748,9 +784,19 @@ def main():
     # Create models directory if it doesn't exist
     Path("models").mkdir(exist_ok=True)
 
-    # Initialize optimizer and scheduler
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    # Create config for optimizer/scheduler
+    config = CNNConfig(
+        learning_rate=args.learning_rate,
+        weight_decay=1e-4,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        optimizer=args.optimizer,
+        scheduler=args.scheduler,
+    )
+
+    # Initialize optimizer and scheduler using unified functions
+    optimizer = get_optimizer(model, config)
+    scheduler = get_scheduler(optimizer, config)
 
     # Initialize checkpoint manager
     checkpoint_manager = CheckpointManager(args.checkpoint_dir, "cnn")
@@ -788,6 +834,30 @@ def main():
     # Test final model
     test_loss, test_acc = trainer.validate(test_loader, nn.CrossEntropyLoss())
     logger.info(f"一Final test accuracy: {test_acc:.2f}%")
+
+    # ========== CREATE CHARACTER MAPPING ==========
+    logger.info("\n📊 Creating character mapping for inference...")
+    try:
+        from subprocess import run
+
+        result = run(
+            [
+                sys.executable,
+                "scripts/create_class_mapping.py",
+                "--metadata-path",
+                str(data_path / "metadata.json"),
+                "--output-dir",
+                str(results_dir),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            logger.info("✓ Character mapping created successfully")
+        else:
+            logger.warning(f"⚠ Character mapping creation failed: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"⚠ Could not create character mapping: {e}")
 
 
 if __name__ == "__main__":

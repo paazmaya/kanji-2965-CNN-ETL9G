@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for hiercode_higita_config module."""
 
-
 import pytest
 
 from scripts.hiercode_higita_config import (

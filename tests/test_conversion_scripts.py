@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for remaining untested scripts."""
 
-
 import pytest
 
 

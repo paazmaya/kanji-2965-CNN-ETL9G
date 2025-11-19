@@ -14,8 +14,7 @@ Features:
 - NVIDIA GPU required with CUDA optimizations enabled
 
 Usage:
-    python scripts/train_hiercode_higita.py --data-dir dataset --use-higita
-    python scripts/train_hiercode_higita.py --data-dir dataset  # Standard HierCode
+    python scripts/train_hiercode_higita.py --data-dir dataset
 
 Author: Enhancement for kanji-2965-CNN-ETL9G
 Date: November 17, 2025
@@ -31,19 +30,13 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
-from optimization_config import (
-    HierCodeConfig,
-    create_data_loaders,
-    get_optimizer,
-    get_scheduler,
-    load_chunked_dataset,
-    save_config,
-    verify_and_setup_gpu,
-import torch.nn as nn
 import torch.optim as optim
 from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
+from optimization_config import (
+    get_dataset_directory,
+    prepare_dataset_and_loaders,
+    verify_and_setup_gpu,
+)
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -63,7 +56,6 @@ class HiGITAConfig:
     """Hi-GITA enhancement configuration"""
 
     def __init__(self):
-        self.use_higita = True
         self.stroke_dim = 128
         self.radical_dim = 256
         self.character_dim = 512
@@ -87,107 +79,15 @@ class HiGITAConfig:
         # Checkpoint
         self.checkpoint_dir = "training/hiercode_higita/checkpoints"
 
+        # Dataset (for character mapping generation)
+        self.data_dir = "dataset"
+
     def to_dict(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}
 
 
-def load_etl9g_dataset(data_dir: str, limit: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
-    """Load ETLCDB dataset from preprocessed chunks.
-    Auto-detects: combined_all_etl > etl9g > etl8g > etl7 > etl6 > etl1"""
-    logger.info(f"Loading dataset from {data_dir}...")
-
-    data_dir = Path(data_dir)
-
-    # Priority order for dataset selection
-    dataset_priority = [
-        "combined_all_etl",
-        "etl9g",
-        "etl8g",
-        "etl7",
-        "etl6",
-        "etl1",
-    ]
-
-    # Find the best available dataset
-    selected_dataset = None
-    for dataset_name in dataset_priority:
-        dataset_subdir = data_dir / dataset_name
-        if dataset_subdir.exists():
-            chunk_files = sorted(dataset_subdir.glob(f"{dataset_name}_dataset_chunk_*.npz"))
-            if not chunk_files:
-                # Try without "_dataset" part
-                chunk_files = sorted(dataset_subdir.glob(f"{dataset_name}_chunk_*.npz"))
-            if chunk_files:
-                selected_dataset = dataset_name
-                logger.debug(f"🔍 Auto-detected dataset: {dataset_name}")
-                break
-
-    if selected_dataset is None:
-        # Check legacy flat structure
-        chunk_files = sorted(data_dir.glob("etl9g_dataset_chunk_*.npz"))
-        if chunk_files:
-            selected_dataset = "legacy"
-            logger.debug("🔍 Auto-detected legacy dataset structure")
-        else:
-            raise FileNotFoundError(f"No chunk files found in {data_dir}")
-
-    if selected_dataset == "legacy":
-        chunk_files = sorted(data_dir.glob("etl9g_dataset_chunk_*.npz"))
-    else:
-        dataset_subdir = data_dir / selected_dataset
-        chunk_files = sorted(dataset_subdir.glob(f"{selected_dataset}_dataset_chunk_*.npz"))
-        if not chunk_files:
-            chunk_files = sorted(dataset_subdir.glob(f"{selected_dataset}_chunk_*.npz"))
-
-    images_list = []
-    labels_list = []
-    total_samples = 0
-
-    for chunk_file in chunk_files:
-        chunk = np.load(chunk_file)
-
-        # Handle both key formats: (images, labels) or (X, y)
-        if "images" in chunk:
-            images = chunk["images"]  # (N, 64, 64)
-            labels = chunk["labels"]  # (N,)
-        else:
-            images = chunk["X"]  # Flattened (N, 4096)
-            labels = chunk["y"]  # (N,)
-            # Reshape if flattened
-            if images.ndim == 2 and images.shape[1] == 4096:
-                images = images.reshape(-1, 64, 64)
-
-        # Load subset if limit specified
-        if limit and total_samples + len(images) > limit:
-            remaining = limit - total_samples
-            images = images[:remaining]
-            labels = labels[:remaining]
-
-        images_list.append(images)
-        labels_list.append(labels)
-
-        total_samples += len(images)
-        logger.debug(f"  Loaded {chunk_file.name}: {len(images)} samples (total: {total_samples})")
-
-        if limit and total_samples >= limit:
-            break
-
-    images = np.concatenate(images_list)
-    labels = np.concatenate(labels_list)
-
-    # Normalize to [0, 1]
-    images = images.astype(np.float32) / 255.0
-
-    # Add channel dimension if needed
-    if len(images.shape) == 3:
-        images = images[:, np.newaxis, :, :]  # (N, 1, 64, 64)
-
-    logger.info(f"✅ Loaded {len(images)} images with {len(np.unique(labels))} classes")
-    return images, labels
-
-
 def create_synthetic_text_data(
-    labels: np.ndarray, num_samples: int = None
+    labels: np.ndarray, num_samples: Optional[int] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Create synthetic text representations (stroke and radical codes)
@@ -250,7 +150,7 @@ def train_epoch(
 
         # Optionally add contrastive loss
         total_batch_loss = ce_loss
-        if args.use_higita and text_encoder and contrastive_loss_fn:
+        if text_encoder and contrastive_loss_fn:
             # Generate synthetic text for this batch
             stroke_codes, radical_codes = create_synthetic_text_data(
                 labels.cpu().numpy(), len(labels)
@@ -295,7 +195,7 @@ def train_epoch(
     return {
         "total_loss": total_loss / len(train_loader),
         "ce_loss": classification_loss / len(train_loader),
-        "contrastive_loss": contrastive_loss / len(train_loader) if args.use_higita else 0,
+        "contrastive_loss": contrastive_loss / len(train_loader),
         "accuracy": 100 * correct / total,
     }
 
@@ -336,13 +236,14 @@ def validate(
 
 def main():
     parser = argparse.ArgumentParser(description="Train HierCode with optional Hi-GITA enhancement")
-    parser.add_argument("--data-dir", required=True, help="Dataset directory")
-    parser.add_argument("--use-higita", action="store_true", help="Enable Hi-GITA enhancement")
-    parser.add_argument("--epochs", type=int, default=30, help="Number of epochs")
-    parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
-    parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
-    parser.add_argument("--limit-samples", type=int, default=None, help="Limit number of samples")
-    parser.add_argument("--device", default="cuda", help="Device (cuda or cpu)")
+    parser.add_argument("--epochs", type=int, default=30, help="Number of epochs (default: 30)")
+    parser.add_argument("--batch-size", type=int, default=32, help="Batch size (default: 32)")
+    parser.add_argument(
+        "--learning-rate", type=float, default=0.001, help="Learning rate (default: 0.001)"
+    )
+    parser.add_argument(
+        "--sample-limit", type=int, default=None, help="Limit number of samples (default: None)"
+    )
 
     # Add checkpoint management arguments
     setup_checkpoint_arguments(parser, "hiercode_higita")
@@ -352,64 +253,70 @@ def main():
     # ========== VERIFY GPU ==========
     verify_and_setup_gpu()
 
+    # Auto-detect dataset directory
+    data_dir = str(get_dataset_directory())
+    logger.info(f"Using dataset from: {data_dir}")
+
     # Setup
     config = HiGITAConfig()
-    config.use_higita = args.use_higita
     config.batch_size = args.batch_size
-    config.learning_rate = args.lr
+    config.learning_rate = args.learning_rate
     config.epochs = args.epochs
     config.checkpoint_dir = args.checkpoint_dir
+    config.data_dir = data_dir
 
     device = "cuda"
-    logger.info(f"🔧 Device: {device}")
-    logger.info(f"🔧 Hi-GITA enhancement: {'✅ ENABLED' if args.use_higita else '❌ DISABLED'}")
+    logger.info(f"🔧 Device: {device} (auto-detected)")
 
     # Create checkpoint directory
     Path(config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
-    # Load dataset
-    images, labels = load_etl9g_dataset(args.data_dir, limit=args.limit_samples)
+    # Load dataset using unified helper
+    def create_tensor_dataset(x: np.ndarray, y: np.ndarray):
+        """Factory for TensorDataset to work with prepare_dataset_and_loaders helper.
+        Handles image reshaping: [4096] -> [64, 64] -> [1, 64, 64]
+        """
+        # Reshape if flattened (4096,) -> (64, 64)
+        if x.ndim == 2 and x.shape[1] == 4096:
+            x = x.reshape(-1, 64, 64)
 
-    # Split into train/val
-    from sklearn.model_selection import train_test_split
+        # Add channel dimension if needed: (N, 64, 64) -> (N, 1, 64, 64)
+        if x.ndim == 3:
+            x = x[:, np.newaxis, :, :]
 
-    indices = np.arange(len(images))
-    train_indices, val_indices = train_test_split(
-        indices, test_size=0.1, stratify=labels, random_state=42
+        # Convert to torch tensors and wrap in TensorDataset
+        x_tensor = torch.from_numpy(x).float()
+        y_tensor = torch.from_numpy(y).long()
+        return TensorDataset(x_tensor, y_tensor)
+
+    (images, labels), num_classes, train_loader, val_loader = prepare_dataset_and_loaders(
+        data_dir=data_dir,
+        dataset_fn=create_tensor_dataset,
+        batch_size=config.batch_size,
+        sample_limit=args.sample_limit,
+        logger=logger,
     )
 
-    train_images = torch.from_numpy(images[train_indices])
-    train_labels = torch.from_numpy(labels[train_indices]).long()
-    val_images = torch.from_numpy(images[val_indices])
-    val_labels = torch.from_numpy(labels[val_indices]).long()
+    # Get dataset sizes
+    train_dataset = train_loader.dataset
+    val_dataset = val_loader.dataset
+    train_size = len(train_dataset) if isinstance(train_dataset, TensorDataset) else len(images)  # type: ignore
+    val_size = len(val_dataset) if isinstance(val_dataset, TensorDataset) else 0  # type: ignore
+    logger.info(f"✅ Train: {train_size} | Val: {val_size}")
+    logger.info(f"✅ Num classes: {num_classes} (from label range [0, {int(np.max(labels))}])")
 
-    train_dataset = TensorDataset(train_images, train_labels)
-    val_dataset = TensorDataset(val_images, val_labels)
-
-    train_loader = DataLoader(
-        train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=0
-    )
-    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, num_workers=0)
-
-    logger.info(f"✅ Train: {len(train_loader.dataset)} | Val: {len(val_loader.dataset)}")
-
-    # Create model
-    num_classes = len(np.unique(labels))
+    # Create model (use num_classes from prepare_dataset_and_loaders, not unique count)
     model = HierCodeWithHiGITA(
         num_classes=num_classes,
-        use_higita_enhancement=args.use_higita,
         stroke_dim=config.stroke_dim,
         radical_dim=config.radical_dim,
         character_dim=config.character_dim,
     )
     model = model.to(device)
 
-    # Optional: Load text encoder and contrastive loss for Hi-GITA training
-    text_encoder = None
-    contrastive_loss_fn = None
-    if args.use_higita:
-        text_encoder = MultiGranularityTextEncoder().to(device)
-        contrastive_loss_fn = FineGrainedContrastiveLoss()
+    # Load text encoder and contrastive loss for Hi-GITA training
+    text_encoder = MultiGranularityTextEncoder().to(device)
+    contrastive_loss_fn = FineGrainedContrastiveLoss()
 
     # Optimizer and scheduler
     optimizer = optim.Adam(
@@ -494,6 +401,31 @@ def main():
     logger.info(f"   Best validation accuracy: {best_val_acc:.2f}%")
     logger.info(f"   Model saved to: {config.checkpoint_dir}")
     logger.info(f"   History saved to: {history_path}")
+
+    # ========== CREATE CHARACTER MAPPING ==========
+    logger.info("\n📊 Creating character mapping for inference...")
+    try:
+        from subprocess import run
+
+        result = run(
+            [
+                sys.executable,
+                "scripts/create_class_mapping.py",
+                "--metadata-path",
+                str(Path(config.data_dir) / "metadata.json"),
+                "--output-dir",
+                str(Path(config.checkpoint_dir).parent),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            logger.info("✓ Character mapping created successfully")
+        else:
+            logger.debug("Character mapping creation skipped (metadata incomplete)")
+    except Exception as e:
+        logger.debug(f"Character mapping creation skipped: {e}")
 
 
 if __name__ == "__main__":

@@ -7,10 +7,14 @@ Converts trained PyTorch model to ONNX format with backend-specific optimization
 import argparse
 import json
 import time
+import warnings
 from pathlib import Path
 
 import torch
 import torch.nn as nn
+
+# Suppress PyTorch's TypedStorage deprecation warning (internal, not in user code)
+warnings.filterwarnings("ignore", category=UserWarning, message=".*TypedStorage.*")
 
 # Import the correct model architecture from training
 try:

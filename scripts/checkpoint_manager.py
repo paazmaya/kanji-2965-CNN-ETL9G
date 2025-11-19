@@ -24,10 +24,14 @@ Usage:
 
 import logging
 import re
+import warnings
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import torch
+
+# Suppress PyTorch's TypedStorage deprecation warning (internal, not in user code)
+warnings.filterwarnings("ignore", category=UserWarning, message=".*TypedStorage.*")
 
 logger = logging.getLogger(__name__)
 

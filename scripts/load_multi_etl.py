@@ -113,16 +113,6 @@ def load_etl_dataset(
 
 # Example usage in training scripts:
 """
-# OLD CODE (ETL9G only):
-# =====================
-def main():
-    args = parse_args()
-    X = np.load(f"{args.data_dir}/etl9g_dataset.npz")["X"]
-    y = np.load(f"{args.data_dir}/etl9g_dataset.npz")["y"]
-    num_classes = 3036
-
-# NEW CODE (Multi-ETLCDB compatible):
-# ===================================
 def main():
     args = parse_args()
 

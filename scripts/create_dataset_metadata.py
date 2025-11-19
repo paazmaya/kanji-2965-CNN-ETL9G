@@ -80,7 +80,7 @@ def create_root_metadata(data_dir="dataset"):
     with open(root_metadata_path, "w") as f:
         json.dump(root_metadata, f, indent=2)
 
-    logger.info(f"✅ Created root metadata.json")
+    logger.info("✅ Created root metadata.json")
     logger.info(f"   Using dataset: {selected_dataset}")
     logger.info(f"   Classes: {root_metadata['num_classes']}")
     logger.info(f"   Samples: {root_metadata['total_samples']}")

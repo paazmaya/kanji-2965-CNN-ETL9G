@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 """Unit tests for training scripts and model utilities."""
 
-
-import argparse
-import json
-import logging
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 
@@ -36,6 +29,7 @@ class TestTrainCNNModel:
         """Test ETL9GDataset can be initialized with data."""
         try:
             import numpy as np
+
             from scripts.train_cnn_model import ETL9GDataset
 
             X = np.random.rand(10, 64, 64).astype(np.float32)
@@ -51,6 +45,7 @@ class TestTrainCNNModel:
         """Test ETL9GDataset __getitem__ method."""
         try:
             import numpy as np
+
             from scripts.train_cnn_model import ETL9GDataset
 
             X = np.random.rand(5, 64, 64).astype(np.float32)

@@ -432,14 +432,16 @@ Examples:
         """,
     )
 
-    # Dataset
-    parser.add_argument("--data-dir", required=True, help="Dataset directory")
+    # Dataset (auto-detected from common location)
     parser.add_argument("--sample-limit", type=int, default=None, help="Limit samples for testing")
 
     # Model
     parser.add_argument("--image-size", type=int, default=64, help="Input image size (default: 64)")
     parser.add_argument(
-        "--num-classes", type=int, default=43528, help="Number of character classes (default: 43528)"
+        "--num-classes",
+        type=int,
+        default=43528,
+        help="Number of character classes (default: 43,528 for combined ETL6-9 dataset)",
     )
 
     # Patch and embedding
@@ -516,7 +518,10 @@ Examples:
 
     # Output
     parser.add_argument(
-        "--model-dir", type=str, default="training/vit/config", help="Directory to save model config (default: training/vit/config)"
+        "--model-dir",
+        type=str,
+        default="training/vit/config",
+        help="Directory to save model config (default: training/vit/config)",
     )
     parser.add_argument(
         "--results-dir",
@@ -667,6 +672,31 @@ Examples:
         json.dump(results, f, indent=2)
 
     logger.info(f"✓ Results saved to {results_path}")
+
+    # ========== CREATE CHARACTER MAPPING ==========
+    logger.info("\n📊 Creating character mapping for inference...")
+    try:
+        from subprocess import run
+
+        result = run(
+            [
+                sys.executable,
+                "scripts/create_class_mapping.py",
+                "--metadata-path",
+                str(Path(config.data_dir) / "metadata.json"),
+                "--output-dir",
+                config.results_dir,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            logger.info("✓ Character mapping created successfully")
+        else:
+            logger.warning(f"⚠ Character mapping creation failed: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"⚠ Could not create character mapping: {e}")
+
     logger.info("=" * 70)
 
 

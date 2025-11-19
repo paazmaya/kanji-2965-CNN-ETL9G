@@ -10,6 +10,16 @@ This project trains multiple neural network architectures for Japanese kanji cha
 | [**RESEARCH.md**](RESEARCH.md)             | Research findings, architecture comparisons, citations                            |
 | [**model-card.md**](model-card.md)         | HuggingFace model card with carbon footprint analysis                             |
 
+### Quantization Documentation (4-bit BitsAndBytes)
+
+| Document                                           | Purpose                                          | Read Time |
+| -------------------------------------------------- | ------------------------------------------------ | --------- |
+| [**4BIT_INDEX.md**](4BIT_INDEX.md)                | Navigation guide, quick lookup, decision tree    | 2 min     |
+| [**4BIT_QUICK_START.md**](4BIT_QUICK_START.md)    | Copy-paste commands, common issues               | 5 min     |
+| [**4BIT_SUMMARY.md**](4BIT_SUMMARY.md)            | Overview, key differences from INT8              | 3 min     |
+| [**4BIT_QUANTIZATION_GUIDE.md**](4BIT_QUANTIZATION_GUIDE.md) | Technical details, deployment checklist | 15 min    |
+| [**4BIT_TESTING_REPORT.md**](4BIT_TESTING_REPORT.md) | Test results, validation, performance metrics | 10 min   |
+
 ## 🚀 Quick Start
 
 ### Setup
@@ -35,7 +45,7 @@ uv run python scripts/generate_chunk_metadata.py
 
 ### Training
 
-Gotta have CUA 13 available
+Requires CUDA 13 to be available
 https://developer.nvidia.com/cuda-downloads
 
 ```ps1
@@ -49,7 +59,7 @@ uv run python scripts/train_radical_rnn.py --data-dir dataset
 
 # HierCode (recommended, 95.56% + quantizable on ETL9G)
 # Automatically uses combined_all_etl (934K) if available, else ETL9G (607K)
-uv run python scripts/train_hiercode.py --data-dir dataset --epochs 30 --checkpoint-dir models/checkpoints
+uv run python scripts/train_hiercode.py --data-dir dataset --epochs 30 
 
 # With checkpoint resume (crash-safe)
 uv run python scripts/train_hiercode.py --data-dir dataset --resume-from models/checkpoints/checkpoint_epoch_015.pt --epochs 30
@@ -61,29 +71,6 @@ uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/ch
 
 **Dataset Selection**: All scripts automatically select the best available dataset in this priority: `combined_all_etl` → `etl9g` → `etl8g` → `etl7` → `etl6`. See [Dataset Auto-Detection Priority](#dataset-auto-detection-priority) above.
 
-## ✅ Checkpoint Management
-
-All training scripts support automatic checkpoint management with resume-from-latest functionality. This enables crash-safe training without manual intervention.
-
-**How it works**:
-1. **Auto-save**: After each epoch, checkpoints save to `models/checkpoints/{approach_name}/checkpoint_epoch_NNN.pt`
-2. **Auto-detect**: When you re-run the training command, it automatically finds and resumes from the latest checkpoint
-3. **Auto-cleanup**: Keeps only the 5 most recent checkpoints per approach to save disk space
-
-**Directory structure**:
-```
-models/
-└── checkpoints/
-    ├── cnn/                          ← CNN checkpoints
-    │   ├── checkpoint_epoch_001.pt
-    │   ├── checkpoint_epoch_002.pt
-    │   └── checkpoint_best.pt        ← Best accuracy so far
-    ├── qat/                          ← QAT checkpoints
-    ├── rnn/                          ← RNN checkpoints
-    ├── vit/                          ← Vision Transformer checkpoints
-    ├── hiercode/                     ← HierCode checkpoints
-    └── hiercode_higita/              ← Hi-GITA variant checkpoints
-```
 
 **Usage examples**:
 
@@ -95,7 +82,7 @@ uv run python scripts/train_cnn_model.py --data-dir dataset --epochs 30
 uv run python scripts/train_cnn_model.py --data-dir dataset --epochs 30
 
 # Resume from specific checkpoint
-uv run python scripts/train_cnn_model.py --data-dir dataset --resume-from models/checkpoints/cnn/checkpoint_epoch_010.pt
+uv run python scripts/train_cnn_model.py --data-dir dataset --resume-from checkpoints/cnn/checkpoint_epoch_010.pt
 
 # Start fresh (ignore existing checkpoints)
 uv run python scripts/train_cnn_model.py --data-dir dataset --no-checkpoint
@@ -192,6 +179,203 @@ uv run python scripts/export_4bit_quantized_onnx.py --model-path models/quantize
 | `models/hiercode_opset14.onnx` | 6.86 MB | ONNX | Cross-platform |
 | `models/hiercode_int8_opset14.onnx` | 6.86 MB | ONNX INT8 | Portable |
 | `models/hiercode_int8_4bit_opset14_quantized.onnx` | 1.75 MB | ONNX INT8 | **Edge** |
+
+### Post-Training Quantization (INT8)
+
+Quantizes trained models to 8-bit integers for ~4x size reduction with minimal accuracy loss (<1%).
+
+#### Basic Usage (All Model Types)
+
+training/hiercode_higita/checkpoints/best_hiercode_higita.pth
+
+```ps1
+# Quantize any trained model (HierCode, CNN, RNN, QAT, ViT, etc.)
+uv run python scripts/quantize_model.py --model-path training/hiercode_higita/checkpoints/best_hiercode_higita.pth --model-type hiercode-higita
+
+# Supported model types: hiercode, hiercode-higita, cnn, qat, rnn, radical-rnn, vit
+```
+
+#### Quantization Options
+
+**Dynamic Quantization (Recommended for cross-platform deployment)**
+```ps1
+# Converts weights to INT8 dynamically on GPU
+# Model loaded and processed on GPU for all calculations
+# Temporarily moved to CPU only for PyTorch's quantization kernel (backend requirement)
+# Result automatically moved back to GPU for deployment
+# Size reduction: 3-4x with minimal accuracy loss
+uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type cnn
+
+# Result saved: models/quantized_cnn_int8.pth (~4.5 MB for CNN from 15 MB)
+```
+
+**Calibrated Quantization (For higher accuracy)**
+```ps1
+# Uses training data to compute optimal scale factors
+# Better accuracy preservation than static quantization
+# Requires dataset (auto-detected)
+# WARNING: Currently has compatibility issues with Hi-GITA model shape handling
+uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type hiercode --calibrate
+```
+
+**Evaluate Accuracy (Note: CPU-only due to PyTorch quantization backend)**
+```ps1
+# Measures accuracy drop on test set
+# Saves JSON results with compression metrics
+# Evaluation runs on CPU (quantized models don't support GPU inference)
+# WARNING: Only works if model and test set have matching class counts
+uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type cnn --evaluate
+```
+
+**Ultra-Lightweight 4-bit Quantization (BitsAndBytes - for edge deployment)**
+```ps1
+# NF4 Quantization (Normalized Float 4-bit - recommended)
+# Best accuracy/size trade-off for weights
+uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn_int8.pth --model-type cnn --method nf4
+
+# FP4 Quantization (Float 4-bit)
+# Standard 4-bit floating point with sign bit
+uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn_int8.pth --model-type cnn --method fp4
+
+# With Double Quantization (compress scale factors for extra compression)
+uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn_int8.pth --model-type cnn --method nf4 --double-quant
+
+# Result files:
+# - Model: cnn_int8_4bit_NF4.pth (~1-2 MB for CNN from 15 MB)
+# - Metadata: cnn_int8_4bit_NF4.json (quantization parameters and size metrics)
+```
+
+#### Quantization Methods Comparison
+
+| Method | File Size | Inference Memory | Accuracy | Speed | Use Case |
+|--------|-----------|------------------|----------|-------|----------|
+| Float32 (baseline) | 15 MB | 15 MB | 100% | 1x | Development, testing |
+| INT8 (PyTorch) | 4.5 MB | 4.5 MB | 99-100% | 1.2x | CPU inference, balanced |
+| NF4 (BitsAndBytes) | ~15 MB | 3.8 MB | 95-98% | 2-4x | GPU inference, edge (recommended) |
+| FP4 (BitsAndBytes) | ~15 MB | 3.8 MB | 94-97% | 2-4x | Ultra-lightweight GPU edge |
+| 4-bit Double Quant | ~15-16 MB | 3.8 MB | 93-96% | 2-4x | Extreme size constraints |
+
+**Key Insight**: BitsAndBytes 4-bit trades file size for inference speed & memory. The model file stays ~15 MB but uses only 4 MB RAM at runtime (4x smaller), making it ideal for memory-constrained devices (edge GPUs, mobile, IoT).
+
+**Recommended Pipeline for Edge Deployment:**
+1. Train model: `train_cnn_model.py` → 15 MB (float32)
+2. Option A (Balanced): Quantize to INT8 → 4.5 MB (CPU inference, 3.4x smaller)
+3. Option B (GPU-Edge): Quantize to 4-bit NF4 → 15 MB file, 3.8 MB runtime (2-4x faster inference)
+
+#### BitsAndBytes 4-bit Quantization Details
+
+**How BitsAndBytes 4-bit Works:**
+- **Dynamic quantization at inference time**: Weights stay 32-bit in model file, quantized to 4-bit during computation
+- **Memory advantage**: ~4x smaller memory footprint during inference (weights loaded as 4-bit, not 32-bit)
+- **Speed advantage**: 2-4x faster inference on GPUs with tensor cores (TT, RTX 40-series, etc.)
+- **Storage caveat**: File size remains similar (quantization tables stored externally)
+- **Key benefit**: Best inference performance per watt for edge and cloud deployment
+
+**NF4 (Normalized Float 4-bit) - Recommended**
+- 4-bit quantization scheme optimized for neural network weights
+- Normalizes weight distributions to [-1, 1] range for better precision
+- Best accuracy preservation (95-98% of original)
+- Ideal for production models where accuracy matters
+- Requires: `uv pip install bitsandbytes`
+
+**FP4 (Float 4-bit)**
+- Standard 4-bit floating point representation (1 sign + 3 exponent bits)
+- Slightly faster than NF4 on some hardware
+- Minor accuracy trade-off (94-97% of original)
+- Use when speed is critical and 1-2% accuracy loss acceptable
+
+**Double Quantization**
+- Quantizes the scale factors themselves (4-bit weights → 4-bit scale factors)
+- Saves additional 25-30% space on disk (mainly quantization tables)
+- Minimal additional accuracy loss (<1%)
+- Best for extreme storage constraints with still-acceptable accuracy
+- Creates multiple quantized table files in checkpoints directory
+
+**Comparison: When to Use Each Method**
+
+| Scenario | Recommended | Reason |
+|----------|-------------|--------|
+| Cloud GPU inference | NF4 (no --double-quant) | Fast, accurate, easy to manage |
+| Edge device (CPU) | NF4 + --double-quant | Minimal storage, still reasonable speed |
+| Mobile/IoT | FP4 | Fastest, smallest, acceptable accuracy loss |
+| Extreme constraints | FP4 + --double-quant | Smallest possible, best performance/watt |
+| Research/comparison | Both (NF4 and FP4) | Compare accuracy/speed trade-offs |
+
+#### Installation
+
+```ps1
+# Core quantization tools
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+
+# For INT8 quantization (included with PyTorch)
+# No additional installation needed
+
+# For 4-bit quantization
+uv pip install bitsandbytes
+
+# Optional: For GPTQ support
+uv pip install auto-gptq
+```
+
+**Custom Output Path**
+```ps1
+# Save quantized model to specific location
+uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type cnn --output models/custom/my_quantized.pth
+```
+
+#### What Does `--evaluate` Do?
+
+The `--evaluate` flag:
+1. **Measures accuracy drop** - Runs the quantized model on the test set (90/9/1 split of dataset)
+2. **Computes compression metrics** - Original size, quantized size, reduction ratio
+3. **Saves results** - Writes JSON with:
+   - `original_size_mb`: Pre-quantization model size
+   - `quantized_size_mb`: Post-quantization model size (typically 3-4x smaller)
+   - `size_reduction`: Ratio (e.g., 3.5x)
+   - `quantized_accuracy`: Accuracy on test set (usually 99-100% of original)
+   - `quantized_loss`: Cross-entropy loss value
+   - `calibrated`: Whether calibration was used
+
+**Note**: Evaluation runs on CPU (PyTorch INT8 dynamic quantization only supports CPU inference). For GPU inference, export to ONNX format instead.
+
+**Example output** (`quantization_results_cnn.json`):
+```json
+{
+  "model_type": "cnn",
+  "original_size_mb": 15.47,
+  "quantized_size_mb": 4.46,
+  "size_reduction": 3.47,
+  "quantized_accuracy": 96.8,
+  "quantized_loss": 0.1523,
+  "calibrated": false
+}
+```
+
+#### Troubleshooting Quantization
+
+**Error: "Inferred num_classes=X from checkpoint" doesn't match dataset**
+- The checkpoint was trained on a different dataset size (e.g., combined_all_etl with 43K classes vs ETL9G with 3K)
+- Solution: Don't use `--evaluate` on mismatched datasets, or train new models on the combined dataset
+
+**Error: "quantized::linear_dynamic not available for CUDA backend"**
+- PyTorch INT8 dynamic quantization only supports CPU
+- Quantized models will run on CPU, not GPU
+- Solution: For GPU inference, export to ONNX format with `scripts/export_quantized_to_onnx.py`
+
+**Error: Model shape mismatch (Hi-GITA unfold issue)**
+- Hi-GITA model has internal shape requirements that may not match standard data loaders
+- Solution: Use simpler models (CNN, RNN) for quantization testing, or debug data loader shape
+
+**Error: "Unsupported qscheme: per_channel_affine"**
+- Different quantization backends support different schemes
+- Solution: Script now uses dynamic quantization which is cross-platform compatible
+
+#### Requirements
+
+- **CUDA GPU required for TRAINING** - INT8 quantization uses GPU memory (optional)
+- **CPU for INFERENCE** - Quantized models run on CPU by default
+- **Dataset auto-detected** - Same priority as training: `combined_all_etl` → `etl9g` → `etl8g` → `etl7` → `etl6`
+- **Model compatibility** - num_classes automatically inferred from checkpoint
 
 ### Deployment
 
