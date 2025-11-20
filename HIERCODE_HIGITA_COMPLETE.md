@@ -45,6 +45,7 @@ Hi-GITA (Hierarchical Multi-Granularity Image-Text Aligning) is a state-of-the-a
 ## This Document
 
 This guide is **chronologically organized** to show:
+
 1. **What was built** (creation phase)
 2. **How it works** (architecture phase)
 3. **How to use it** (application phase)
@@ -61,53 +62,63 @@ This guide is **chronologically organized** to show:
 **November 17, 2025 - Implementation Phase**
 
 #### Step 1: Core Enhancement Module
+
 **`scripts/hiercode_higita_enhancement.py`** (650 lines, 26.8 KB)
 
 This is the foundation. Created first to implement all Hi-GITA components:
 
 **Image Encoding Components**:
+
 - `StrokeEncoder` (Level 0) - Extract 64 patch features from image
 - `RadicalEncoder` (Level 1) - Group strokes into 16 radicals
 - `CharacterEncoder` (Level 2) - Fuse radicals into character embedding
 - `MultiGranularityImageEncoder` - Orchestrates all three levels
 
 **Text Encoding Components**:
+
 - `TextStrokeEncoder` - Embed stroke sequences
 - `TextRadicalEncoder` - Embed radical sequences
 - `TextCharacterEncoder` - Holistic character embedding
 - `MultiGranularityTextEncoder` - Orchestrates text encoding
 
 **Loss Function**:
+
 - `FineGrainedContrastiveLoss` - Multi-level contrastive alignment
 
 **Integrated Model**:
+
 - `HierCodeWithHiGITA` - Complete model with optional Hi-GITA enhancement
 
 **Key Feature**: Optional enhancement via `use_higita_enhancement=True/False` flag
 
 #### Step 2: Configuration Management
+
 **`scripts/hiercode_higita_config.py`** (207 lines, 7.1 KB)
 
 Created second to manage all hyperparameters and presets:
 
 **Configuration Classes**:
+
 - `HiGITAImageEncoderConfig` - Stroke, radical, character dimensions
 - `HiGITATextEncoderConfig` - Text encoder parameters
 - `HiGITAContrastiveLossConfig` - Contrastive loss weights
 - `HiGITATrainingConfig` - Complete training configuration
 
 **Preset Configurations**:
+
 - `get_higita_full_config()` - Best quality (256/512/1024 dims, 50 epochs)
 - `get_higita_balanced_config()` - Default (128/256/512 dims, 30 epochs)
 - `get_higita_lite_config()` - Speed optimized (64/128/256 dims, 20 epochs)
 - `get_standard_hiercode_config()` - No Hi-GITA enhancement
 
 #### Step 3: Training Script
+
 **`scripts/train_hiercode_higita.py`** (380 lines, 14.3 KB)
 
 Created third to enable full training pipeline:
 
 **Functions**:
+
 - `load_etl9g_dataset()` - Load preprocessed ETL9G chunks
 - `create_synthetic_text_data()` - Generate stroke/radical codes
 - `train_epoch()` - Single epoch with optional contrastive loss
@@ -115,12 +126,14 @@ Created third to enable full training pipeline:
 - `main()` - Complete training pipeline with argparse
 
 **Features**:
+
 - Checkpoint/resume system
 - Training history export
 - Multi-level loss tracking
 - Best model selection based on validation accuracy
 
 **Command-line Arguments**:
+
 ```
 --data-dir, --use-higita, --epochs, --batch-size, --lr,
 --limit-samples, --checkpoint-dir, --resume-from, --device
@@ -131,9 +144,11 @@ Created third to enable full training pipeline:
 **November 17, 2025 - Documentation Phase**
 
 #### Step 4: Comprehensive Guide
+
 **`HIERCODE_HIGITA_GUIDE.md`** (348 lines, 14.2 KB)
 
 Full architectural documentation with:
+
 - Overview of Hi-GITA enhancement
 - Architecture components with ASCII diagrams
 - Usage examples (basic to advanced)
@@ -143,9 +158,11 @@ Full architectural documentation with:
 - FAQ and troubleshooting
 
 #### Step 5: Quick Reference
+
 **`HIERCODE_HIGITA_QUICK_REF.md`** (306 lines, 12.0 KB)
 
 Developer quick reference with:
+
 - Quick start code snippets
 - Parameter tables
 - Output structure documentation
@@ -156,9 +173,11 @@ Developer quick reference with:
 - Example workflows
 
 #### Step 6: Implementation Summary
+
 **`HIERCODE_HIGITA_IMPLEMENTATION_SUMMARY.md`** (368 lines, 14.0 KB)
 
 Technical deep-dive with:
+
 - What was created (component descriptions)
 - Design decisions and rationale
 - Technical specifications
@@ -167,6 +186,7 @@ Technical deep-dive with:
 - Next steps by phase
 
 #### Step 7: Files Overview
+
 **`HIERCODE_HIGITA_FILES_OVERVIEW.md`** (Not included in consolidation)
 
 Visual index of all created files and components.
@@ -179,15 +199,15 @@ Single chronologically organized reference combining all above documentation.
 
 ## Summary of Created Files
 
-| File | Type | Size | Lines | Purpose |
-|------|------|------|-------|---------|
-| `hiercode_higita_enhancement.py` | Python | 26.8 KB | 650 | Core Hi-GITA components |
-| `train_hiercode_higita.py` | Python | 14.3 KB | 380 | Training pipeline |
-| `hiercode_higita_config.py` | Python | 7.1 KB | 207 | Configuration management |
-| `HIERCODE_HIGITA_GUIDE.md` | Doc | 14.2 KB | 348 | Comprehensive guide |
-| `HIERCODE_HIGITA_QUICK_REF.md` | Doc | 12.0 KB | 306 | Quick reference |
-| `HIERCODE_HIGITA_IMPLEMENTATION_SUMMARY.md` | Doc | 14.0 KB | 368 | Technical summary |
-| **This file** | Doc | - | - | Chronological consolidation |
+| File                                        | Type   | Size    | Lines | Purpose                     |
+| ------------------------------------------- | ------ | ------- | ----- | --------------------------- |
+| `hiercode_higita_enhancement.py`            | Python | 26.8 KB | 650   | Core Hi-GITA components     |
+| `train_hiercode_higita.py`                  | Python | 14.3 KB | 380   | Training pipeline           |
+| `hiercode_higita_config.py`                 | Python | 7.1 KB  | 207   | Configuration management    |
+| `HIERCODE_HIGITA_GUIDE.md`                  | Doc    | 14.2 KB | 348   | Comprehensive guide         |
+| `HIERCODE_HIGITA_QUICK_REF.md`              | Doc    | 12.0 KB | 306   | Quick reference             |
+| `HIERCODE_HIGITA_IMPLEMENTATION_SUMMARY.md` | Doc    | 14.0 KB | 368   | Technical summary           |
+| **This file**                               | Doc    | -       | -     | Chronological consolidation |
 
 **Total Implementation**: 1,237 lines Python code + 1,022 lines documentation
 
@@ -387,6 +407,7 @@ python scripts/train_hiercode_higita.py --data-dir dataset --use-higita
 ```
 
 This trains with:
+
 - Hi-GITA enhancement enabled
 - Default balanced configuration (128/256/512 dims, 30 epochs, batch 32)
 - Automatic checkpoint saving
@@ -465,6 +486,7 @@ char_attention = features['character_attention']  # (1, 16)
 **Purpose**: Extract fine-grained local stroke patterns from image patches
 
 **Architecture**:
+
 ```python
 class StrokeEncoder(nn.Module):
     def __init__(self, stroke_dim=128):
@@ -473,19 +495,19 @@ class StrokeEncoder(nn.Module):
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
         self.attention = nn.Linear(32, 1)
         self.fc = nn.Linear(32 * 8 * 8, stroke_dim)
-    
+
     def forward(self, x):  # (B, 1, 64, 64)
         x = F.relu(self.conv1(x))  # (B, 16, 64, 64)
         x = F.relu(self.conv2(x))  # (B, 32, 64, 64)
-        
+
         # Divide into 64 patches (8x8 grid)
         patches = x.unfold(2, 8, 8).unfold(3, 8, 8)
         # → (B, 32, 8, 8, 8, 8)
-        
+
         # Apply attention per patch
         attention_weights = torch.sigmoid(self.attention(patches))
         patches = patches * attention_weights  # Gating
-        
+
         # Flatten each patch
         batch_size = x.size(0)
         strokes = []
@@ -495,7 +517,7 @@ class StrokeEncoder(nn.Module):
                 patch_flat = patch.view(batch_size, -1)  # (B, 2048)
                 stroke = self.fc(patch_flat)  # (B, stroke_dim)
                 strokes.append(stroke)
-        
+
         return torch.stack(strokes, dim=1)  # (B, 64, stroke_dim)
 ```
 
@@ -517,22 +539,22 @@ class RadicalEncoder(nn.Module):
         self.assignment = nn.Parameter(torch.randn(64, num_radicals))
         self.attention = nn.Linear(radical_dim, 1)
         self.num_radicals = num_radicals
-    
+
     def forward(self, strokes):  # (B, 64, stroke_dim)
         # Project strokes to radical space
         strokes_proj = self.stroke_to_radical(strokes)  # (B, 64, radical_dim)
-        
+
         # Learnable assignment of strokes to radicals
         assignment_weights = F.softmax(self.assignment, dim=0)  # (64, num_radicals)
-        
+
         # Aggregate: soft assignment
         radicals = torch.einsum('bsd,dn->brn', strokes_proj, assignment_weights.t())
         # → (B, num_radicals, radical_dim)
-        
+
         # Radical attention
         attention_weights = torch.sigmoid(self.attention(radicals))  # (B, num_radicals, 1)
         radicals = radicals * attention_weights  # Gating
-        
+
         return radicals, attention_weights.squeeze(-1)
 ```
 
@@ -550,19 +572,19 @@ class CharacterEncoder(nn.Module):
         super().__init__()
         self.fusion_attention = nn.MultiheadAttention(radical_dim, 4)
         self.fc = nn.Linear(radical_dim, character_dim)
-    
+
     def forward(self, radicals, radical_attention=None):  # (B, 16, 256)
         # Radical fusion with attention
         radicals_t = radicals.transpose(0, 1)  # (16, B, 256) for MultiheadAttention
         fused, _ = self.fusion_attention(radicals_t, radicals_t, radicals_t)
         # → (16, B, 256)
-        
+
         # Global aggregation
         character = fused.mean(dim=0)  # (B, 256)
-        
+
         # Project to character dimension
         character = self.fc(character)  # (B, character_dim)
-        
+
         return character  # (B, 512)
 ```
 
@@ -576,7 +598,7 @@ class CharacterEncoder(nn.Module):
 
 ```python
 class FineGrainedContrastiveLoss(nn.Module):
-    def __init__(self, temperature=0.07, 
+    def __init__(self, temperature=0.07,
                  weight_stroke=0.3, weight_radical=0.5, weight_character=0.2):
         super().__init__()
         self.temperature = temperature
@@ -585,41 +607,41 @@ class FineGrainedContrastiveLoss(nn.Module):
             'radical': weight_radical,
             'character': weight_character
         }
-    
+
     def forward(self, image_features, text_features):
         """
         image_features: dict with stroke/radical/character
         text_features: dict with stroke/radical/character
         """
-        
+
         total_loss = 0.0
-        
+
         # Stroke level
         stroke_sim = self._cosine_similarity(
             image_features['stroke'],  # (B, 64, 128)
             text_features['stroke']    # (B, max_strokes, 128)
         )
         stroke_loss = self._contrastive_loss(stroke_sim)
-        
+
         # Radical level
         radical_sim = self._cosine_similarity(
             image_features['radical'],  # (B, 16, 256)
             text_features['radical']    # (B, num_radicals, 256)
         )
         radical_loss = self._contrastive_loss(radical_sim)
-        
+
         # Character level
         char_sim = self._cosine_similarity(
             image_features['character'],  # (B, 512)
             text_features['character']    # (B, 512)
         )
         char_loss = self._contrastive_loss(char_sim)
-        
+
         # Weighted combination
         total_loss = (self.weights['stroke'] * stroke_loss +
                      self.weights['radical'] * radical_loss +
                      self.weights['character'] * char_loss)
-        
+
         return {
             'stroke_loss': stroke_loss,
             'radical_loss': radical_loss,
@@ -642,6 +664,7 @@ python scripts/train_hiercode_higita.py --data-dir dataset --use-higita
 ```
 
 What happens:
+
 1. Loads ETL9G dataset from `dataset/` folder
 2. Initializes HierCodeWithHiGITA with balanced config
 3. Trains for 30 epochs with batch size 32
@@ -722,12 +745,12 @@ for img_path in image_paths:
     # Load image
     img = Image.open(img_path).convert('L')  # Grayscale
     img_array = np.array(img).astype(np.float32) / 255.0
-    
+
     # Resize if needed
     if img_array.shape != (64, 64):
         img = Image.fromarray((img_array * 255).astype(np.uint8)).resize((64, 64))
         img_array = np.array(img).astype(np.float32) / 255.0
-    
+
     # Convert to tensor
     img_tensor = torch.from_numpy(img_array).unsqueeze(0).unsqueeze(0)  # (1, 1, 64, 64)
     images_batch.append(img_tensor)
@@ -795,31 +818,31 @@ For each epoch (1-30):
         1. Forward pass:
            - Image through multi-granularity encoder
            - Output: logits, features at 3 levels
-        
+
         2. Compute classification loss:
            L_ce = CrossEntropy(logits, labels)
-        
+
         3. (Optional) Compute contrastive loss:
            If use_higita_enhancement:
                L_stroke = ContrastiveLoss(stroke_img, stroke_text)
                L_radical = ContrastiveLoss(radical_img, radical_text)
                L_char = ContrastiveLoss(char_img, char_text)
                L_contrastive = 0.3*L_s + 0.5*L_r + 0.2*L_c
-        
+
         4. Combine losses:
            L_total = L_ce + 0.5*L_contrastive (if Hi-GITA)
-        
+
         5. Backward pass and optimization:
            optimizer.zero_grad()
            L_total.backward()
            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
            optimizer.step()
-    
+
     Validate on val set:
         - Record val_loss, val_accuracy
         - Save checkpoint at each epoch
         - Save best_model if val_accuracy improves
-    
+
     Update learning rate scheduler
 ```
 
@@ -889,19 +912,19 @@ python scripts/train_hiercode_higita.py \
 
 ### Accuracy Comparison
 
-| Model | Handwritten | Printed | Zero-Shot |
-|-------|------------|---------|-----------|
-| Standard HierCode | 93-94% | 94-95% | 65-70% |
-| **Hi-GITA Enhanced** | **96-97%** | **95-96%** | **85-90%** |
-| **Improvement** | **+3%** | **+1-2%** | **+20%** |
+| Model                | Handwritten | Printed    | Zero-Shot  |
+| -------------------- | ----------- | ---------- | ---------- |
+| Standard HierCode    | 93-94%      | 94-95%     | 65-70%     |
+| **Hi-GITA Enhanced** | **96-97%**  | **95-96%** | **85-90%** |
+| **Improvement**      | **+3%**     | **+1-2%**  | **+20%**   |
 
 ### Speed Trade-off
 
-| Metric | Standard | Hi-GITA | Factor |
-|--------|----------|---------|--------|
-| Inference (ms/img) | 2-3 | 8-10 | 3-4× |
-| Model Size (MB) | 2 | 8 | 4× |
-| Parameters | 1.5M | 2.1M | 1.4× |
+| Metric             | Standard | Hi-GITA | Factor |
+| ------------------ | -------- | ------- | ------ |
+| Inference (ms/img) | 2-3      | 8-10    | 3-4×   |
+| Model Size (MB)    | 2        | 8       | 4×     |
+| Parameters         | 1.5M     | 2.1M    | 1.4×   |
 
 ### Memory Requirements
 
@@ -1006,14 +1029,14 @@ class EnhancedStrokeEncoder(nn.Module):
     def __init__(self):
         self.star_encoder = StarStrokeEncoder(num_stroke_types=14)
         self.projection = nn.Linear(14, 128)
-    
+
     def forward(self, x):  # (B, 1, 64, 64)
         # Detect 14 stroke types in image
         stroke_types = self.star_encoder(x)  # (B, 64, 14)
-        
+
         # Project to Hi-GITA stroke dimension
         strokes = self.projection(stroke_types)  # (B, 64, 128)
-        
+
         return strokes
 
 # Then use with Hi-GITA
@@ -1042,7 +1065,7 @@ train_set, val_set = load_etl9g_dataset('dataset/', split=0.9)
 # Compute class weights (DAGECC approach)
 from collections import Counter
 class_counts = Counter(train_set.labels)
-class_weights = {c: 1.0 / (count + 1e-5) 
+class_weights = {c: 1.0 / (count + 1e-5)
                 for c, count in class_counts.items()}
 
 # Create weighted sampler
@@ -1254,6 +1277,7 @@ docker run -p 8000:8000 higita-server
 ### Q: Is Hi-GITA worth the speed penalty?
 
 **A**: Depends on your use case:
+
 - **Speed critical** (mobile, real-time): Use standard HierCode
 - **Accuracy critical** (server, batch): Use Hi-GITA
 - **Balanced**: Use lite config (64/128/256 dims)
@@ -1261,6 +1285,7 @@ docker run -p 8000:8000 higita-server
 ### Q: Can I use pre-trained models?
 
 **A**: Not yet. Will be available after training completes:
+
 - `models/checkpoints_higita/best_hiercode_higita.pth`
 - Transfer learning: Load this and fine-tune on new data
 
@@ -1286,6 +1311,7 @@ for name, param in model.named_parameters():
 ### Q: Why synthetic text data?
 
 **A**: Real CJK radical database not yet integrated. Currently using:
+
 - Random stroke sequences (20 strokes per character)
 - Random radical sequences (214 radicals)
 
@@ -1294,6 +1320,7 @@ for name, param in model.named_parameters():
 ### Q: Can I combine Hi-GITA with other methods?
 
 **A**: Yes! See Phase 7. Modular architecture enables:
+
 - Hi-GITA + RZCR (graph reasoning)
 - Hi-GITA + STAR (stroke types)
 - Hi-GITA + DAGECC (weighted sampling)
@@ -1301,6 +1328,7 @@ for name, param in model.named_parameters():
 ### Q: How much training data do I need?
 
 **A**: Hi-GITA benefits from:
+
 - **Minimum**: 100 examples per class (few-shot)
 - **Recommended**: 1000+ per class (standard training)
 - **Best**: 3000+ per class (state-of-the-art)
@@ -1310,6 +1338,7 @@ ETL9G has ~1500-3000 examples per class = optimal.
 ### Q: What's the memory requirement?
 
 **A**:
+
 ```
 Training (batch_size=32):
 ├─ GPU Memory: 2-3 GB
@@ -1325,6 +1354,7 @@ Inference:
 ### Q: Can I use Hi-GITA on CPU?
 
 **A**: Yes, but slower:
+
 - GPU: 8-10 ms per image
 - CPU: 50-100 ms per image
 
@@ -1335,6 +1365,7 @@ python scripts/train_hiercode_higita.py --data-dir dataset --use-higita --device
 ### Q: What if training diverges?
 
 **A**: Try these fixes (in order):
+
 1. Reduce learning rate: `--lr 0.0005`
 2. Reduce batch size: `--batch-size 16`
 3. Add gradient clipping: (automatic in code)
@@ -1346,6 +1377,7 @@ python scripts/train_hiercode_higita.py --data-dir dataset --use-higita --device
 ## Technical References
 
 ### Hi-GITA Paper
+
 - **Title**: Zero-Shot Chinese Character Recognition with Hierarchical Multi-Granularity Image-Text Aligning
 - **Authors**: Yinglian Zhu, Haiyang Yu, Qizao Wang, Wei Lu, Xiangyang Xue, Bin Li
 - **Venue**: arXiv:2505.24837v1 (May 2025)
@@ -1354,25 +1386,30 @@ python scripts/train_hiercode_higita.py --data-dir dataset --use-higita --device
 ### Related Work Referenced
 
 **HierCode** (arXiv:2403.13761v1)
+
 - Hierarchical codebook for character recognition
 - 2-level hierarchy (radical-character)
 - Serves as baseline for Hi-GITA
 
 **RZCR** (arXiv:2207.05842)
+
 - Radical-based character recognition with graph reasoning
 - Can be combined with Hi-GITA
 
 **STAR** (arXiv:2210.08490)
+
 - Stroke and radical decomposition
 - 14 canonical stroke types
 - Can improve stroke encoder
 
 **DAGECC** (2506.04807)
+
 - Handles long-tail character distribution
 - Weighted sampling for rare classes
 - Complements Hi-GITA
 
 **MegaHan97K** (2506.04807)
+
 - 97,000 character dataset
 - Future benchmark for Hi-GITA
 
@@ -1412,19 +1449,19 @@ kanji-2965-CNN-ETL9G/
 
 ## Timeline of Implementation
 
-| Date | Phase | Task | Status |
-|------|-------|------|--------|
-| Nov 17, 2025 | 1 | Created core enhancement.py | ✅ |
-| Nov 17, 2025 | 2 | Created config.py | ✅ |
-| Nov 17, 2025 | 3 | Created train.py | ✅ |
-| Nov 17, 2025 | 4-7 | Created documentation | ✅ |
-| TBD | 8 | Train Hi-GITA on ETL9G | ⏳ |
-| TBD | 9 | Baseline comparison | ⏳ |
-| TBD | 10 | Integrate real CJK data | ⏳ |
-| TBD | 11 | Zero-shot evaluation | ⏳ |
-| TBD | 12 | Method combinations (RZCR/STAR) | ⏳ |
-| TBD | 13 | Model compression | ⏳ |
-| TBD | 14 | Mobile deployment | ⏳ |
+| Date         | Phase | Task                            | Status |
+| ------------ | ----- | ------------------------------- | ------ |
+| Nov 17, 2025 | 1     | Created core enhancement.py     | ✅     |
+| Nov 17, 2025 | 2     | Created config.py               | ✅     |
+| Nov 17, 2025 | 3     | Created train.py                | ✅     |
+| Nov 17, 2025 | 4-7   | Created documentation           | ✅     |
+| TBD          | 8     | Train Hi-GITA on ETL9G          | ⏳     |
+| TBD          | 9     | Baseline comparison             | ⏳     |
+| TBD          | 10    | Integrate real CJK data         | ⏳     |
+| TBD          | 11    | Zero-shot evaluation            | ⏳     |
+| TBD          | 12    | Method combinations (RZCR/STAR) | ⏳     |
+| TBD          | 13    | Model compression               | ⏳     |
+| TBD          | 14    | Mobile deployment               | ⏳     |
 
 ---
 

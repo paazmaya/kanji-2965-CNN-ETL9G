@@ -1,214 +1,322 @@
+#!/usr/bin/env python3
 """
-Create comprehensive training comparison visualizations
+Create comprehensive training visualizations from JSON training logs.
+
+Supports any training history JSON with metrics like:
+- epochs: list of epoch numbers
+- train_loss: list of training losses
+- val_loss: list of validation losses
+- val_acc: list of validation accuracies
+- train_acc: list of training accuracies (optional)
+
+Usage:
+    uv run python create_training_visualizations.py training/hiercode_higita/checkpoints/training_history_higita.json
+    python create_training_visualizations.py models/training_progress.json
+    python create_training_visualizations.py training/rnn/results/training_metrics.json
 """
 
+import argparse
 import json
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-# Load CNN training data
-with open("models/training_progress.json") as f:
-    cnn_data = json.load(f)
+# Pastel color palette with high contrast
+PASTEL_COLORS = {
+    "train_loss": "#FF6B6B",  # Pastel red
+    "val_loss": "#4ECDC4",  # Pastel teal
+    "train_acc": "#FFD93D",  # Pastel yellow
+    "val_acc": "#6BCB77",  # Pastel green
+    "accent": "#A78BFA",  # Pastel purple
+}
 
-# Load RNN training data from terminal output (manually extracted)
-rnn_epochs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
-rnn_train_loss = [
-    8.0239,
-    7.9272,
-    3.1385,
-    0.6611,
-    0.3706,
-    0.2714,
-    0.2237,
-    0.1975,
-    0.1776,
-    0.1630,
-    0.1537,
-    0.1424,
-    0.1368,
-    0.1313,
-    0.1274,
-    0.1233,
-    0.1205,
-    0.1180,
-    0.1156,
-    0.1124,
-    0.1116,
-    0.1111,
-]
-rnn_val_loss = [
-    8.0234,
-    6.8822,
-    0.5625,
-    0.2334,
-    0.1422,
-    0.1159,
-    0.1018,
-    0.0972,
-    0.0809,
-    0.0881,
-    0.1024,
-    0.0833,
-    0.0779,
-    0.0912,
-    0.0772,
-    0.0733,
-    0.0812,
-    0.0685,
-    0.0717,
-    0.0707,
-    0.0945,
-    0.0790,
-]
-rnn_val_acc = [
-    0.02,
-    0.50,
-    84.40,
-    93.26,
-    96.01,
-    96.67,
-    97.16,
-    97.33,
-    97.80,
-    97.70,
-    97.35,
-    97.80,
-    98.01,
-    97.69,
-    98.07,
-    98.17,
-    97.95,
-    98.40,
-    98.27,
-    98.26,
-    97.76,
-    98.24,
-]
+# High-contrast accent colors for annotations
+ACCENT_COLORS = {
+    "train_loss": "#8B0000",  # Dark red
+    "val_loss": "#006666",  # Dark teal
+    "train_acc": "#B8860B",  # Dark gold
+    "val_acc": "#2D5016",  # Dark green
+}
 
-# Create comprehensive comparison plots
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
-fig.suptitle("CNN vs RNN Training Comparison", fontsize=16, fontweight="bold")
 
-# Plot 1: Training Loss Comparison
-ax1.plot(cnn_data["epochs"], cnn_data["train_loss"], "b-", label="CNN Train Loss", linewidth=2)
-ax1.plot(rnn_epochs, rnn_train_loss, "r-", label="RNN Train Loss", linewidth=2)
-ax1.set_xlabel("Epoch")
-ax1.set_ylabel("Training Loss")
-ax1.set_title("Training Loss Comparison")
-ax1.legend()
-ax1.grid(True, alpha=0.3)
-ax1.set_yscale("log")
+def load_training_log(log_path: str) -> dict:
+    """Load training log from JSON file.
+    
+    Supports two formats:
+    1. Flat format: {"epochs": [...], "train_loss": [...], "val_loss": [...]}
+    2. Nested format: [{"epoch": 1, "train": {...}, "val": {...}}, ...]
+    """
+    path = Path(log_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Training log not found: {log_path}")
 
-# Plot 2: Validation Loss Comparison
-ax2.plot(cnn_data["epochs"], cnn_data["val_loss"], "b-", label="CNN Val Loss", linewidth=2)
-ax2.plot(rnn_epochs, rnn_val_loss, "r-", label="RNN Val Loss", linewidth=2)
-ax2.set_xlabel("Epoch")
-ax2.set_ylabel("Validation Loss")
-ax2.set_title("Validation Loss Comparison")
-ax2.legend()
-ax2.grid(True, alpha=0.3)
-ax2.set_yscale("log")
+    with open(path) as f:
+        raw_data = json.load(f)
 
-# Plot 3: Validation Accuracy Comparison
-ax3.plot(cnn_data["epochs"], cnn_data["val_acc"], "b-", label="CNN Val Accuracy", linewidth=2)
-ax3.plot(rnn_epochs, rnn_val_acc, "r-", label="RNN Val Accuracy", linewidth=2)
-ax3.set_xlabel("Epoch")
-ax3.set_ylabel("Validation Accuracy (%)")
-ax3.set_title("Validation Accuracy Comparison")
-ax3.legend()
-ax3.grid(True, alpha=0.3)
-ax3.set_ylim(0, 100)
+    # Convert nested format to flat format
+    if isinstance(raw_data, list):
+        data = {
+            "epochs": [],
+            "train_loss": [],
+            "train_acc": [],
+            "val_loss": [],
+            "val_acc": [],
+        }
 
-# Plot 4: Training Efficiency (Accuracy vs Time)
-# Calculate cumulative training time (approximate)
-cnn_time_per_epoch = 9  # minutes
-rnn_time_per_epoch = 60  # minutes
+        for entry in raw_data:
+            if "epoch" in entry:
+                data["epochs"].append(entry["epoch"])
 
-cnn_cumulative_time = [i * cnn_time_per_epoch / 60 for i in cnn_data["epochs"]]  # hours
-rnn_cumulative_time = [i * rnn_time_per_epoch / 60 for i in rnn_epochs]  # hours
+            # Extract training metrics
+            if "train" in entry:
+                train = entry["train"]
+                if "total_loss" in train:
+                    data["train_loss"].append(train["total_loss"])
+                if "accuracy" in train:
+                    data["train_acc"].append(train["accuracy"])
 
-ax4.plot(
-    cnn_cumulative_time,
-    cnn_data["val_acc"],
-    "b-",
-    label="CNN",
-    linewidth=2,
-    marker="o",
-    markersize=4,
-)
-ax4.plot(rnn_cumulative_time, rnn_val_acc, "r-", label="RNN", linewidth=2, marker="s", markersize=4)
-ax4.set_xlabel("Training Time (hours)")
-ax4.set_ylabel("Validation Accuracy (%)")
-ax4.set_title("Training Efficiency: Accuracy vs Time")
-ax4.legend()
-ax4.grid(True, alpha=0.3)
+            # Extract validation metrics
+            if "val" in entry:
+                val = entry["val"]
+                if "loss" in val:
+                    data["val_loss"].append(val["loss"])
+                if "accuracy" in val:
+                    data["val_acc"].append(val["accuracy"])
 
-# Add final performance annotations
-ax4.annotate(
-    f"CNN Final: {cnn_data['val_acc'][-1]:.1f}%\n@{cnn_cumulative_time[-1]:.1f}h",
-    xy=(cnn_cumulative_time[-1], cnn_data["val_acc"][-1]),
-    xytext=(cnn_cumulative_time[-1] + 1, cnn_data["val_acc"][-1] - 2),
-    bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightblue", "alpha": 0.7},
-    arrowprops={"arrowstyle": "->", "color": "blue"},
-)
+        return data
 
-ax4.annotate(
-    f"RNN Peak: {max(rnn_val_acc):.1f}%\n@{rnn_cumulative_time[rnn_val_acc.index(max(rnn_val_acc))]:.1f}h",
-    xy=(rnn_cumulative_time[rnn_val_acc.index(max(rnn_val_acc))], max(rnn_val_acc)),
-    xytext=(rnn_cumulative_time[rnn_val_acc.index(max(rnn_val_acc))] + 1, max(rnn_val_acc) + 1),
-    bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightcoral", "alpha": 0.7},
-    arrowprops={"arrowstyle": "->", "color": "red"},
-)
+    # Already in flat format
+    return raw_data
 
-plt.tight_layout()
-plt.savefig("models/training_comparison_comprehensive.png", dpi=300, bbox_inches="tight")
-plt.show()
 
-# Create a separate focused plot for the RNN training progression
-fig2, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
-fig2.suptitle("RNN (Hybrid CNN-RNN) Training Progression", fontsize=16, fontweight="bold")
+def validate_log_data(data: dict) -> dict:
+    """Validate that log contains required fields."""
+    required_fields = ["epochs"]
+    metric_fields = ["train_loss", "val_loss", "val_acc", "train_acc"]
 
-# RNN Loss curves
-ax1.plot(rnn_epochs, rnn_train_loss, "b-", label="Train Loss", linewidth=2, marker="o")
-ax1.plot(rnn_epochs, rnn_val_loss, "r-", label="Validation Loss", linewidth=2, marker="s")
-ax1.set_xlabel("Epoch")
-ax1.set_ylabel("Loss")
-ax1.set_title("RNN Loss Curves")
-ax1.legend()
-ax1.grid(True, alpha=0.3)
-ax1.set_yscale("log")
+    # Check required fields
+    for field in required_fields:
+        if field not in data or len(data[field]) == 0:
+            raise ValueError(f"Training log missing or empty required field: {field}")
 
-# Add annotations for key points
-ax1.annotate(
-    "Fast convergence",
-    xy=(3, 0.5625),
-    xytext=(5, 2),
-    arrowprops={"arrowstyle": "->", "color": "green"},
-    bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightgreen", "alpha": 0.7},
-)
+    # Check that at least some metrics exist
+    metrics_found = [f for f in metric_fields if f in data and len(data[f]) > 0]
+    if not metrics_found:
+        raise ValueError(f"Training log must contain at least one metric from: {metric_fields}")
 
-# RNN Validation Accuracy
-ax2.plot(rnn_epochs, rnn_val_acc, "g-", label="Validation Accuracy", linewidth=3, marker="o")
-ax2.set_xlabel("Epoch")
-ax2.set_ylabel("Validation Accuracy (%)")
-ax2.set_title("RNN Validation Accuracy")
-ax2.grid(True, alpha=0.3)
-ax2.set_ylim(90, 100)
+    return data
 
-# Highlight peak performance
-peak_epoch = rnn_val_acc.index(max(rnn_val_acc)) + 1
-ax2.annotate(
-    f"Peak: {max(rnn_val_acc):.2f}%\nEpoch {rnn_epochs[peak_epoch - 1]}",
-    xy=(rnn_epochs[peak_epoch - 1], max(rnn_val_acc)),
-    xytext=(rnn_epochs[peak_epoch - 1] + 2, max(rnn_val_acc) - 0.5),
-    bbox={"boxstyle": "round,pad=0.3", "facecolor": "yellow", "alpha": 0.7},
-    arrowprops={"arrowstyle": "->", "color": "orange"},
-)
 
-# Add horizontal line for CNN best performance
-ax2.axhline(y=97.18, color="blue", linestyle="--", alpha=0.7, label="CNN Best (97.18%)")
-ax2.legend()
+def get_output_path(log_path: str) -> str:
+    """Generate output path based on input log path."""
+    input_path = Path(log_path)
+    output_name = f"{input_path.stem}_visualization.png"
+    output_path = input_path.parent / output_name
+    return str(output_path)
 
-plt.tight_layout()
-plt.savefig("models/rnn/hybrid_cnn_rnn_training_curves_corrected.png", dpi=300, bbox_inches="tight")
-plt.show()
+
+def create_single_log_visualization(log_path: str, output_path: str = None):
+    """Create comprehensive visualization from a single training log."""
+    # Load and validate data
+    data = load_training_log(log_path)
+    data = validate_log_data(data)
+
+    if output_path is None:
+        output_path = get_output_path(log_path)
+
+    epochs = data["epochs"]
+    num_epochs = len(epochs)
+
+    # Determine which metrics are available
+    has_train_loss = "train_loss" in data
+    has_val_loss = "val_loss" in data
+    has_train_acc = "train_acc" in data
+    has_val_acc = "val_acc" in data
+
+    # Determine subplot layout based on available metrics
+    metrics_count = sum([has_train_loss or has_val_loss, has_train_acc or has_val_acc])
+    if metrics_count == 2:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+        axes = [ax1, ax2]
+    else:
+        fig, ax1 = plt.subplots(1, 1, figsize=(12, 6))
+        axes = [ax1]
+
+    # Extract log filename for title
+    log_filename = Path(log_path).stem.replace("_", " ").title()
+    fig.suptitle(f"Training Progress: {log_filename}", fontsize=16, fontweight="bold")
+
+    axis_idx = 0
+
+    # Plot loss curves
+    if has_train_loss or has_val_loss:
+        ax = axes[axis_idx]
+        axis_idx += 1
+
+        if has_train_loss:
+            ax.plot(
+                epochs,
+                data["train_loss"],
+                color=PASTEL_COLORS["train_loss"],
+                label="Training Loss",
+                linewidth=2.5,
+                marker="o",
+                markersize=3,
+            )
+
+        if has_val_loss:
+            ax.plot(
+                epochs,
+                data["val_loss"],
+                color=PASTEL_COLORS["val_loss"],
+                label="Validation Loss",
+                linewidth=2.5,
+                marker="s",
+                markersize=3,
+            )
+
+        ax.set_xlabel("Epoch", fontsize=11, fontweight="bold")
+        ax.set_ylabel("Loss", fontsize=11, fontweight="bold")
+        ax.set_title("Training Loss Curves", fontsize=12, fontweight="bold")
+        ax.legend(loc="best", framealpha=0.95)
+        ax.grid(True, alpha=0.3, linestyle="--")
+        ax.set_yscale("log")
+
+        # Add best loss annotation
+        if has_val_loss:
+            best_val_loss = min(data["val_loss"])
+            best_epoch_idx = data["val_loss"].index(best_val_loss)
+            ax.annotate(
+                f"Best: {best_val_loss:.4f}\nEpoch {epochs[best_epoch_idx]}",
+                xy=(epochs[best_epoch_idx], best_val_loss),
+                xytext=(epochs[best_epoch_idx] + num_epochs * 0.05, best_val_loss * 1.5),
+                bbox={
+                    "boxstyle": "round,pad=0.5",
+                    "facecolor": PASTEL_COLORS["val_loss"],
+                    "alpha": 0.7,
+                    "edgecolor": ACCENT_COLORS["val_loss"],
+                    "linewidth": 2,
+                },
+                arrowprops={
+                    "arrowstyle": "->",
+                    "color": ACCENT_COLORS["val_loss"],
+                    "lw": 2,
+                },
+            )
+
+    # Plot accuracy curves
+    if has_train_acc or has_val_acc:
+        ax = axes[axis_idx]
+
+        if has_train_acc:
+            ax.plot(
+                epochs,
+                data["train_acc"],
+                color=PASTEL_COLORS["train_acc"],
+                label="Training Accuracy",
+                linewidth=2.5,
+                marker="o",
+                markersize=3,
+            )
+
+        if has_val_acc:
+            ax.plot(
+                epochs,
+                data["val_acc"],
+                color=PASTEL_COLORS["val_acc"],
+                label="Validation Accuracy",
+                linewidth=2.5,
+                marker="s",
+                markersize=3,
+            )
+
+        ax.set_xlabel("Epoch", fontsize=11, fontweight="bold")
+        ax.set_ylabel("Accuracy (%)", fontsize=11, fontweight="bold")
+        ax.set_title("Training Accuracy Curves", fontsize=12, fontweight="bold")
+        ax.legend(loc="best", framealpha=0.95)
+        ax.grid(True, alpha=0.3, linestyle="--")
+        ax.set_ylim(bottom=0)
+
+        # Add peak accuracy annotation
+        if has_val_acc:
+            max_val_acc = max(data["val_acc"])
+            best_epoch_idx = data["val_acc"].index(max_val_acc)
+            ax.annotate(
+                f"Peak: {max_val_acc:.2f}%\nEpoch {epochs[best_epoch_idx]}",
+                xy=(epochs[best_epoch_idx], max_val_acc),
+                xytext=(epochs[best_epoch_idx] + num_epochs * 0.05, max_val_acc - 2),
+                bbox={
+                    "boxstyle": "round,pad=0.5",
+                    "facecolor": PASTEL_COLORS["val_acc"],
+                    "alpha": 0.7,
+                    "edgecolor": ACCENT_COLORS["val_acc"],
+                    "linewidth": 2,
+                },
+                arrowprops={
+                    "arrowstyle": "->",
+                    "color": ACCENT_COLORS["val_acc"],
+                    "lw": 2,
+                },
+            )
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none")
+    print(f"✅ Visualization saved: {output_path}")
+
+    return output_path
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Create training visualizations from JSON logs",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python create_training_visualizations.py models/training_progress.json
+  python create_training_visualizations.py training/rnn/results/training_metrics.json
+  python create_training_visualizations.py training/hiercode_higita/results/metrics.json --output output.png
+
+JSON Format:
+  {
+    "epochs": [1, 2, 3, ...],
+    "train_loss": [0.5, 0.4, ...],
+    "val_loss": [0.6, 0.5, ...],
+    "train_acc": [85.0, 87.0, ...],
+    "val_acc": [84.0, 86.0, ...]
+  }
+        """,
+    )
+
+    parser.add_argument(
+        "log_file",
+        type=str,
+        help="Path to training log JSON file",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="Output path for visualization PNG (default: auto-generated from input path)",
+    )
+
+    args = parser.parse_args()
+
+    try:
+        output_path = create_single_log_visualization(args.log_file, args.output)
+        print(f"📊 Model: {Path(args.log_file).stem}")
+        print("💾 Metrics: Loss (training, validation) and Accuracy (training, validation)")
+        print("🎨 Color scheme: Pastel with high-contrast annotations")
+    except FileNotFoundError as e:
+        print(f"❌ Error: {e}")
+        exit(1)
+    except ValueError as e:
+        print(f"❌ Validation error: {e}")
+        exit(1)
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        exit(1)
+
+
+if __name__ == "__main__":
+    main()

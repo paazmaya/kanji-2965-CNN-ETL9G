@@ -11,6 +11,7 @@
 ### Motivation
 
 Project accumulated multiple dataset preparation scripts over development phases:
+
 - `prepare_etl9g_dataset.py` (600 lines) - ETL9G only
 - `prepare_multi_etl_dataset.py` (920 lines) - Generic multi-format handler
 - `process_etl6_9.py` (150 lines) - ETL6-9 batch wrapper
@@ -71,21 +72,25 @@ ETL1-9G Directories (auto-detected)
 ### Usage Examples
 
 **Basic (Auto-detect all):**
+
 ```bash
 uv run python scripts/prepare_dataset.py
 ```
 
 **Selective:**
+
 ```bash
 uv run python scripts/prepare_dataset.py --only etl9g etl8g
 ```
 
 **No combination:**
+
 ```bash
 uv run python scripts/prepare_dataset.py --no-combine
 ```
 
 **Custom output:**
+
 ```bash
 uv run python scripts/prepare_dataset.py --output-dir my_datasets --size 128
 ```
@@ -93,16 +98,16 @@ uv run python scripts/prepare_dataset.py --output-dir my_datasets --size 128
 ### Supported Formats
 
 | Format | Dimensions | Bit Depth | Classes | Samples | Status |
-|--------|------------|-----------|---------|---------|--------|
-| ETL1   | 72×76      | 4-bit     | 99      | 141K    | ✅ |
-| ETL2   | 60×60      | 6-bit     | 2,184   | 53K     | ✅ |
-| ETL3   | 72×76      | 4-bit     | 48      | 10K     | ✅ |
-| ETL4   | 64×63      | 4-bit     | 51      | 6K      | ✅ |
-| ETL5   | 64×63      | 4-bit     | 51      | 11K     | ✅ |
-| ETL6   | 64×63      | 4-bit     | 114     | 158K    | ✅ |
-| ETL7   | 64×63      | 4-bit     | 48      | 17K     | ✅ |
-| ETL8G  | 128×127    | 4-bit     | 956     | 153K    | ✅ |
-| ETL9G  | 128×127    | 4-bit     | 3,036   | 607K    | ✅ |
+| ------ | ---------- | --------- | ------- | ------- | ------ |
+| ETL1   | 72×76      | 4-bit     | 99      | 141K    | ✅     |
+| ETL2   | 60×60      | 6-bit     | 2,184   | 53K     | ✅     |
+| ETL3   | 72×76      | 4-bit     | 48      | 10K     | ✅     |
+| ETL4   | 64×63      | 4-bit     | 51      | 6K      | ✅     |
+| ETL5   | 64×63      | 4-bit     | 51      | 11K     | ✅     |
+| ETL6   | 64×63      | 4-bit     | 114     | 158K    | ✅     |
+| ETL7   | 64×63      | 4-bit     | 48      | 17K     | ✅     |
+| ETL8G  | 128×127    | 4-bit     | 956     | 153K    | ✅     |
+| ETL9G  | 128×127    | 4-bit     | 3,036   | 607K    | ✅     |
 
 ### Output Structure
 
@@ -128,6 +133,7 @@ dataset/
 ### Migration from Old Scripts
 
 **Old approach (required multiple commands):**
+
 ```bash
 python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset
 python scripts/prepare_multi_etl_dataset.py --dataset etl8g --etl-dir ETL8G --output-dir dataset
@@ -135,6 +141,7 @@ python scripts/process_etl6_9.py --all --combine
 ```
 
 **New approach (single command):**
+
 ```bash
 uv run python scripts/prepare_dataset.py
 ```
@@ -657,7 +664,7 @@ The journey from "simple CNN model" to "multi-architecture research platform" sh
 
 | Script                      | Purpose                     | Status         | Key Feature                          |
 | --------------------------- | --------------------------- | -------------- | ------------------------------------ |
-| `train_cnn_model.py`      | CNN baseline training       | ✅ Complete    | v2.0 with attention, 97.18% accuracy |
+| `train_cnn_model.py`        | CNN baseline training       | ✅ Complete    | v2.0 with attention, 97.18% accuracy |
 | `train_qat.py`              | Quantization-aware training | ✅ Complete    | Checkpoint/resume, INT8 quantization |
 | `train_radical_rnn.py`      | Radical-based RNN           | ✅ Complete    | Semantic radical decomposition       |
 | `train_hiercode.py`         | Hierarchical code training  | ✅ Implemented | Advanced architecture                |
@@ -1315,6 +1322,7 @@ Your project uses SE-Net style channel attention modules. These are the foundati
 ### Motivation
 
 Following successful deployment of 5 model architectures on ETL9G (3,036 classes, 607K samples), explored expanding the training dataset to leverage additional ETLCDB sources. Goal: improve model robustness and character coverage by incorporating:
+
 - ETL6: 114 classes (Katakana 46 + Numerals 10 + Symbols 32 + ASCII 26)
 - ETL7: 48 classes (Hiragana)
 - ETL8G: 956 classes (Educational Kanji 881 + Hiragana 75)
@@ -1324,17 +1332,18 @@ Following successful deployment of 5 model architectures on ETL9G (3,036 classes
 
 **Dataset Specifications**
 
-| Dataset | Classes | Samples | Image Size | Format | Content |
-|---------|---------|---------|-----------|--------|---------|
-| ETL6 | 114 | 157,662 | 64×63 | M-type | Katakana + Numerals + Symbols + ASCII |
-| ETL7 | 48 | 16,800 | 64×63 | M-type | Hiragana (high quality) |
-| ETL8G | 956 | 152,960 | 128×127 | G-type | Educational Kanji + Hiragana |
-| ETL9G | 3,036 | 607,200 | 128×127 | G-type | JIS Level 1 Kanji + Hiragana |
-| **TOTAL** | **~4,154** | **934,622** | Mixed | Mixed | Complete character set |
+| Dataset   | Classes    | Samples     | Image Size | Format | Content                               |
+| --------- | ---------- | ----------- | ---------- | ------ | ------------------------------------- |
+| ETL6      | 114        | 157,662     | 64×63      | M-type | Katakana + Numerals + Symbols + ASCII |
+| ETL7      | 48         | 16,800      | 64×63      | M-type | Hiragana (high quality)               |
+| ETL8G     | 956        | 152,960     | 128×127    | G-type | Educational Kanji + Hiragana          |
+| ETL9G     | 3,036      | 607,200     | 128×127    | G-type | JIS Level 1 Kanji + Hiragana          |
+| **TOTAL** | **~4,154** | **934,622** | Mixed      | Mixed  | Complete character set                |
 
 **Overlap Strategy**
 
 The datasets intentionally share characters (by design):
+
 - ETL8G educational kanji (881) are subset of ETL9G JIS kanji (2,965)
 - ETL8G hiragana (75) overlap with ETL9G hiragana (71) in ~71 characters
 - This overlap is **beneficial**: multiple writing styles for same characters improves generalization
@@ -1404,13 +1413,13 @@ Total unique samples:       934,622 (+53% vs ETL9G alone)
 
 **Performance Impact**
 
-| Metric | Baseline (ETL9G) | ETL6-9 | Improvement |
-|--------|-----------------|--------|-------------|
-| Samples | 607,200 | 934,622 | +53% |
-| Classes | 3,036 | ~4,154 | +37% |
-| Training time/epoch | 1.0x | 1.5-2.0x | +50-100% |
-| Memory (GPU, batch=256) | ~12 GB | ~15 GB | +25% |
-| Expected accuracy gain | — | — | +2-3% |
+| Metric                  | Baseline (ETL9G) | ETL6-9   | Improvement |
+| ----------------------- | ---------------- | -------- | ----------- |
+| Samples                 | 607,200          | 934,622  | +53%        |
+| Classes                 | 3,036            | ~4,154   | +37%        |
+| Training time/epoch     | 1.0x             | 1.5-2.0x | +50-100%    |
+| Memory (GPU, batch=256) | ~12 GB           | ~15 GB   | +25%        |
+| Expected accuracy gain  | —                | —        | +2-3%       |
 
 **Overlap Benefits**
 
@@ -1480,6 +1489,7 @@ X_combined, y_combined, meta = load_combined_etl_datasets(
    - Total: 344 MB additional download
 
 2. **Extract** to project directories
+
    ```
    ETL6/  ← 12 files
    ETL7/  ← 4 files
@@ -1488,6 +1498,7 @@ X_combined, y_combined, meta = load_combined_etl_datasets(
    ```
 
 3. **Process** using batch processor
+
    ```powershell
    python scripts/process_etl6_9.py --all --combine
    ```
@@ -1507,6 +1518,7 @@ X_combined, y_combined, meta = load_combined_etl_datasets(
 **Format Support**
 
 The universal processor (`prepare_multi_etl_dataset.py`) handles all ETLCDB formats:
+
 - M-type (ETL1, ETL6, ETL7): 2,052 byte records, 4-bit images
 - K-type (ETL2): 1,956 byte records, 6-bit images (special unpacking)
 - C-type (ETL3, ETL4, ETL5): 2,052 byte records, 4-bit images
@@ -1597,13 +1609,13 @@ Training large neural networks for kanji recognition is time-consuming (20-30 ho
 
 Updated 6 training scripts with checkpoint support:
 
-| Script | Approach | Checkpoint Dir | Status |
-|--------|----------|----------------|--------|
-| train_cnn_model.py | cnn | models/checkpoints/cnn/ | ✅ Integrated |
-| train_qat.py | qat | models/checkpoints/qat/ | ✅ Enhanced |
-| train_radical_rnn.py | rnn | models/checkpoints/rnn/ | ✅ Integrated |
-| train_vit.py | vit | models/checkpoints/vit/ | ✅ Integrated |
-| train_hiercode.py | hiercode | models/checkpoints/hiercode/ | ✅ Integrated |
+| Script                   | Approach        | Checkpoint Dir                      | Status        |
+| ------------------------ | --------------- | ----------------------------------- | ------------- |
+| train_cnn_model.py       | cnn             | models/checkpoints/cnn/             | ✅ Integrated |
+| train_qat.py             | qat             | models/checkpoints/qat/             | ✅ Enhanced   |
+| train_radical_rnn.py     | rnn             | models/checkpoints/rnn/             | ✅ Integrated |
+| train_vit.py             | vit             | models/checkpoints/vit/             | ✅ Integrated |
+| train_hiercode.py        | hiercode        | models/checkpoints/hiercode/        | ✅ Integrated |
 | train_hiercode_higita.py | hiercode_higita | models/checkpoints/hiercode_higita/ | ✅ Integrated |
 
 #### Checkpoint Manager API
@@ -1668,12 +1680,12 @@ uv run python scripts/train_cnn_model.py --data-dir dataset \
 
 All training scripts now support:
 
-| Argument | Default | Purpose |
-|----------|---------|---------|
-| `--checkpoint-dir` | `models/checkpoints` | Base checkpoint directory |
-| `--resume-from` | None | Specific checkpoint path (overrides auto-detect) |
-| `--no-checkpoint` | False | Skip checkpoint loading/saving |
-| `--keep-last-n` | 5 | Number of recent checkpoints to keep |
+| Argument           | Default              | Purpose                                          |
+| ------------------ | -------------------- | ------------------------------------------------ |
+| `--checkpoint-dir` | `models/checkpoints` | Base checkpoint directory                        |
+| `--resume-from`    | None                 | Specific checkpoint path (overrides auto-detect) |
+| `--no-checkpoint`  | False                | Skip checkpoint loading/saving                   |
+| `--keep-last-n`    | 5                    | Number of recent checkpoints to keep             |
 
 ### Documentation
 
@@ -1684,6 +1696,7 @@ All training scripts now support:
 ### Technical Details
 
 **Checkpoint Format**:
+
 ```python
 {
     "epoch": 10,
@@ -1699,6 +1712,7 @@ All training scripts now support:
 ```
 
 **Directory Structure**:
+
 ```
 models/
 └── checkpoints/
@@ -1740,6 +1754,192 @@ models/
 2. Interrupt training mid-epoch and verify auto-resume
 3. Monitor `models/checkpoints/` directory structure
 4. Measure training time with checkpoint overhead (typically <1%)
+
+---
+
+## Phase 9: PyTorch Deprecation Warnings & Training Visualization System - November 20, 2025
+
+### TypedStorage Deprecation Warning Suppression
+
+**Issue**: PyTorch 2.0+ generates `UserWarning: TypedStorage is deprecated` when loading models saved with older PyTorch versions. Warning is internal to PyTorch (not in user code) but clutters output.
+
+**Solution**: Added warning filter to all model-loading scripts:
+
+```python
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, message=".*TypedStorage.*")
+```
+
+**Files Updated**:
+
+- ✅ `scripts/quantize_to_4bit_bitsandbytes.py` (4-bit quantization)
+- ✅ `scripts/quantize_model.py` (INT8 quantization)
+- ✅ `scripts/checkpoint_manager.py` (checkpoint loading/saving)
+- ✅ `scripts/convert_to_onnx.py` (ONNX conversion)
+
+**Impact**: Clean terminal output without functional changes. Models load identically, no performance impact.
+
+---
+
+### Flexible Training Visualization System
+
+**Motivation**: Previous visualization script was hardcoded for CNN vs RNN comparison. New requirement: single flexible script supporting any training history JSON format.
+
+**Implementation**: Refactored `create_training_visualizations.py`
+
+#### Supported JSON Formats
+
+**Format 1: Flat List Structure** (CNN, RNN existing logs)
+
+```json
+{
+  "epochs": [1, 2, 3, ...],
+  "train_loss": [0.5, 0.4, ...],
+  "val_loss": [0.6, 0.5, ...],
+  "train_acc": [85.0, 87.0, ...],
+  "val_acc": [84.0, 86.0, ...]
+}
+```
+
+**Format 2: Nested Epoch Structure** (HierCode-HiGITA, new training scripts)
+
+```json
+[
+  {
+    "epoch": 1,
+    "train": {
+      "total_loss": 10.36,
+      "ce_loss": 8.62,
+      "contrastive_loss": 3.48,
+      "accuracy": 2.96
+    },
+    "val": {
+      "loss": 7.92,
+      "accuracy": 6.51
+    }
+  },
+  ...
+]
+```
+
+#### Key Features
+
+1. **Auto-Format Detection**
+   - Detects list vs dict structure
+   - Converts nested format → flat format automatically
+   - Maintains backward compatibility
+
+2. **Flexible Metric Support**
+   - Optional metrics: `train_loss`, `val_loss`, `train_acc`, `val_acc`
+   - Dynamically selects subplot layout based on available metrics
+   - 2 subplots if both loss and accuracy exist
+   - 1 subplot if only one metric type available
+
+3. **CLI Interface**
+
+   ```bash
+   # Basic usage
+   python create_training_visualizations.py training/rnn/training_progress.json
+   python create_training_visualizations.py training/hiercode_higita/checkpoints/training_history_higita.json
+
+   # Custom output
+   python create_training_visualizations.py logs/metrics.json -o results/viz.png
+   ```
+
+4. **Pastel Color Palette with High Contrast**
+   - **Train Loss**: Pastel red (#FF6B6B) with dark red accent (#8B0000)
+   - **Val Loss**: Pastel teal (#4ECDC4) with dark teal accent (#006666)
+   - **Train Acc**: Pastel yellow (#FFD93D) with dark gold accent (#B8860B)
+   - **Val Acc**: Pastel green (#6BCB77) with dark green accent (#2D5016)
+
+   Colors designed for:
+   - Visual appeal with soft pastel tones
+   - High contrast annotations for readability
+   - Accessibility for color-blind viewers
+
+5. **Smart Annotations**
+   - Loss curves (log scale): Annotates best validation loss with epoch number
+   - Accuracy curves (linear scale): Annotates peak validation accuracy
+   - Auto-positioned to avoid overlap
+   - High-contrast boxes with dark borders
+
+#### Processing Pipeline
+
+```
+Input JSON (flat or nested)
+         ↓
+    Auto-Format Detection
+         ↓
+    Convert nested → flat (if needed)
+         ↓
+    Extract metrics (epochs, losses, accuracies)
+         ↓
+    Validate data integrity
+         ↓
+    Determine subplot layout
+         ↓
+    Plot loss curves (log scale)
+    Plot accuracy curves (linear scale)
+         ↓
+    Add smart annotations
+    (best loss, peak accuracy)
+         ↓
+    Render with pastel colors
+         ↓
+    Save as PNG (300 DPI)
+```
+
+#### Usage Examples
+
+**All model types supported:**
+
+```bash
+# CNN training
+uv run python create_training_visualizations.py models/training_progress.json
+
+# RNN training
+uv run python create_training_visualizations.py training/rnn/results/training_metrics.json
+
+# HierCode-HiGITA training (nested format)
+uv run python create_training_visualizations.py training/hiercode_higita/checkpoints/training_history_higita.json
+
+# Custom output location
+uv run python create_training_visualizations.py training/vit/metrics.json -o results/vit_viz.png
+```
+
+#### Testing Results
+
+**Test 1: HierCode-HiGITA Nested Format**
+
+- Input: `training/hiercode_higita/checkpoints/training_history_higita.json`
+- Format: Nested list with train/val metrics
+- Epochs: 30 (training epochs 1-30)
+- Metrics detected: train loss, val loss, train accuracy, val accuracy
+- Output: `training_history_higita_visualization.png` (322 KB)
+- Status: ✅ PASS
+
+**Test 2: CNN Flat Format**
+
+- Input: `models/checkpoints/training_progress.json`
+- Format: Flat structure with list values
+- Metrics detected: All 4 metrics
+- Output: `training_progress_visualization.png`
+- Status: ✅ PASS
+
+#### Benefits
+
+1. **Single Universal Script**: Works with all training history formats
+2. **No Manual Extraction**: Auto-detects available metrics
+3. **Beautiful Output**: Pastel colors with professional appearance
+4. **Flexible Input**: Supports both old and new JSON structures
+5. **Smart Layout**: Automatically adapts to available metrics
+6. **Fast**: Single command execution, no configuration needed
+
+#### Status
+
+**Complete**: ✅ Script updated for both JSON formats
+**Tested**: ✅ CNN flat format and HierCode-HiGITA nested format verified
+**Output Quality**: ✅ 300 DPI PNG with pastel colors and high-contrast annotations
 
 ---
 
