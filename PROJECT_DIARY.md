@@ -595,7 +595,7 @@ The journey from "simple CNN model" to "multi-architecture research platform" sh
 - [x] `save_checkpoint()` method - saves all training state after each epoch
 - [x] `load_checkpoint()` method - restores model, optimizer, scheduler, history
 - [x] CLI arguments: `--checkpoint-dir` and `--resume-from`
-- [x] Automatic checkpoint creation in `models/checkpoints/`
+- [x] Automatic checkpoint creation in `training/{model_type}/checkpoints/`
 
 **Checkpoint Features**:
 
@@ -760,11 +760,11 @@ Run 2: Load checkpoint_epoch_004.pt → Resume from epoch 5
 
 ```bash
 # Train with auto-checkpointing
-uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/checkpoints
+uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir training/qat/checkpoints
 
 # Resume after crash
-uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/checkpoints \
-    --resume-from models/checkpoints/checkpoint_epoch_004.pt
+uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir training/qat/checkpoints \
+    --resume-from training/qat/checkpoints/checkpoint_epoch_004.pt
 ```
 
 ### Time Savings
@@ -1274,7 +1274,6 @@ Your project uses SE-Net style channel attention modules. These are the foundati
 ### GPU Acceleration Optimized (November 16, 2025)
 
 - ✅ Updated pyproject.toml: onnxruntime → onnxruntime-gpu
-- ✅ Updated requirements.txt: onnxruntime-gpu primary dependency
 - ✅ Updated all export scripts for GPU execution providers (CUDA with CPU fallback)
 - ✅ ONNX inference now uses: CUDAExecutionProvider → CPUExecutionProvider
 - ✅ Inference scripts auto-detect GPU availability
@@ -1585,7 +1584,7 @@ Training large neural networks for kanji recognition is time-consuming (20-30 ho
 #### Features
 
 1. **Automatic Checkpoint Saving**
-   - Saves after each epoch to `models/checkpoints/{approach}/checkpoint_epoch_NNN.pt`
+   - Saves after each epoch to `training/{approach}/checkpoints/checkpoint_epoch_NNN.pt`
    - Stores model state, optimizer state, scheduler state, and metrics
    - Saves best checkpoint separately as `checkpoint_best.pt`
 
@@ -1609,14 +1608,14 @@ Training large neural networks for kanji recognition is time-consuming (20-30 ho
 
 Updated 6 training scripts with checkpoint support:
 
-| Script                   | Approach        | Checkpoint Dir                      | Status        |
-| ------------------------ | --------------- | ----------------------------------- | ------------- |
-| train_cnn_model.py       | cnn             | models/checkpoints/cnn/             | ✅ Integrated |
-| train_qat.py             | qat             | models/checkpoints/qat/             | ✅ Enhanced   |
-| train_radical_rnn.py     | rnn             | models/checkpoints/rnn/             | ✅ Integrated |
-| train_vit.py             | vit             | models/checkpoints/vit/             | ✅ Integrated |
-| train_hiercode.py        | hiercode        | models/checkpoints/hiercode/        | ✅ Integrated |
-| train_hiercode_higita.py | hiercode_higita | models/checkpoints/hiercode_higita/ | ✅ Integrated |
+| Script                   | Approach        | Checkpoint Dir                        | Status        |
+| ------------------------ | --------------- | ------------------------------------- | ------------- |
+| train_cnn_model.py       | cnn             | training/cnn/checkpoints/             | ✅ Integrated |
+| train_qat.py             | qat             | training/qat/checkpoints/             | ✅ Enhanced   |
+| train_radical_rnn.py     | rnn             | training/rnn/checkpoints/             | ✅ Integrated |
+| train_vit.py             | vit             | training/vit/checkpoints/             | ✅ Integrated |
+| train_hiercode.py        | hiercode        | training/hiercode/checkpoints/        | ✅ Integrated |
+| train_hiercode_higita.py | hiercode_higita | training/hiercode_higita/checkpoints/ | ✅ Integrated |
 
 #### Checkpoint Manager API
 
@@ -1664,7 +1663,7 @@ uv run python scripts/train_cnn_model.py --data-dir dataset --epochs 30
 ```ps1
 # Resume from specific checkpoint
 uv run python scripts/train_cnn_model.py --data-dir dataset \
-  --resume-from models/checkpoints/cnn/checkpoint_epoch_010.pt \
+  --resume-from training/cnn/checkpoints/checkpoint_epoch_010.pt \
   --epochs 30
 ```
 
@@ -1680,12 +1679,12 @@ uv run python scripts/train_cnn_model.py --data-dir dataset \
 
 All training scripts now support:
 
-| Argument           | Default              | Purpose                                          |
-| ------------------ | -------------------- | ------------------------------------------------ |
-| `--checkpoint-dir` | `models/checkpoints` | Base checkpoint directory                        |
-| `--resume-from`    | None                 | Specific checkpoint path (overrides auto-detect) |
-| `--no-checkpoint`  | False                | Skip checkpoint loading/saving                   |
-| `--keep-last-n`    | 5                    | Number of recent checkpoints to keep             |
+| Argument           | Default                             | Purpose                                          |
+| ------------------ | ----------------------------------- | ------------------------------------------------ |
+| `--checkpoint-dir` | `training/{model_type}/checkpoints` | Base checkpoint directory                        |
+| `--resume-from`    | None                                | Specific checkpoint path (overrides auto-detect) |
+| `--no-checkpoint`  | False                               | Skip checkpoint loading/saving                   |
+| `--keep-last-n`    | 5                                   | Number of recent checkpoints to keep             |
 
 ### Documentation
 
@@ -1714,9 +1713,22 @@ All training scripts now support:
 **Directory Structure**:
 
 ```
-models/
-└── checkpoints/
-    ├── cnn/
+training/
+├── cnn/
+│   ├── checkpoints/
+│   └── exports/
+├── hiercode/
+│   ├── checkpoints/
+│   └── exports/
+├── rnn/
+│   ├── checkpoints/
+│   └── exports/
+├── qat/
+│   ├── checkpoints/
+│   └── exports/
+└── vit/
+    ├── checkpoints/
+    └── exports/
     │   ├── checkpoint_epoch_001.pt
     │   ├── checkpoint_epoch_002.pt
     │   └── checkpoint_best.pt
@@ -1752,7 +1764,7 @@ models/
 
 1. Run training with any script to auto-test checkpoint system
 2. Interrupt training mid-epoch and verify auto-resume
-3. Monitor `models/checkpoints/` directory structure
+3. Monitor `training/` directory structure
 4. Measure training time with checkpoint overhead (typically <1%)
 
 ---
@@ -1895,7 +1907,7 @@ Input JSON (flat or nested)
 
 ```bash
 # CNN training
-uv run python create_training_visualizations.py models/training_progress.json
+uv run python create_training_visualizations.py training/{model_type}/checkpoints/training_progress.json
 
 # RNN training
 uv run python create_training_visualizations.py training/rnn/results/training_metrics.json
@@ -1920,7 +1932,7 @@ uv run python create_training_visualizations.py training/vit/metrics.json -o res
 
 **Test 2: CNN Flat Format**
 
-- Input: `models/checkpoints/training_progress.json`
+- Input: `training/{model_type}/checkpoints/training_progress.json`
 - Format: Flat structure with list values
 - Metrics detected: All 4 metrics
 - Output: `training_progress_visualization.png`

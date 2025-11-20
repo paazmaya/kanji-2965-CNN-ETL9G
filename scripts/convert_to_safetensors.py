@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 import torch
+from model_utils import generate_export_path, infer_model_type
 from safetensors.torch import save_file
 
 logger = logging.getLogger(__name__)
@@ -100,11 +101,13 @@ def extract_model_metadata(model_path, model, image_size):
 
 def generate_output_filename(base_name, image_size, suffix):
     """Generate consistent filename with configuration details."""
-    return f"models/{base_name}_etl9g_{image_size}x{image_size}_3036classes{suffix}"
+    model_type = infer_model_type(base_name)
+    export_dir = generate_export_path(model_type)
+    return str(export_dir / f"{base_name}_etl9g_{image_size}x{image_size}_3036classes{suffix}")
 
 
 def convert_to_safetensors(
-    model_path="models/best_kanji_model.pth",
+    model_path="training/cnn/best_kanji_model.pth",
     output_path=None,
     num_classes=3036,
     image_size=64,
@@ -238,7 +241,7 @@ def main():
     parser.add_argument(
         "--model-path",
         type=str,
-        default="models/best_kanji_model.pth",
+        default="training/cnn/best_kanji_model.pth",
         help="Path to the trained PyTorch model",
     )
     parser.add_argument(
@@ -262,7 +265,7 @@ def main():
     # Create models directory if it doesn't exist
     from pathlib import Path
 
-    Path("models").mkdir(exist_ok=True)
+    Path("training/exports").mkdir(parents=True, exist_ok=True)
 
     print("🚀 SafeTensors Conversion Tool")
     print("=" * 50)

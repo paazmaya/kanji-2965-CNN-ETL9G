@@ -329,20 +329,20 @@ def main():
         epilog="""
 Examples:
   # Quantize to 4-bit NF4 (recommended)
-  python quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn.pth --model-type cnn --method nf4
+  python quantize_to_4bit_bitsandbytes.py --model-path training/cnn/best_cnn.pth --model-type cnn --method nf4
 
   # Quantize to 4-bit FP4
-  python quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn.pth --model-type cnn --method fp4
+  python quantize_to_4bit_bitsandbytes.py --model-path training/cnn/best_cnn.pth --model-type cnn --method fp4
 
   # Quantize with double quantization (compress scale factors)
-  python quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn.pth --model-type cnn --double-quant
+  python quantize_to_4bit_bitsandbytes.py --model-path training/cnn/best_cnn.pth --model-type cnn --double-quant
 
   # Save to custom path
-  python quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn.pth --model-type cnn \\
-    --output models/cnn_4bit_nf4.pth
+  python quantize_to_4bit_bitsandbytes.py --model-path training/cnn/best_cnn.pth --model-type cnn \
+    --output training/cnn/cnn_4bit_nf4.pth
 
   # Quantize HierCode model
-  python quantize_to_4bit_bitsandbytes.py --model-path models/best_hiercode.pth --model-type hiercode
+  python quantize_to_4bit_bitsandbytes.py --model-path training/hiercode/best_hiercode.pth --model-type hiercode
         """,
     )
 

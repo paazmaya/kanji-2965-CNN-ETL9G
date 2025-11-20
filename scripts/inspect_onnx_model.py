@@ -87,9 +87,9 @@ def inspect_onnx_model(model_path):
 def main():
     """Main function to inspect all ONNX models"""
     models_to_check = [
-        "models/kanji_model_etl9g_64x64_3036classes_tract.onnx",
-        "models/kanji_model_etl9g_64x64_3036classes_ort-tract.onnx",
-        "models/kanji_model_etl9g_64x64_3036classes_strict.onnx",
+        "training/cnn/exports/kanji_model_etl9g_64x64_3036classes_tract.onnx",
+        "training/cnn/exports/kanji_model_etl9g_64x64_3036classes_ort-tract.onnx",
+        "training/cnn/exports/kanji_model_etl9g_64x64_3036classes_strict.onnx",
     ]
 
     print("🔍 ONNX Model Inspector")

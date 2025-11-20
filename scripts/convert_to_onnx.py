@@ -12,6 +12,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
+from model_utils import generate_export_path, infer_model_type
 
 # Suppress PyTorch's TypedStorage deprecation warning (internal, not in user code)
 warnings.filterwarnings("ignore", category=UserWarning, message=".*TypedStorage.*")
@@ -68,7 +69,11 @@ class LightweightKanjiNet(OriginalLightweightKanjiNet):
 
 def generate_output_filename(base_name, image_size, backend, suffix):
     """Generate consistent filename with configuration details."""
-    return f"models/{base_name}_etl9g_{image_size}x{image_size}_3036classes_{backend}{suffix}"
+    model_type = infer_model_type(base_name)
+    export_dir = generate_export_path(model_type)
+    return str(
+        export_dir / f"{base_name}_etl9g_{image_size}x{image_size}_3036classes_{backend}{suffix}"
+    )
 
 
 def export_to_onnx(
@@ -601,7 +606,7 @@ def main():
     parser.add_argument(
         "--model-path",
         type=str,
-        default="models/best_kanji_model.pth",
+        default="training/cnn/best_kanji_model.pth",
         help="Path to the trained PyTorch model",
     )
     parser.add_argument(
@@ -628,8 +633,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Create models directory if it doesn't exist
-    Path("models").mkdir(exist_ok=True)
+    # Note: Output path should be specified via --onnx-path
+    # Directory will be created by ONNX export function
 
     print("🔄 Starting ONNX conversion...")
     print(f"Model: {args.model_path}")

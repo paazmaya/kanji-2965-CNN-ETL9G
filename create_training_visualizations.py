@@ -11,13 +11,14 @@ Supports any training history JSON with metrics like:
 
 Usage:
     uv run python create_training_visualizations.py training/hiercode_higita/checkpoints/training_history_higita.json
-    python create_training_visualizations.py models/training_progress.json
+    python create_training_visualizations.py training/cnn/checkpoints/training_progress.json
     python create_training_visualizations.py training/rnn/results/training_metrics.json
 """
 
 import argparse
 import json
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 
@@ -115,7 +116,7 @@ def get_output_path(log_path: str) -> str:
     return str(output_path)
 
 
-def create_single_log_visualization(log_path: str, output_path: str = None):
+def create_single_log_visualization(log_path: str, output_path: Optional[str] = None):
     """Create comprehensive visualization from a single training log."""
     # Load and validate data
     data = load_training_log(log_path)
@@ -272,7 +273,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python create_training_visualizations.py models/training_progress.json
+  python create_training_visualizations.py training/cnn/results/training_progress.json
   python create_training_visualizations.py training/rnn/results/training_metrics.json
   python create_training_visualizations.py training/hiercode_higita/results/metrics.json --output output.png
 

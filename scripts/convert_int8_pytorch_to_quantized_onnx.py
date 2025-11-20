@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Export INT8 Quantized HierCode Model to 4-bit Quantized ONNX
-Converts models/quantized_hiercode_int8.pth → ONNX with dynamic INT8 quantization
+Converts training/hiercode/quantized_hiercode_int8.pth → ONNX with dynamic INT8 quantization
 Produces ultra-lightweight model: 1.75 MB (vs 9.56 MB original)
 """
 
@@ -246,16 +246,16 @@ def main():
 Examples:
   # Standard conversion
   python convert_int8_pytorch_to_quantized_onnx.py \\
-    --model-path models/quantized_hiercode_int8.pth
+    --model-path training/hiercode/quantized_hiercode_int8.pth
 
   # With custom output directory
   python convert_int8_pytorch_to_quantized_onnx.py \\
-    --model-path models/quantized_hiercode_int8.pth \\
-    --output-dir models/exports
+    --model-path training/hiercode/quantized_hiercode_int8.pth \
+    --output-dir training/hiercode/exports
 
   # With specific opset version
   python convert_int8_pytorch_to_quantized_onnx.py \\
-    --model-path models/quantized_hiercode_int8.pth \\
+    --model-path training/hiercode/quantized_hiercode_int8.pth \\
     --opset 15
 
 Output Files (verbose naming):
@@ -269,7 +269,7 @@ Output Files (verbose naming):
         "--model-path",
         required=True,
         type=str,
-        help="Path to INT8 quantized PyTorch model (e.g., models/quantized_hiercode_int8.pth)",
+        help="Path to INT8 quantized PyTorch model (e.g., training/hiercode/quantized_hiercode_int8.pth)",
     )
     parser.add_argument(
         "--output-dir",

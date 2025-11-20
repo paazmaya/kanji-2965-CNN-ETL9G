@@ -28,7 +28,7 @@ Unlike traditional quantization that reduces file size, BitsAndBytes uses **dyna
 
 ```ps1
 uv run python scripts/quantize_to_4bit_bitsandbytes.py \
-    --model-path models/checkpoints/cnn/checkpoint_best.pt \
+    --model-path training/cnn/checkpoints/checkpoint_best.pt \
     --model-type cnn \
     --method nf4
 ```
@@ -52,7 +52,7 @@ cnn_int8_4bit_NF4.json    (metadata with quantization parameters)
 
 ```ps1
 uv run python scripts/quantize_to_4bit_bitsandbytes.py \
-    --model-path models/checkpoints/cnn/checkpoint_best.pt \
+    --model-path training/cnn/checkpoints/checkpoint_best.pt \
     --model-type cnn \
     --method fp4
 ```
@@ -76,7 +76,7 @@ cnn_int8_4bit_FP4.json    (metadata)
 
 ```ps1
 uv run python scripts/quantize_to_4bit_bitsandbytes.py \
-    --model-path models/checkpoints/cnn/checkpoint_best.pt \
+    --model-path training/cnn/checkpoints/checkpoint_best.pt \
     --model-type cnn \
     --method nf4 \
     --double-quant

@@ -217,13 +217,13 @@ def main():
         epilog="""
 Examples:
   # Quantize HierCode model
-  python quantize_model.py --model-path models/best_kanji_model.pth --model-type hiercode
+  python quantize_model.py --model-path training/hiercode/hiercode_model_best.pth --model-type hiercode
 
   # Quantize with calibration
-  python quantize_model.py --model-path models/best_kanji_model.pth --model-type cnn --calibrate
+  python quantize_model.py --model-path training/cnn/best_kanji_model.pth --model-type cnn --calibrate
 
   # Evaluate quantized model
-  python quantize_model.py --model-path models/best_kanji_model.pth --evaluate
+  python quantize_model.py --model-path training/cnn/best_kanji_model.pth --evaluate
         """,
     )
 

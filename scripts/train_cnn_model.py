@@ -781,8 +781,8 @@ def main():
     model = model.to(device)
     logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
-    # Create models directory if it doesn't exist
-    Path("models").mkdir(exist_ok=True)
+    # Create training directory structure if it doesn't exist
+    Path("training/cnn").mkdir(parents=True, exist_ok=True)
 
     # Create config for optimizer/scheduler
     config = CNNConfig(

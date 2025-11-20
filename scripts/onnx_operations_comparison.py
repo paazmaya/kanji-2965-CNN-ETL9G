@@ -16,8 +16,8 @@ def show_real_onnx_operations():
     print()
 
     models = {
-        "Direct Tract (GlobalAveragePool)": "models/kanji_model_etl9g_64x64_3036classes_tract.onnx",
-        "ORT-Tract (Fixed AveragePool)": "models/kanji_model_etl9g_64x64_3036classes_ort-tract.onnx",
+        "Direct Tract (GlobalAveragePool)": "training/cnn/exports/kanji_model_etl9g_64x64_3036classes_tract.onnx",
+        "ORT-Tract (Fixed AveragePool)": "training/cnn/exports/kanji_model_etl9g_64x64_3036classes_ort-tract.onnx",
     }
 
     for model_name, model_path in models.items():

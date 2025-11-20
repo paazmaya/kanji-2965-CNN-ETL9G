@@ -121,7 +121,7 @@ class HiGITATrainingConfig:
     """Torch device (cuda or cpu)"""
 
     # Checkpoint configuration
-    checkpoint_dir: str = "models/checkpoints_higita"
+    checkpoint_dir: str = "training/higita/checkpoints"
     """Directory for saving checkpoints"""
 
     save_interval: int = 1

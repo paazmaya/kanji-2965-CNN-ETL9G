@@ -210,16 +210,16 @@ def main():
         epilog="""
 Examples:
   # Export HierCode model
-  python export_to_onnx.py --model-path models/hiercode_model_best.pth
+  python export_to_onnx.py --model-path training/hiercode/hiercode_model_best.pth
 
   # Export quantized model
-  python export_to_onnx.py --model-path models/quantized_hiercode_int8.pth
+  python export_to_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth
 
   # Export with specific opset version
-  python export_to_onnx.py --model-path models/hiercode_model_best.pth --opset 12
+  python export_to_onnx.py --model-path training/hiercode/hiercode_model_best.pth --opset 12
 
   # Export and test inference
-  python export_to_onnx.py --model-path models/hiercode_model_best.pth --test-inference
+  python export_to_onnx.py --model-path training/hiercode/hiercode_model_best.pth --test-inference
         """,
     )
 

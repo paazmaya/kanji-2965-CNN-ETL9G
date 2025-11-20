@@ -7,32 +7,34 @@ Converts quantized PyTorch model to ONNX for optimized cross-platform deployment
 import argparse
 import json
 from pathlib import Path
+from typing import Optional, Tuple
 
 import torch
+from model_utils import generate_export_path, infer_model_type
 from optimization_config import HierCodeConfig
 from train_hiercode import HierCodeClassifier
 
 
 def export_quantized_to_onnx(
     model_path: str,
-    output_path: str = None,
+    output_path: Optional[str] = None,
     opset_version: int = 14,
     model_type: str = "hiercode",
-):
+) -> Tuple[Optional[str], Optional[dict]]:
     """Export quantized INT8 model to ONNX format"""
     print("\n" + "=" * 70)
     print("EXPORTING QUANTIZED INT8 MODEL TO ONNX")
     print("=" * 70)
 
-    model_path = Path(model_path)
-    if not model_path.exists():
+    model_path_obj = Path(model_path)
+    if not model_path_obj.exists():
         print(f"❌ Model not found: {model_path}")
         return None, None
 
     print(f"\n📂 Loading quantized model: {model_path}")
 
     # Load config
-    config_path = model_path.parent / f"{model_type}_config.json"
+    config_path = model_path_obj.parent / f"{model_type}_config.json"
     if config_path.exists():
         with open(config_path) as f:
             config_dict = json.load(f)
@@ -42,7 +44,7 @@ def export_quantized_to_onnx(
     num_classes = config_dict.get("num_classes", 3036)
 
     # Load quantized checkpoint
-    checkpoint = torch.load(model_path, map_location="cpu")
+    checkpoint = torch.load(model_path_obj, map_location="cpu")
 
     print("ℹ️  Loading quantized INT8 model")
 
@@ -86,7 +88,12 @@ def export_quantized_to_onnx(
 
     # Generate output path if not specified
     if output_path is None:
-        output_path_obj = model_path.parent / f"hiercode_int8_opset{opset_version}.onnx"
+        # Place exports in model-type-specific exports directory
+        model_path_obj = Path(model_path)
+        # Try to infer model type from parent directory
+        model_type_dir = infer_model_type(str(model_path_obj.parent), default=model_type)
+        exports_dir = generate_export_path(model_type_dir)
+        output_path_obj = exports_dir / f"hiercode_int8_opset{opset_version}.onnx"
     else:
         output_path_obj = Path(output_path)
 
@@ -189,7 +196,7 @@ def test_inference(onnx_path: str, num_samples: int = 5):
             ("CUDAExecutionProvider", {"device_id": 0}),
             ("CPUExecutionProvider", {}),
         ]
-        sess = ort.InferenceSession(str(onnx_path), providers=providers)
+        sess = ort.InferenceSession(str(onnx_path), providers=providers)  # type: ignore[attr-defined]
         provider_used = sess.get_providers()[0]
         print(f"  ✓ ONNX Runtime session created (provider: {provider_used})")
 
@@ -243,7 +250,7 @@ def compare_models(pytorch_path: str, onnx_path: str):
             ("CUDAExecutionProvider", {"device_id": 0}),
             ("CPUExecutionProvider", {}),
         ]
-        sess = ort.InferenceSession(str(onnx_path), providers=providers)
+        sess = ort.InferenceSession(str(onnx_path), providers=providers)  # type: ignore[attr-defined]
         provider_used = sess.get_providers()[0]
         print(f"  ONNX provider: {provider_used}")
 
@@ -311,21 +318,21 @@ def main():
         epilog="""
 Examples:
   # Export quantized model to ONNX
-  python export_quantized_to_onnx.py --model-path models/quantized_hiercode_int8.pth
+  python export_quantized_to_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth
 
   # Export with verification
-  python export_quantized_to_onnx.py --model-path models/quantized_hiercode_int8.pth --verify
+  python export_quantized_to_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth --verify
 
   # Export with inference test
-  python export_quantized_to_onnx.py --model-path models/quantized_hiercode_int8.pth --test-inference
+  python export_quantized_to_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth --test-inference
 
   # Export and compare with PyTorch
-  python export_quantized_to_onnx.py --model-path models/quantized_hiercode_int8.pth \\
-    --pytorch-model models/hiercode_model_best.pth --compare
+  python export_quantized_to_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth \
+    --pytorch-model training/hiercode/hiercode_model_best.pth --compare
 
   # Full validation pipeline
-  python export_quantized_to_onnx.py --model-path models/quantized_hiercode_int8.pth \\
-    --verify --test-inference --compare --pytorch-model models/hiercode_model_best.pth
+  python export_quantized_to_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth \
+    --verify --test-inference --compare --pytorch-model training/hiercode/hiercode_model_best.pth
         """,
     )
 

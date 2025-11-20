@@ -110,7 +110,9 @@ class OptimizationConfig:
     log_interval: int = 100  # Batches between logs
 
     # ========== OUTPUT PATHS ==========
-    model_dir: str = "models"
+    # Note: model_dir should be set by subclass configs with model type
+    # Structure: training/{model_type}/checkpoints/
+    model_dir: str = "training"
     results_dir: str = "results"
 
     def to_dict(self) -> Dict:

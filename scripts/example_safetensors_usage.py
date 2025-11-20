@@ -26,7 +26,7 @@ except ImportError:
 
 
 def load_safetensors_model(
-    safetensors_path="models/kanji_etl9g_model_64x64.safetensors",
+    safetensors_path="training/exports/kanji_etl9g_model_64x64.safetensors",
     info_path="kanji_etl9g_model_64x64_info.json",
 ):
     """Load model from SafeTensors format."""

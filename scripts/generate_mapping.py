@@ -70,7 +70,9 @@ def create_character_mapping():
 
     if not mapping_file.exists():
         print(f"❌ Mapping file not found: {mapping_file}")
-        print("💡 Run 'python convert_to_onnx.py --model-path models/best_kanji_model.pth' first")
+        print(
+            "💡 Run 'python convert_to_onnx.py --model-path training/cnn/best_kanji_model.pth' first"
+        )
         return False
 
     if not char_details_file.exists():

@@ -62,11 +62,11 @@ uv run python scripts/train_radical_rnn.py --data-dir dataset
 uv run python scripts/train_hiercode.py --data-dir dataset --epochs 30
 
 # With checkpoint resume (crash-safe)
-uv run python scripts/train_hiercode.py --data-dir dataset --resume-from models/checkpoints/checkpoint_epoch_015.pt --epochs 30
+uv run python scripts/train_hiercode.py --data-dir dataset --resume-from training/hiercode/checkpoints/checkpoint_epoch_015.pt --epochs 30
 
 # QAT (lightweight deployment, 1.7 MB)
 # Automatically uses combined_all_etl (934K) if available, else ETL9G (607K)
-uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir models/checkpoints
+uv run python scripts/train_qat.py --data-dir dataset --checkpoint-dir training/qat/checkpoints
 ```
 
 **Dataset Selection**: All scripts automatically select the best available dataset in this priority: `combined_all_etl` → `etl9g` → `etl8g` → `etl7` → `etl6`. See [Dataset Auto-Detection Priority](#dataset-auto-detection-priority) above.
@@ -81,7 +81,7 @@ uv run python scripts/train_cnn_model.py --data-dir dataset --epochs 30
 uv run python scripts/train_cnn_model.py --data-dir dataset --epochs 30
 
 # Resume from specific checkpoint
-uv run python scripts/train_cnn_model.py --data-dir dataset --resume-from checkpoints/cnn/checkpoint_epoch_010.pt
+uv run python scripts/train_cnn_model.py --data-dir dataset --resume-from training/cnn/checkpoints/checkpoint_epoch_010.pt
 
 # Start fresh (ignore existing checkpoints)
 uv run python scripts/train_cnn_model.py --data-dir dataset --no-checkpoint
@@ -90,7 +90,7 @@ uv run python scripts/train_cnn_model.py --data-dir dataset --no-checkpoint
 uv run python scripts/train_cnn_model.py --data-dir dataset --keep-last-n 10
 
 # Change checkpoint directory
-uv run python scripts/train_cnn_model.py --data-dir dataset --checkpoint-dir models/my_checkpoints
+uv run python scripts/train_cnn_model.py --data-dir dataset --checkpoint-dir training/cnn/my_checkpoints
 ```
 
 ### Checkpoint Manager API
@@ -101,7 +101,7 @@ For advanced usage, you can also use the `CheckpointManager` class directly:
 from scripts.checkpoint_manager import CheckpointManager
 
 # Create manager for your approach
-manager = CheckpointManager("models/checkpoints", "cnn")
+manager = CheckpointManager("training/cnn/checkpoints", "cnn")
 
 # Find latest checkpoint
 latest = manager.find_latest_checkpoint()
@@ -155,30 +155,30 @@ This project uses **uv** for fast, reliable Python dependency management.
 
 ```ps1
 # Step 1: Train HierCode (30 epochs)
-uv run python scripts/train_hiercode.py --data-dir dataset --epochs 30 --checkpoint-dir models/checkpoints
+uv run python scripts/train_hiercode.py --data-dir dataset --epochs 30 --checkpoint-dir training/hiercode/checkpoints
 
 # Step 2: Quantize to INT8
-uv run python scripts/quantize_model.py --model-path models/hiercode_model_best.pth --calibrate --evaluate
+uv run python scripts/quantize_model.py --model-path training/hiercode/hiercode_model_best.pth --calibrate --evaluate
 
 # Step 3: Export to ONNX (float32)
-uv run python scripts/export_to_onnx_hiercode.py --model-path models/hiercode_model_best.pth --verify
+uv run python scripts/export_to_onnx_hiercode.py --model-path training/hiercode/hiercode_model_best.pth --verify
 
 # Step 4: Export quantized INT8 to ONNX
-uv run python scripts/export_quantized_to_onnx.py --model-path models/quantized_hiercode_int8.pth --verify --test-inference
+uv run python scripts/export_quantized_to_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth --verify --test-inference
 
 # Step 5: Export with additional ONNX quantization (ultra-lightweight)
-uv run python scripts/export_4bit_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth --verify
+uv run python scripts/export_4bit_quantized_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth --verify
 ```
 
 **Result models**:
 
-| File                                               | Size    | Format       | Use            |
-| -------------------------------------------------- | ------- | ------------ | -------------- |
-| `models/hiercode_model_best.pth`                   | 9.56 MB | PyTorch      | Fine-tuning    |
-| `models/quantized_hiercode_int8.pth`               | 2.10 MB | PyTorch INT8 | Fast CPU       |
-| `models/hiercode_opset14.onnx`                     | 6.86 MB | ONNX         | Cross-platform |
-| `models/hiercode_int8_opset14.onnx`                | 6.86 MB | ONNX INT8    | Portable       |
-| `models/hiercode_int8_4bit_opset14_quantized.onnx` | 1.75 MB | ONNX INT8    | **Edge**       |
+| File                                                                  | Size    | Format       | Use            |
+| --------------------------------------------------------------------- | ------- | ------------ | -------------- |
+| `training/hiercode/hiercode_model_best.pth`                           | 9.56 MB | PyTorch      | Fine-tuning    |
+| `training/hiercode/quantized_hiercode_int8.pth`                       | 2.10 MB | PyTorch INT8 | Fast CPU       |
+| `training/hiercode/exports/hiercode_opset14.onnx`                     | 6.86 MB | ONNX         | Cross-platform |
+| `training/hiercode/exports/hiercode_int8_opset14.onnx`                | 6.86 MB | ONNX INT8    | Portable       |
+| `training/hiercode/exports/hiercode_int8_4bit_opset14_quantized.onnx` | 1.75 MB | ONNX INT8    | **Edge**       |
 
 ### Post-Training Quantization (INT8)
 
@@ -227,9 +227,9 @@ uv run python scripts/quantize_model.py --model-path training/hiercode_higita/ch
 # Temporarily moved to CPU only for PyTorch's quantization kernel (backend requirement)
 # Result automatically moved back to GPU for deployment
 # Size reduction: 3-4x with minimal accuracy loss
-uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type cnn
+uv run python scripts/quantize_model.py --model-path training/cnn/best_model.pth --model-type cnn
 
-# Result saved: models/quantized_cnn_int8.pth (~4.5 MB for CNN from 15 MB)
+# Result saved: training/cnn/quantized_cnn_int8.pth (~4.5 MB for CNN from 15 MB)
 ```
 
 **Calibrated Quantization (For higher accuracy)**
@@ -239,7 +239,7 @@ uv run python scripts/quantize_model.py --model-path models/best_model.pth --mod
 # Better accuracy preservation than static quantization
 # Requires dataset (auto-detected)
 # WARNING: Currently has compatibility issues with Hi-GITA model shape handling
-uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type hiercode --calibrate
+uv run python scripts/quantize_model.py --model-path training/hiercode/best_model.pth --model-type hiercode --calibrate
 ```
 
 **Evaluate Accuracy (Note: CPU-only due to PyTorch quantization backend)**
@@ -249,7 +249,7 @@ uv run python scripts/quantize_model.py --model-path models/best_model.pth --mod
 # Saves JSON results with compression metrics
 # Evaluation runs on CPU (quantized models don't support GPU inference)
 # WARNING: Only works if model and test set have matching class counts
-uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type cnn --evaluate
+uv run python scripts/quantize_model.py --model-path training/cnn/best_model.pth --model-type cnn --evaluate
 ```
 
 **Ultra-Lightweight 4-bit Quantization (BitsAndBytes - for edge deployment)**
@@ -257,14 +257,14 @@ uv run python scripts/quantize_model.py --model-path models/best_model.pth --mod
 ```ps1
 # NF4 Quantization (Normalized Float 4-bit - recommended)
 # Best accuracy/size trade-off for weights
-uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn_int8.pth --model-type cnn --method nf4
+uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path training/cnn/best_cnn_int8.pth --model-type cnn --method nf4
 
 # FP4 Quantization (Float 4-bit)
 # Standard 4-bit floating point with sign bit
-uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn_int8.pth --model-type cnn --method fp4
+uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path training/cnn/best_cnn_int8.pth --model-type cnn --method fp4
 
 # With Double Quantization (compress scale factors for extra compression)
-uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path models/best_cnn_int8.pth --model-type cnn --method nf4 --double-quant
+uv run python scripts/quantize_to_4bit_bitsandbytes.py --model-path training/cnn/best_cnn_int8.pth --model-type cnn --method nf4 --double-quant
 
 # Result files:
 # - Model: cnn_int8_4bit_NF4.pth (~1-2 MB for CNN from 15 MB)
@@ -352,7 +352,7 @@ uv pip install auto-gptq
 
 ```ps1
 # Save quantized model to specific location
-uv run python scripts/quantize_model.py --model-path models/best_model.pth --model-type cnn --output models/custom/my_quantized.pth
+uv run python scripts/quantize_model.py --model-path training/cnn/best_model.pth --model-type cnn --output training/cnn/custom/my_quantized.pth
 ```
 
 #### What Does `--evaluate` Do?
@@ -419,13 +419,13 @@ The `--evaluate` flag:
 
 ```ps1
 # Export to ONNX
-uv run python scripts/convert_to_onnx.py --model-path models/best_kanji_model.pth
+uv run python scripts/convert_to_onnx.py --model-path training/cnn/best_kanji_model.pth
 
 # Export to SafeTensors
-uv run python scripts/convert_to_safetensors.py --model-path models/best_kanji_model.pth
+uv run python scripts/convert_to_safetensors.py --model-path training/cnn/best_kanji_model.pth
 
 # Quantize INT8 PyTorch to ultra-lightweight ONNX
-uv run python scripts/convert_int8_pytorch_to_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth
+uv run python scripts/convert_int8_pytorch_to_quantized_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth
 ```
 
 ### Inference (Python)
@@ -439,7 +439,7 @@ providers = [
     ("CUDAExecutionProvider", {"device_id": 0}),
     ("CPUExecutionProvider", {}),
 ]
-sess = ort.InferenceSession('models/hiercode_int8_quantized_quantized_int8_onnx_opset14.onnx', providers=providers)
+sess = ort.InferenceSession('training/hiercode/exports/hiercode_int8_quantized_quantized_int8_onnx_opset14.onnx', providers=providers)
 image = np.random.randn(1, 1, 64, 64).astype(np.float32)  # 64x64 grayscale
 logits = sess.run(None, {'input_image': image})[0]
 prediction = np.argmax(logits[0])
@@ -448,7 +448,6 @@ prediction = np.argmax(logits[0])
 ## 📁 Project Structure
 
 ```
-kanji-2965-CNN-ETL9G/
 ├── PROJECT_DIARY.md          ← Full project documentation (START HERE)
 ├── README.md                 ← This file (quick reference)
 ├── model-card.md             ← HuggingFace model card
@@ -462,28 +461,92 @@ kanji-2965-CNN-ETL9G/
 │   ├── train_vit.py          ← Vision Transformer
 │   ├── convert_to_onnx.py    ← ONNX export
 │   ├── convert_to_safetensors.py ← SafeTensors export
-│   └── rnn/                  ← RNN-specific utilities
 │
-├── models/                   ← Trained model checkpoints
-│   ├── best_kanji_model.pth
-│   ├── kanji_model.onnx
-│   ├── checkpoints/          ← Resume checkpoints
-│   └── ...
-│
-├── dataset/                  ← Preprocessed datasets
-│   ├── etl9g/               ← Current ETL9G (3,036 classes, 607K samples)
-│   ├── etl8g/               ← Optional ETL8G (956 classes, 153K samples)
-│   ├── etl7/                ← Optional ETL7 (48 classes, 16.8K samples)
-│   ├── etl6/                ← Optional ETL6 (114 classes, 157K samples)
-│   ├── etl6789_combined/    ← Optional combined (4,154 classes, 934K samples)
-│   ├── character_mapping.json
-│   └── metadata.json
-│
-├── ETL9G/                   ← Raw ETL9G files (download separately)
-│   ├── ETL9G_01 - ETL9G_50
-│   └── ETL9GINFO
-│
-├── ETL8G/, ETL7/, ETL6/     ← Optional raw dataset files (download separately)
+├── training/                ← Trained model checkpoints and exports
+```
+
+### Training Folder Structure
+
+The `training/` directory is automatically organized by model architecture:
+
+```mermaid
+graph TD
+    A["training/"] --> B["cnn/"]
+    A --> C["rnn/"]
+    A --> D["hiercode/"]
+    A --> E["qat/"]
+    A --> F["vit/"]
+    A --> G["hiercode_higita/"]
+
+    B --> B1["checkpoints/"]
+    B --> B2["checkpoint_epoch_010.pt"]
+    B --> B3["best_cnn_model.pth"]
+
+    C --> C1["checkpoints/"]
+    C --> C2["checkpoint_epoch_015.pt"]
+    C --> C3["best_rnn_model.pth"]
+
+    D --> D1["checkpoints/"]
+    D --> D2["checkpoint_epoch_020.pt"]
+    D --> D3["hiercode_model_best.pth"]
+    D --> D4["quantized_hiercode_int8.pth"]
+    D --> D5["exports/"]
+
+    D5 --> D5a["hiercode_opset14.onnx"]
+    D5 --> D5b["hiercode_int8_opset14.onnx"]
+    D5 --> D5c["hiercode_int8_4bit_quantized.onnx"]
+
+    E --> E1["checkpoints/"]
+    E --> E2["checkpoint_epoch_012.pt"]
+    E --> E3["best_qat_model.pth"]
+
+    F --> F1["checkpoints/"]
+    F --> F2["checkpoint_epoch_008.pt"]
+    F --> F3["best_vit_model.pth"]
+
+    G --> G1["checkpoints/"]
+    G --> G2["best_hiercode_higita.pth"]
+    G --> G3["quantized_hiercode_higita_int8.pth"]
+
+    style A fill:#e1f5ff
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
+    style D fill:#e8f5e9
+    style E fill:#fce4ec
+    style F fill:#ede7f6
+    style G fill:#e0f2f1
+    style B1 fill:#fff9c4
+    style D1 fill:#c8e6c9
+    style D5 fill:#a5d6a7
+```
+
+**Key Points**:
+
+- Each architecture gets its own folder: `cnn/`, `rnn/`, `hiercode/`, `qat/`, `vit/`, `hiercode_higita/`
+- Each folder automatically creates a `checkpoints/` subdirectory for resumption
+- Best models are saved as `*_model_best.pth` or `best_*_model.pth`
+- Quantized variants stored in same folder (e.g., `quantized_hiercode_int8.pth`)
+- Exported ONNX models stored in `exports/` subdirectory
+- Checkpoints auto-delete old files, keeping only last 5 by default (configurable with `--keep-last-n`)
+
+**Automatic Creation**:
+
+All folders and checkpoints are created automatically by training scripts. No manual setup required:
+
+```ps1
+# This automatically creates: training/cnn/checkpoints/
+uv run python scripts/train_cnn_model.py --data-dir dataset
+
+# This automatically creates: training/hiercode/checkpoints/ and training/hiercode/exports/
+uv run python scripts/train_hiercode.py --data-dir dataset
+uv run python scripts/export_to_onnx_hiercode.py --model-path training/hiercode/hiercode_model_best.pth
+```
+
+**Custom Checkpoint Directory**:
+
+```ps1
+# Use custom checkpoint path (creates if doesn't exist)
+uv run python scripts/train_cnn_model.py --data-dir dataset --checkpoint-dir training/cnn/my_custom_checkpoints
 ```
 
 ## 📊 Results Comparison (on ETL9G)
@@ -689,25 +752,25 @@ See [PROJECT_DIARY.md](PROJECT_DIARY.md) Phase 6 for detailed analysis and integ
 
 ## ❓ FAQ
 
-**Q: Where's the full project documentation?**  
+**Q: Where's the full project documentation?**
 A: [PROJECT_DIARY.md](PROJECT_DIARY.md) - Complete history, all approaches, results, references.
 
-**Q: Which model should I use?**  
+**Q: Which model should I use?**
 A: See "Model Recommendations" above. CNN for speed (97.18%), RNN for accuracy (98.4%), HierCode INT8 for deployment (1.67 MB, 82% reduction).
 
-**Q: Which dataset do the training scripts use?**  
+**Q: Which dataset do the training scripts use?**
 A: Scripts auto-detect in this priority: `combined_all_etl` (934K, recommended) → `etl9g` (607K, default) → `etl8g` → `etl7` → `etl6`. Prepare the combined dataset with `uv run python scripts/prepare_dataset.py` and training scripts will automatically use it (+53% more data).
 
-**Q: Why isn't my training using the combined dataset?**  
+**Q: Why isn't my training using the combined dataset?**
 A: Prepare it first: `uv run python scripts/prepare_dataset.py`. Scripts check for `dataset/combined_all_etl/chunk_info.json` before falling back to `dataset/etl9g/`.
 
-**Q: How do I handle training crashes?**  
-A: All scripts have checkpoint/resume system built in. Checkpoints auto-save after each epoch in `models/checkpoints/{approach}/`. Resume with `--resume-from models/checkpoints/{approach}/checkpoint_epoch_015.pt` or it auto-detects the latest checkpoint if you just re-run the command.
+**Q: How do I handle training crashes?**
+A: All scripts have checkpoint/resume system built in. Checkpoints auto-save after each epoch in `training/{approach}/checkpoints/`. Resume with `--resume-from training/{approach}/checkpoints/checkpoint_epoch_015.pt` or it auto-detects the latest checkpoint if you just re-run the command.
 
-**Q: What approaches support automatic checkpoint resumption?**  
-A: All 6 training scripts: `train_cnn_model.py`, `train_qat.py`, `train_radical_rnn.py`, `train_vit.py`, `train_hiercode.py`, `train_hiercode_higita.py`. Each uses its own checkpoint folder: `models/checkpoints/cnn/`, `models/checkpoints/qat/`, `models/checkpoints/rnn/`, `models/checkpoints/vit/`, `models/checkpoints/hiercode/`, `models/checkpoints/hiercode_higita/`.
+**Q: What approaches support automatic checkpoint resumption?**
+A: All 6 training scripts: `train_cnn_model.py`, `train_qat.py`, `train_radical_rnn.py`, `train_vit.py`, `train_hiercode.py`, `train_hiercode_higita.py`. Each uses its own checkpoint folder: `training/cnn/checkpoints/`, `training/qat/checkpoints/`, `training/rnn/checkpoints/`, `training/vit/checkpoints/`, `training/hiercode/checkpoints/`, `training/hiercode_higita/checkpoints/`.
 
-**Q: How do I resume from the latest checkpoint?**  
+**Q: How do I resume from the latest checkpoint?**
 A: Just re-run the training command and it automatically resumes from the latest checkpoint found:
 
 ```ps1
@@ -718,33 +781,33 @@ uv run python scripts/train_cnn_model.py --data-dir dataset --epochs 30
 uv run python scripts/train_cnn_model.py --data-dir dataset --epochs 30
 ```
 
-**Q: How do I start fresh training and ignore old checkpoints?**  
+**Q: How do I start fresh training and ignore old checkpoints?**
 A: Use the `--no-checkpoint` flag:
 
 ```ps1
 uv run python scripts/train_cnn_model.py --data-dir dataset --no-checkpoint
 ```
 
-**Q: Can I manually specify which checkpoint to resume from?**  
+**Q: Can I manually specify which checkpoint to resume from?**
 A: Yes, use `--resume-from`:
 
 ```ps1
-uv run python scripts/train_cnn_model.py --data-dir dataset --resume-from models/checkpoints/cnn/checkpoint_epoch_010.pt
+uv run python scripts/train_cnn_model.py --data-dir dataset --resume-from training/cnn/checkpoints/checkpoint_epoch_010.pt
 ```
 
-**Q: How many checkpoints are kept?**  
+**Q: How many checkpoints are kept?**
 A: By default, the 5 most recent checkpoints are kept per approach. Older checkpoints auto-delete to save disk space. Customize with `--keep-last-n N` flag.
 
-**Q: How do I deploy to edge/mobile?**  
+**Q: How do I deploy to edge/mobile?**
 A: Use `hiercode_int8_quantized_quantized_int8_onnx_opset14.onnx` (1.67 MB). Supports ONNX Runtime, TensorRT, CoreML, TVM.
 
-**Q: Can I use pre-trained models?**  
-A: Models in `models/` are ready to use. Load with `torch.load()` or `ort.InferenceSession()` for ONNX.
+**Q: Can I use pre-trained models?**
+A: Models in `training/` are ready to use. Load with `torch.load()` or `ort.InferenceSession()` for ONNX.
 
-**Q: How do I add new training approaches?**  
+**Q: How do I add new training approaches?**
 A: See `scripts/optimization_config.py` for unified config system. Inherit from `OptimizationConfig` class.
 
-**Q: Why use `uv run python` instead of just `python`?**  
+**Q: Why use `uv run python` instead of just `python`?**
 A: `uv` provides isolated, reproducible environments with locked dependency versions. Prevents version conflicts and ensures consistency across machines.
 
 ## 📝 System Requirements
@@ -758,23 +821,7 @@ A: `uv` provides isolated, reproducible environments with locked dependency vers
 ## 🚀 Next Steps
 
 1. **Read** [PROJECT_DIARY.md](PROJECT_DIARY.md) for complete project overview
-2. **Setup** environment with `uv sync` (or `uv pip install -r requirements.txt`)
-3. **Prepare** datasets with `uv run python scripts/prepare_dataset.py`
+2. **Setup** environment with `uv sync`
+3. **Prepare** datasets with `uv run python scripts/prepare_dataset.py` and some other script...
 4. **Train** model with `uv run python scripts/train_cnn_model.py --data-dir dataset`
 5. **Export** to ONNX for deployment with `uv run python scripts/convert_to_onnx.py`
-
----
-
-## 📋 Project Summary
-
-**Goal**: Multi-architecture platform for Japanese kanji recognition  
-**Current Dataset**: ETL9G (3,036 classes, 607,200 samples, 64×64 grayscale images)  
-**Expanded Dataset**: ETL6-9 (4,154 classes, 934,622 samples - includes kanji, hiragana, katakana, symbols, numerals)  
-**Best Result (ETL9G)**: RNN 98.4% accuracy | HierCode 95.56% accuracy at 1.67 MB (quantized ONNX)  
-**Key Achievement**: 82% size reduction while maintaining 95.56% accuracy; now expandable to 934K samples with ETL6-9  
-**Dependency Management**: All scripts run via `uv run python` for reproducible, isolated environments
-
-**Repository**: https://github.com/paazmaya/kanji-2965-CNN-ETL9G  
-**Owner**: Jukka Paazmaya (@paazmaya)  
-**License**: MIT (see LICENSE file)  
-**Last Updated**: November 17, 2025 (Unified dataset prep + uv standardization)

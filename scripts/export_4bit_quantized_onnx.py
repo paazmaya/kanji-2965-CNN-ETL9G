@@ -7,50 +7,57 @@ Converts PyTorch INT8 model to ultra-lightweight 4-bit ONNX for edge deployment
 import argparse
 import json
 from pathlib import Path
+from typing import Optional, Tuple
 
 import torch
+from model_utils import generate_export_path, infer_model_type
 from optimization_config import HierCodeConfig
 from train_hiercode import HierCodeClassifier
 
 
-def quantize_onnx_4bit(onnx_model_path: str, output_path: str = None):
+def quantize_onnx_4bit(
+    onnx_model_path: str, output_path: Optional[str] = None
+) -> Tuple[Optional[str], Optional[dict]]:
     """Quantize ONNX model to 4-bit using ONNX Runtime tools"""
     print("\n🔧 Applying dynamic quantization to ONNX model...")
 
     try:
-        from onnxruntime.quantization import QuantType, quantize_dynamic
+        from onnxruntime.quantization import (  # type: ignore[import-not-found]
+            QuantType,
+            quantize_dynamic,
+        )
 
-        onnx_model_path = Path(onnx_model_path)
+        onnx_path = Path(onnx_model_path)
 
         if output_path is None:
-            output_path = onnx_model_path.parent / f"{onnx_model_path.stem}_quantized.onnx"
+            output_path_obj = onnx_path.parent / f"{onnx_path.stem}_quantized.onnx"
         else:
-            output_path = Path(output_path)
+            output_path_obj = Path(output_path)
 
-        print(f"  Input: {onnx_model_path}")
-        print(f"  Output: {output_path}")
+        print(f"  Input: {onnx_path}")
+        print(f"  Output: {output_path_obj}")
 
         # Dynamic quantization to INT8 (8-bit, more stable than 4-bit)
         # 4-bit quantization requires pre-INT8 quantization which is more complex
         # Using INT8 dynamic quantization for production stability
         quantize_dynamic(
-            str(onnx_model_path),
-            str(output_path),
+            str(onnx_path),
+            str(output_path_obj),
             weight_type=QuantType.QInt8,
         )
 
         print("  ✓ INT8 dynamic quantization applied")
 
         # Check file size
-        original_size = onnx_model_path.stat().st_size
-        quantized_size = output_path.stat().st_size
+        original_size = onnx_path.stat().st_size
+        quantized_size = output_path_obj.stat().st_size
 
         print("\n  Size Comparison:")
         print(f"    Original (float32 ONNX): {original_size / 1e6:.2f} MB")
         print(f"    Quantized (INT8):        {quantized_size / 1e6:.2f} MB")
         print(f"    Reduction:               {100 * (1 - quantized_size / original_size):.1f}%")
 
-        return str(output_path), {
+        return str(output_path_obj), {
             "original_size_mb": original_size / 1e6,
             "quantized_size_mb": quantized_size / 1e6,
             "reduction_percent": 100 * (1 - quantized_size / original_size),
@@ -63,29 +70,30 @@ def quantize_onnx_4bit(onnx_model_path: str, output_path: str = None):
     except Exception as e:
         print(f"  ⚠️  Quantization failed: {e}")
         print("     Returning original float32 model")
-        return str(onnx_model_path), {"original_size_mb": onnx_model_path.stat().st_size / 1e6}
+        onnx_path = Path(onnx_model_path)
+        return str(onnx_path), {"original_size_mb": onnx_path.stat().st_size / 1e6}
 
 
 def export_int8_to_4bit_onnx(
     model_path: str,
-    output_path: str = None,
+    output_path: Optional[str] = None,
     opset_version: int = 14,
     model_type: str = "hiercode",
-):
+) -> Tuple[Optional[str], Optional[dict]]:
     """Export INT8 PyTorch model to 4-bit quantized ONNX"""
     print("\n" + "=" * 70)
     print("EXPORTING INT8 MODEL TO 4-BIT QUANTIZED ONNX")
     print("=" * 70)
 
-    model_path = Path(model_path)
-    if not model_path.exists():
+    model_path_obj = Path(model_path)
+    if not model_path_obj.exists():
         print(f"❌ Model not found: {model_path}")
         return None, None
 
     print(f"\n📂 Loading INT8 model: {model_path}")
 
     # Load config
-    config_path = model_path.parent / f"{model_type}_config.json"
+    config_path = model_path_obj.parent / f"{model_type}_config.json"
     if config_path.exists():
         with open(config_path) as f:
             config_dict = json.load(f)
@@ -95,7 +103,7 @@ def export_int8_to_4bit_onnx(
     num_classes = config_dict.get("num_classes", 3036)
 
     # Load quantized checkpoint
-    checkpoint = torch.load(model_path, map_location="cpu")
+    checkpoint = torch.load(model_path_obj, map_location="cpu")
 
     print("ℹ️  Loading INT8 model")
 
@@ -135,7 +143,12 @@ def export_int8_to_4bit_onnx(
 
     # Generate output path if not specified
     if output_path is None:
-        output_path_obj = model_path.parent / f"hiercode_int8_4bit_opset{opset_version}.onnx"
+        # Place exports in model-type-specific exports directory
+        model_path_obj = Path(model_path)
+        # Try to infer model type from parent directory
+        model_type_dir = infer_model_type(str(model_path_obj.parent), default=model_type)
+        exports_dir = generate_export_path(model_type_dir)
+        output_path_obj = exports_dir / f"hiercode_int8_4bit_opset{opset_version}.onnx"
     else:
         output_path_obj = Path(output_path)
 
@@ -194,8 +207,10 @@ def export_int8_to_4bit_onnx(
         "opset_version": opset_version,
         "from_pytorch": str(model_path),
         "float32_onnx_size_mb": onnx_float_size / 1e6,
-        "final_size_mb": quant_info.get("quantized_size_mb", onnx_float_size / 1e6),
-        "size_reduction_percent": quant_info.get("reduction_percent", 0),
+        "final_size_mb": quant_info.get("quantized_size_mb", onnx_float_size / 1e6)
+        if quant_info
+        else onnx_float_size / 1e6,
+        "size_reduction_percent": quant_info.get("reduction_percent", 0) if quant_info else 0,
         "deployment_note": "Ultra-lightweight model optimized for edge devices",
     }
 
@@ -250,7 +265,7 @@ def test_inference(onnx_path: str, num_samples: int = 5):
             "CPUExecutionProvider",
         ]
 
-        sess = ort.InferenceSession(str(onnx_path), providers=providers)
+        sess = ort.InferenceSession(str(onnx_path), providers=providers)  # type: ignore[attr-defined]
         print("  ✓ ONNX Runtime session created (with quantization support)")
 
         # Get input/output info
@@ -297,21 +312,21 @@ def main():
         epilog="""
 Examples:
   # Export INT8 model to 4-bit ONNX
-  python export_4bit_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth
+  python export_4bit_quantized_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth
 
   # Export with verification
-  python export_4bit_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth --verify
+  python export_4bit_quantized_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth --verify
 
   # Export with inference test
-  python export_4bit_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth --test-inference
+  python export_4bit_quantized_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth --test-inference
 
   # Full validation pipeline
-  python export_4bit_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth \\
+  python export_4bit_quantized_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth \\
     --verify --test-inference
 
   # Specify output path
-  python export_4bit_quantized_onnx.py --model-path models/quantized_hiercode_int8.pth \\
-    --output models/hiercode_4bit.onnx
+  python export_4bit_quantized_onnx.py --model-path training/hiercode/quantized_hiercode_int8.pth \\
+    --output training/hiercode/exports/hiercode_4bit.onnx
         """,
     )
 

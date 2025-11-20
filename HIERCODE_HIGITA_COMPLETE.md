@@ -447,7 +447,7 @@ from scripts.hiercode_higita_enhancement import HierCodeWithHiGITA
 
 # Load Hi-GITA model
 model = HierCodeWithHiGITA(num_classes=3036, use_higita_enhancement=True)
-model.load_state_dict(torch.load('models/checkpoints_higita/best_hiercode_higita.pth'))
+model.load_state_dict(torch.load('training/higita/checkpoints/best_hiercode_higita.pth'))
 model.eval()
 
 # Predict on single image
@@ -668,7 +668,7 @@ What happens:
 1. Loads ETL9G dataset from `dataset/` folder
 2. Initializes HierCodeWithHiGITA with balanced config
 3. Trains for 30 epochs with batch size 32
-4. Saves checkpoints in `models/checkpoints_higita/`
+4. Saves checkpoints in `training/higita/checkpoints/`
 5. Saves best model as `best_hiercode_higita.pth`
 6. Exports training history to `training_history_higita.json`
 
@@ -681,7 +681,7 @@ python scripts/train_hiercode_higita.py \
     --epochs 50 \
     --batch-size 16 \
     --lr 0.0005 \
-    --checkpoint-dir models/custom_higita
+    --checkpoint-dir training/hiercode_higita/custom_checkpoints
 ```
 
 ## Example 3: Resume Training from Checkpoint
@@ -691,14 +691,14 @@ python scripts/train_hiercode_higita.py \
 python scripts/train_hiercode_higita.py --data-dir dataset --use-higita --epochs 15
 
 # Check checkpoint saved
-ls models/checkpoints_higita/checkpoint_higita_epoch_015.pt
+ls training/higita/checkpoints/checkpoint_higita_epoch_015.pt
 
 # Resume and train to 50 epochs
 python scripts/train_hiercode_higita.py \
     --data-dir dataset \
     --use-higita \
     --epochs 50 \
-    --resume-from models/checkpoints_higita/checkpoint_higita_epoch_015.pt
+    --resume-from training/higita/checkpoints/checkpoint_higita_epoch_015.pt
 ```
 
 ## Example 4: Comparison Experiment
@@ -708,19 +708,19 @@ python scripts/train_hiercode_higita.py \
 python scripts/train_hiercode_higita.py \
     --data-dir dataset \
     --epochs 30 \
-    --checkpoint-dir models/baseline_hiercode
+    --checkpoint-dir training/hiercode/checkpoints
 
 # Train Hi-GITA enhanced
 python scripts/train_hiercode_higita.py \
     --data-dir dataset \
     --use-higita \
     --epochs 30 \
-    --checkpoint-dir models/enhanced_higita
+    --checkpoint-dir training/hiercode_higita/checkpoints
 
 # Compare accuracy improvements
 echo "Baseline vs Hi-GITA:"
-tail -1 models/baseline_hiercode/training_history_hiercode.json | jq '.val_accuracy'
-tail -1 models/enhanced_higita/training_history_higita.json | jq '.val_accuracy'
+tail -1 training/hiercode/checkpoints/training_history_hiercode.json | jq '.val_accuracy'
+tail -1 training/hiercode_higita/checkpoints/training_history_higita.json | jq '.val_accuracy'
 ```
 
 ## Example 5: Batch Inference
@@ -733,7 +733,7 @@ from scripts.hiercode_higita_enhancement import HierCodeWithHiGITA
 
 # Load model
 model = HierCodeWithHiGITA(num_classes=3036, use_higita_enhancement=True)
-checkpoint = torch.load('models/checkpoints_higita/best_hiercode_higita.pth')
+checkpoint = torch.load('training/higita/checkpoints/best_hiercode_higita.pth')
 model.load_state_dict(checkpoint)
 model.eval()
 
@@ -776,7 +776,7 @@ from scripts.hiercode_higita_enhancement import HierCodeWithHiGITA
 
 # Load model
 model = HierCodeWithHiGITA(num_classes=3036, use_higita_enhancement=True)
-model.load_state_dict(torch.load('models/checkpoints_higita/best_hiercode_higita.pth'))
+model.load_state_dict(torch.load('training/higita/checkpoints/best_hiercode_higita.pth'))
 model.eval()
 
 # Get features for clustering or similarity
@@ -1107,7 +1107,7 @@ python scripts/train_hiercode_higita.py --data-dir dataset --use-higita --epochs
 # Check improvements
 python -c "
 import json
-with open('models/checkpoints_higita/training_history_higita.json') as f:
+with open('training/higita/checkpoints/training_history_higita.json') as f:
     history = json.load(f)
     print(f'Final accuracy (Hi-GITA): {history[-1][\"val_accuracy\"]:.4f}')
 "
@@ -1118,7 +1118,7 @@ with open('models/checkpoints_higita/training_history_higita.json') as f:
 ```bash
 # Train standard HierCode for comparison
 python scripts/train_hiercode_higita.py --data-dir dataset --epochs 30 \
-    --checkpoint-dir models/baseline_hiercode
+    --checkpoint-dir training/hiercode/checkpoints
 ```
 
 ### Step 3: Performance Profiling
@@ -1182,7 +1182,7 @@ def load_cjk_radical_database():
 ```bash
 # Test on unseen characters
 python scripts/eval_hiercode_higita.py \
-    --model models/checkpoints_higita/best_hiercode_higita.pth \
+    --model training/higita/checkpoints/best_hiercode_higita.pth \
     --data dataset/unseen_classes.npz \
     --mode zero-shot
 
@@ -1225,16 +1225,16 @@ python scripts/train_combined.py --data-dir dataset --use-higita --use-rzcr --us
 ```bash
 # INT8 quantization
 python scripts/quantize_higita.py \
-    --model models/checkpoints_higita/best_hiercode_higita.pth \
-    --output models/best_hiercode_higita_int8.onnx
+    --model training/higita/checkpoints/best_hiercode_higita.pth \
+    --output training/hiercode_higita/exports/best_hiercode_higita_int8.onnx
 
 # Expected: 1-2 MB model (vs 8 MB)
 # Expected accuracy loss: <1%
 
 # TFLite conversion
 python scripts/convert_to_tflite.py \
-    --model models/best_hiercode_higita_int8.onnx \
-    --output models/best_hiercode_higita.tflite
+    --model training/hiercode_higita/exports/best_hiercode_higita_int8.onnx \
+    --output training/hiercode_higita/exports/best_hiercode_higita.tflite
 ```
 
 ### Step 9: Mobile Deployment
@@ -1242,11 +1242,11 @@ python scripts/convert_to_tflite.py \
 ```bash
 # iOS (CoreML)
 python scripts/convert_to_coreml.py \
-    --model models/best_hiercode_higita_int8.onnx
+    --model training/hiercode_higita/exports/best_hiercode_higita_int8.onnx
 
 # Android (TFLite)
 python scripts/convert_to_tflite.py \
-    --model models/best_hiercode_higita_int8.onnx
+    --model training/hiercode_higita/exports/best_hiercode_higita_int8.onnx
 
 # Test on-device
 # - iOS: Xcode project
@@ -1257,7 +1257,7 @@ python scripts/convert_to_tflite.py \
 
 ```bash
 # Server setup (FastAPI)
-python scripts/server_higita.py --model models/best_hiercode_higita.pth --port 8000
+python scripts/server_higita.py --model training/hiercode_higita/best_hiercode_higita.pth --port 8000
 
 # Test API
 curl -X POST http://localhost:8000/predict \
@@ -1286,7 +1286,7 @@ docker run -p 8000:8000 higita-server
 
 **A**: Not yet. Will be available after training completes:
 
-- `models/checkpoints_higita/best_hiercode_higita.pth`
+- `training/higita/checkpoints/best_hiercode_higita.pth`
 - Transfer learning: Load this and fine-tune on new data
 
 ### Q: How do I handle custom character sets?
@@ -1426,12 +1426,15 @@ kanji-2965-CNN-ETL9G/
 │   ├── hiercode_higita_config.py           ← Configuration
 │   └── [other existing scripts]
 │
-├── models/
-│   ├── checkpoints_higita/
-│   │   ├── checkpoint_higita_epoch_*.pt
-│   │   ├── best_hiercode_higita.pth
-│   │   └── training_history_higita.json
-│   └── [other models]
+├── training/
+│   ├── hiercode_higita/
+│   │   ├── checkpoints/
+│   │   │   ├── checkpoint_epoch_*.pt
+│   │   │   ├── checkpoint_best.pt
+│   │   │   └── training_progress.json
+│   │   ├── exports/
+│   │   └── best_hiercode_higita.pth
+│   └── [other model types]
 │
 ├── HIERCODE_HIGITA_GUIDE.md                ← Comprehensive guide
 ├── HIERCODE_HIGITA_QUICK_REF.md            ← Quick reference
