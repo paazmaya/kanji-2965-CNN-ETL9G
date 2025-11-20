@@ -1,1 +1,1 @@
-"""Tests package for Kanji CNN ETL9G project."""
+"""Tests package for Tsujimoto kanji recognition project."""

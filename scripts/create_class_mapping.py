@@ -13,7 +13,7 @@ Usage:
     python scripts/create_class_mapping.py --metadata-path dataset/combined_all_etl/metadata.json
     python scripts/create_class_mapping.py --output-dir model_training/cnn/results/
 
-Author: kanji-2965-CNN-ETL9G
+Author: tsujimoto
 Date: November 18, 2025
 """
 

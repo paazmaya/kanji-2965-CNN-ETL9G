@@ -370,7 +370,7 @@ Based on extensive research across arXiv and Hugging Face, here's a comprehensiv
 - Sufficient accuracy for most applications
 - Easy to deploy and maintain
 
-### Project-Specific Recommendation for kanji-2965-CNN-ETL9G
+### Project-Specific Recommendation for Tsujimoto
 
 Based on the project's goals of efficient kanji character recognition with 2,965-3,036 character classes:
 
@@ -397,7 +397,7 @@ Based on the project's goals of efficient kanji character recognition with 2,965
 - ✅ Flexible architecture for experimentation
 - ✓ Already partially implemented in project
 
-### Implementation Status in kanji-2965-CNN-ETL9G
+### Implementation Status in Tsujimoto
 
 Based on the project structure, current implementations include:
 

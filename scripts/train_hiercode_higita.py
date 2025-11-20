@@ -16,7 +16,7 @@ Features:
 Usage:
     python scripts/train_hiercode_higita.py --data-dir dataset
 
-Author: Enhancement for kanji-2965-CNN-ETL9G
+Author: Enhancement for tsujimoto
 Date: November 17, 2025
 """
 

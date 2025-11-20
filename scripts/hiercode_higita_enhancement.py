@@ -18,7 +18,7 @@ Key Innovation: Hierarchical representation at THREE levels instead of TWO:
 
 Each level is processed independently then fused hierarchically.
 
-Author: Enhancement for kanji-2965-CNN-ETL9G
+Author: Enhancement for tsujimoto
 Based on: Hi-GITA paper (2505.24837v1)
 Date: November 17, 2025
 """

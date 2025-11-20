@@ -160,7 +160,7 @@ def estimate_training_emissions():
     # Create summary report
     report = {
         "model_info": {
-            "name": "ETL9G Kanji Recognition Model",
+            "name": "Tsujimoto Kanji Recognition Model",
             "version": "v2.1",
             "parameters": training_params["model_parameters"],
             "size_mb": training_params["model_size_mb"],
@@ -230,7 +230,7 @@ def setup_codecarbon_tracking():
 
     # Start tracking at beginning of training
     tracker = EmissionsTracker(
-        project_name="kanji-recognition-etl9g",
+        project_name="tsujimoto-kanji-recognition",
         output_dir="./emissions/"
     )
     tracker.start()
@@ -317,7 +317,7 @@ For reference, daily inference usage:
 def main():
     """Main function to run CO2 measurement and reporting"""
 
-    print("🌱 Kanji Recognition Model - CO2 Emissions Assessment")
+    print("🌱 Tsujimoto - CO2 Emissions Assessment")
     print("=" * 70)
     print()
 

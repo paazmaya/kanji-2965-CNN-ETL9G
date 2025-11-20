@@ -3,7 +3,7 @@
 **Date Created**: November 17, 2025  
 **Status**: ✅ Complete and Production Ready  
 **Based on**: Hi-GITA paper arXiv:2505.24837v1 (May 2025)  
-**Project**: kanji-2965-CNN-ETL9G
+**Project**: tsujimoto
 
 ---
 
@@ -1418,7 +1418,7 @@ python scripts/train_hiercode_higita.py --data-dir dataset --use-higita --device
 ## File Organization Summary
 
 ```
-kanji-2965-CNN-ETL9G/
+tsujimoto/
 │
 ├── scripts/
 │   ├── hiercode_higita_enhancement.py     ← Core implementation

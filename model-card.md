@@ -511,11 +511,11 @@ _Carbon footprint measured on November 20, 2025_
 ### BibTeX
 
 ```bibtex
-@software{kanji_recognition_multi_2025,
-  title={Multi-Architecture Kanji Recognition Platform (ETL9G/ETL6-9)},
+@software{tsujimoto_kanji_recognition_2025,
+  title={Tsujimoto - Multi-Architecture Kanji Recognition Platform},
   author={Paazmaya, Jukka},
   year={2025},
-  url={https://github.com/paazmaya/kanji-2965-CNN-ETL9G},
+  url={https://github.com/paazmaya/tsujimoto},
   note={CNN, RNN, HierCode architectures with quantization support},
   license={MIT}
 }
@@ -547,15 +547,15 @@ This project builds on hierarchical character decomposition concepts:
 ## Model Card Authors & Maintainers
 
 - **Jukka Paasonen** - Project lead, model development, training
-- See [GitHub repository](https://github.com/paazmaya/kanji-2965-CNN-ETL9G) for contributors
+- See [GitHub repository](https://github.com/paazmaya/tsujimoto) for contributors
 
 ## Support & Contact
 
 For questions, issues, or suggestions about this model:
 
-- 📋 **GitHub Issues**: [Open an issue](https://github.com/paazmaya/kanji-2965-CNN-ETL9G/issues)
+- 📋 **GitHub Issues**: [Open an issue](https://github.com/paazmaya/tsujimoto/issues)
 - 📧 **Email**: paazmaya@yahoo.com
-- 🔗 **Repository**: [kanji-2965-CNN-ETL9G](https://github.com/paazmaya/kanji-2965-CNN-ETL9G)
+- 🔗 **Repository**: [tsujimoto](https://github.com/paazmaya/tsujimoto)
 
 ---
 

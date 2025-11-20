@@ -1,8 +1,8 @@
-# Kanji 2965 CNN-ETL9G Project Diary
+# Tsujimoto - Kanji Recognition Project Diary
 
-**Project**: ETL9G Kanji Character Recognition Training  
+**Project**: Tsujimoto - Kanji Character Recognition Training  
 **Owner**: Jukka Paazmaya  
-**Repository**: paazmaya/kanji-2965-CNN-ETL9G
+**Repository**: paazmaya/tsujimoto
 
 ---
 
@@ -1140,7 +1140,7 @@ Your project uses SE-Net style channel attention modules. These are the foundati
 
 #### Your Own Repository
 
-- **[paazmaya/kanji-2965-CNN-ETL9G](https://github.com/paazmaya/kanji-2965-CNN-ETL9G)** - This project
+- **[paazmaya/tsujimoto](https://github.com/paazmaya/tsujimoto)** - This project
   - ETL9G-based kanji and hiragana recognition
   - 3,036 classes, 607,200 samples
   - Multi-architecture approach (CNN, RNN, ViT, QAT, HierCode)
@@ -1958,7 +1958,7 @@ uv run python create_training_visualizations.py training/vit/metrics.json -o res
 ## 👤 Project Owner
 
 **Jukka Paazmaya** (@paazmaya)  
-**Repository**: https://github.com/paazmaya/kanji-2965-CNN-ETL9G
+**Repository**: https://github.com/paazmaya/tsujimoto
 
 ---
 
