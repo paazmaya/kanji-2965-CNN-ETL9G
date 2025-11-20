@@ -41,7 +41,7 @@ ACCENT_COLORS = {
 
 def load_training_log(log_path: str) -> dict:
     """Load training log from JSON file.
-    
+
     Supports two formats:
     1. Flat format: {"epochs": [...], "train_loss": [...], "val_loss": [...]}
     2. Nested format: [{"epoch": 1, "train": {...}, "val": {...}}, ...]
