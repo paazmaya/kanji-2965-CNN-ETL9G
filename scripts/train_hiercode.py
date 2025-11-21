@@ -24,7 +24,7 @@ from typing import Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
 from checkpoint_manager import CheckpointManager, setup_checkpoint_arguments
 from optimization_config import (
     HierCodeConfig,
@@ -278,7 +278,7 @@ class HierCodeClassifier(nn.Module):
         - During inference: Hard selection (exactly k codes)
         - Temperature: Controls softness (low T -> hard, high T -> soft)
         """
-        batch_size = logits.size(0)
+        logits.size(0)
 
         # Add Gumbel noise
         gumbel_noise = -torch.log(-torch.log(torch.rand_like(logits) + 1e-20) + 1e-20)
@@ -730,7 +730,7 @@ Examples:
     try:
         from subprocess import run
 
-        result = run(
+        result = run(  # noqa: S603
             [
                 sys.executable,
                 "scripts/create_class_mapping.py",

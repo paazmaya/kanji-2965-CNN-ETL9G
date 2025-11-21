@@ -4,10 +4,14 @@ Quick test script to verify ETL9G data preparation and training setup
 """
 
 import json
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def analyze_etl9g_data(data_dir):
@@ -16,32 +20,25 @@ def analyze_etl9g_data(data_dir):
 
     # Check if data exists
     if not data_path.exists():
-        print(f"Error: Data directory {data_path} does not exist")
+        logger.error("✗ Data directory not found: %s", data_path)
         return
 
-    print("=== ETL9G Dataset Analysis ===")
+    logger.info("🔍 Analyzing ETL9G dataset at %s...", data_dir)
 
     # Load metadata
     metadata_path = data_path / "metadata.json"
     if metadata_path.exists():
-        with open(metadata_path) as f:
+        with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
-
-        print(f"Classes: {metadata['num_classes']}")
-        print(f"Total samples: {metadata['total_samples']}")
-        print(f"Target size: {metadata['target_size']}x{metadata['target_size']}")
-        print(f"Files processed: {metadata['dataset_info']['files_processed']}")
-        print(f"Avg samples per class: {metadata['dataset_info']['avg_samples_per_class']:.1f}")
+        logger.info("✓ Metadata: %d entries", len(metadata))
+    else:
+        logger.warning("⚠ Metadata file not found")
 
     # Check dataset files
     chunk_info_path = data_path / "chunk_info.json"
     if chunk_info_path.exists():
-        with open(chunk_info_path) as f:
+        with open(chunk_info_path, encoding="utf-8") as f:
             chunk_info = json.load(f)
-        print("\nDataset is chunked:")
-        print(f"  Total samples: {chunk_info['total_samples']}")
-        print(f"  Chunk size: {chunk_info['chunk_size']}")
-        print(f"  Number of chunks: {chunk_info['num_chunks']}")
 
         # Verify all chunk files exist
         missing_chunks = []
@@ -51,9 +48,9 @@ def analyze_etl9g_data(data_dir):
                 missing_chunks.append(i)
 
         if missing_chunks:
-            print(f"  Warning: Missing chunks: {missing_chunks}")
+            logger.warning("⚠ Missing %d chunks: %s", len(missing_chunks), missing_chunks)
         else:
-            print("  All chunk files present ✓")
+            logger.info("✓ All %d chunks found", chunk_info["num_chunks"])
 
     # Load a sample to verify data format
     try:
@@ -63,22 +60,17 @@ def analyze_etl9g_data(data_dir):
 
         if chunk_file.exists():
             data = np.load(chunk_file)
+            logger.info("→ Loading chunk_00 for verification...")
         elif main_file.exists():
             data = np.load(main_file)
+            logger.info("→ Loading main dataset for verification...")
         else:
-            print("No dataset files found!")
+            logger.error("✗ No dataset files found")
             return
 
         X_sample = data["X"][:10]  # First 10 samples
         y_sample = data["y"][:10]
-
-        print("\nSample verification:")
-        print(f"  X shape: {X_sample.shape}")
-        print(f"  y shape: {y_sample.shape}")
-        print(f"  X data type: {X_sample.dtype}")
-        print(f"  y data type: {y_sample.dtype}")
-        print(f"  X range: [{X_sample.min():.3f}, {X_sample.max():.3f}]")
-        print(f"  Sample classes: {np.unique(y_sample)}")
+        logger.info("✓ Loaded %d samples for analysis", len(X_sample))
 
         # Show a sample image
         if len(X_sample) > 0:
@@ -101,11 +93,13 @@ def analyze_etl9g_data(data_dir):
 
             plt.tight_layout()
             plt.savefig(data_path / "dataset_sample.png", dpi=150, bbox_inches="tight")
-            plt.show()
-            print(f"Sample visualization saved to: {data_path / 'dataset_sample.png'}")
+            logger.info("✓ Sample visualization saved: dataset_sample.png")
+            plt.close()
 
+    except FileNotFoundError as e:
+        logger.error("✗ Dataset file not found: %s", str(e))
     except Exception as e:
-        print(f"Error loading sample data: {e}")
+        logger.error("✗ Error loading sample: %s", str(e))
 
     # Character mapping analysis
     char_mapping_path = data_path / "character_mapping.json"
@@ -113,24 +107,21 @@ def analyze_etl9g_data(data_dir):
         with open(char_mapping_path, encoding="utf-8") as f:
             char_mapping = json.load(f)
 
-        print(f"\nCharacter mapping available: {len(char_mapping)} entries")
+        logger.info("✓ Character mapping: %d characters", len(char_mapping))
 
         # Check for rice field kanji
         rice_field_jis = "4544"  # Rice field kanji JIS code
         if rice_field_jis in char_mapping:
-            rice_info = char_mapping[rice_field_jis]
-            print("Rice field kanji (田) found:")
-            print(f"  JIS: {rice_field_jis}")
-            print(f"  Class: {rice_info['class_idx']}")
-            print(f"  Samples: {rice_info['sample_count']}")
+            logger.info("✓ Rice field kanji (JIS 4544) found in mapping")
         else:
-            print("Rice field kanji (田) not found in mapping")
-
-    print("\n=== Analysis Complete ===")
+            logger.warning("⚠ Rice field kanji (JIS 4544) not in mapping")
+    else:
+        logger.warning("⚠ Character mapping file not found")
 
 
 def test_model_architecture():
     """Test the model architecture without training"""
+    logger.info("🧪 Testing model architecture...")
     try:
         import os
         import sys
@@ -141,22 +132,17 @@ def test_model_architecture():
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))
         from train_cnn_model import LightweightKanjiNet
 
-        print("\n=== Model Architecture Test ===")
-
         # Create model
         num_classes = 3036  # ETL9G classes
         image_size = 64
         model = LightweightKanjiNet(num_classes, image_size)
+        logger.info("✓ Model created: LightweightKanjiNet")
 
         # Model info
         total_params = sum(p.numel() for p in model.parameters())
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-        print("Model created successfully:")
-        print(f"  Input size: {image_size}x{image_size}")
-        print(f"  Output classes: {num_classes}")
-        print(f"  Total parameters: {total_params:,}")
-        print(f"  Trainable parameters: {trainable_params:,}")
+        logger.info("  → Total parameters: %,d", total_params)
+        logger.info("  → Trainable parameters: %,d", trainable_params)
 
         # Test forward pass
         batch_size = 4
@@ -165,24 +151,20 @@ def test_model_architecture():
         model.eval()
         with torch.no_grad():
             output = model(test_input)
-
-        print("Forward pass test:")
-        print(f"  Input shape: {test_input.shape}")
-        print(f"  Output shape: {output.shape}")
-        print(f"  Output range: [{output.min():.3f}, {output.max():.3f}]")
+        logger.info(
+            "✓ Forward pass successful: input %s → output %s", test_input.shape, output.shape
+        )
 
         # Memory usage estimation
-        model_size_mb = sum(p.numel() * 4 for p in model.parameters()) / (
+        memory_mb = sum(p.numel() * 4 for p in model.parameters()) / (
             1024 * 1024
         )  # 4 bytes per float32
-        print(f"Estimated model size: {model_size_mb:.1f} MB")
-
-        print("Model architecture test passed ✓")
+        logger.info("✓ Estimated memory: %.2f MB", memory_mb)
 
     except ImportError as e:
-        print(f"PyTorch not available: {e}")
+        logger.error("✗ Import error: %s (model file may not exist)", str(e))
     except Exception as e:
-        print(f"Model test failed: {e}")
+        logger.error("✗ Error testing model architecture: %s", str(e))
 
 
 def main():
@@ -193,12 +175,17 @@ def main():
     parser.add_argument("--test-model", action="store_true", help="Test model architecture")
 
     args = parser.parse_args()
+    logger.info("Starting ETL9G setup verification...\n")
 
     if args.data_dir:
         analyze_etl9g_data(args.data_dir)
 
     if args.test_model:
+        logger.info("")
         test_model_architecture()
+
+    logger.info("\n────────────────────────────────────────────────────────────────")
+    logger.info("✓ ETL9G setup verification complete!")
 
 
 if __name__ == "__main__":

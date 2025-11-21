@@ -32,7 +32,7 @@ class TestTrainCNNModel:
 
             from scripts.train_cnn_model import ETL9GDataset
 
-            X = np.random.rand(10, 64, 64).astype(np.float32)
+            X = np.random.rand(10, 64, 64).astype(np.float32)  # noqa: N806
             y = np.random.randint(0, 3036, 10).astype(np.int64)
 
             dataset = ETL9GDataset(X, y, augment=False)
@@ -48,7 +48,7 @@ class TestTrainCNNModel:
 
             from scripts.train_cnn_model import ETL9GDataset
 
-            X = np.random.rand(5, 64, 64).astype(np.float32)
+            X = np.random.rand(5, 64, 64).astype(np.float32)  # noqa: N806
             y = np.array([0, 1, 2, 3, 4], dtype=np.int64)
 
             dataset = ETL9GDataset(X, y)

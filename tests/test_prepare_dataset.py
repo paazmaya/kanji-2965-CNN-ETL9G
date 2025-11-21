@@ -255,7 +255,7 @@ class TestETLDatasetProcessor:
     def test_processor_creates_output_dir(self, temp_output_dir):
         """Test that processor creates output directory."""
         output_path = Path(temp_output_dir) / "new_subdir"
-        processor = ETLDatasetProcessor(str(output_path))
+        ETLDatasetProcessor(str(output_path))
         assert output_path.exists()
 
 

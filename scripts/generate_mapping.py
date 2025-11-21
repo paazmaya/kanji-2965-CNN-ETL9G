@@ -5,7 +5,11 @@ Creates a comprehensive mapping with actual kanji characters and stroke counts
 """
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def jis_to_unicode(jis_code_str):
@@ -69,14 +73,9 @@ def create_character_mapping():
     char_details_file = Path("dataset/character_mapping.json")
 
     if not mapping_file.exists():
-        print(f"❌ Mapping file not found: {mapping_file}")
-        print(
-            "💡 Run 'python convert_to_onnx.py --model-path training/cnn/best_kanji_model.pth' first"
-        )
         return False
 
     if not char_details_file.exists():
-        print(f"❌ Character details not found: {char_details_file}")
         return False
 
     # Load class-to-JIS mapping from characters
@@ -89,10 +88,7 @@ def create_character_mapping():
 
     # Load character details
     with open(char_details_file, encoding="utf-8") as f:
-        char_details = json.load(f)
-
-    print(f"✅ Loaded {len(class_to_jis)} class mappings")
-    print(f"✅ Loaded {len(char_details)} character details")
+        json.load(f)
 
     # Create character mapping
     mapping = {
@@ -118,7 +114,7 @@ def create_character_mapping():
     total_strokes = 0
 
     for class_idx_str, jis_code in class_to_jis.items():
-        class_idx = int(class_idx_str)
+        int(class_idx_str)
 
         # Convert JIS to Unicode character
         character = jis_to_unicode(jis_code)
@@ -160,26 +156,21 @@ def create_character_mapping():
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(mapping, f, ensure_ascii=False, indent=2)
 
-    print(f"🎉 Character mapping saved to {output_file}")
-    print("📊 Statistics:")
-    print(f"   Total characters: {mapping['statistics']['total_characters']}")
-    print(f"   Hiragana: {mapping['statistics']['hiragana_count']}")
-    print(f"   Katakana: {mapping['statistics']['katakana_count']}")
-    print(f"   Kanji: {mapping['statistics']['kanji_count']}")
-    print(f"   Average strokes: {mapping['statistics']['average_stroke_count']}")
-
     # Show sample characters
-    print("\n🔍 Sample characters:")
-    for i, (class_idx, char_info) in enumerate(mapping["characters"].items()):
+    for i, (_class_idx, char_info) in enumerate(mapping["characters"].items()):
         if i >= 10:
             break
-        char = char_info["character"]
-        jis = char_info["jis_code"]
-        strokes = char_info["stroke_count"]
-        print(f"   Class {class_idx}: {char} (JIS: {jis}, Strokes: {strokes})")
+        char_info["character"]
+        char_info["jis_code"]
+        char_info["stroke_count"]
 
     return True
 
 
 if __name__ == "__main__":
-    create_character_mapping()
+    logger.info("Generating ETL9G character mapping...")
+    success = create_character_mapping()
+    if success:
+        logger.info("\u2713 Character mapping created successfully")
+    else:
+        logger.error("\u2717 Failed to create character mapping")

@@ -6,11 +6,15 @@ Converts PyTorch model to ONNX for cross-platform deployment
 
 import argparse
 import json
+import logging
 from pathlib import Path
 
 import torch
 from optimization_config import HierCodeConfig
 from train_hiercode import HierCodeClassifier
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def export_to_onnx(
@@ -20,21 +24,20 @@ def export_to_onnx(
     model_type: str = "hiercode",
 ):
     """Export model to ONNX format"""
-    print("\n" + "=" * 70)
-    print("EXPORTING TO ONNX")
-    print("=" * 70)
+
+    logger.info("🔄 Exporting %s model to ONNX (opset %d)...", model_type, opset_version)
 
     model_path = Path(model_path)
     if not model_path.exists():
-        print(f"❌ Model not found: {model_path}")
+        logger.error("✗ Model path not found: %s", model_path)
         return
 
-    print(f"\n📂 Loading model: {model_path}")
+    logger.info("→ Loading model from %s...", model_path)
 
     # Load config
     config_path = model_path.parent / f"{model_type}_config.json"
     if config_path.exists():
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             config_dict = json.load(f)
     else:
         config_dict = {"num_classes": 3036}
@@ -46,7 +49,7 @@ def export_to_onnx(
         config = HierCodeConfig(num_classes=num_classes)
         model = HierCodeClassifier(num_classes=num_classes, config=config)
     else:
-        print(f"❌ Unknown model type: {model_type}")
+        logger.error("✗ Unknown model type: %s", model_type)
         return
 
     # Load weights
@@ -60,16 +63,14 @@ def export_to_onnx(
     )
 
     if is_quantized:
-        print("ℹ️  Loading quantized model (INT8)")
+        logger.info("→ Loading quantized model weights...")
         # For quantized models, load directly without strict checking
         model.load_state_dict(checkpoint, strict=False)
     else:
-        print("ℹ️  Loading standard model")
+        logger.info("→ Loading model weights...")
         model.load_state_dict(checkpoint, strict=False)
 
     model.eval()
-
-    print("✓ Model loaded successfully")
 
     # Generate output path if not specified
     if output_path is None:
@@ -79,16 +80,11 @@ def export_to_onnx(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print("\n🔧 Exporting to ONNX...")
-    print(f"  Model type: {model_type}")
-    print(f"  Opset version: {opset_version}")
-    print("  Input: (batch_size, 1, 64, 64)")
-    print(f"  Output: (batch_size, {num_classes})")
-
     # Create dummy input
     dummy_input = torch.randn(1, 1, 64, 64)
 
     # Export to ONNX
+    logger.info("→ Exporting to ONNX format...")
     torch.onnx.export(
         model,
         dummy_input,
@@ -101,12 +97,10 @@ def export_to_onnx(
         export_params=True,
     )
 
-    print("\n✅ Model exported to ONNX")
-    print(f"  Path: {output_path}")
-
     # Check file size
     file_size = output_path.stat().st_size
-    print(f"  Size: {file_size / 1e6:.2f} MB")
+
+    logger.info("✓ Export complete: %s (%.2f MB)", output_path.name, file_size / 1e6)
 
     # Create info file
     info = {
@@ -121,37 +115,36 @@ def export_to_onnx(
     }
 
     info_path = output_path.with_suffix(".json")
-    with open(info_path, "w") as f:
+    with open(info_path, "w", encoding="utf-8") as f:
         json.dump(info, f, indent=2)
-
-    print(f"\n📋 Info file saved: {info_path}")
 
     return output_path, info
 
 
 def verify_onnx(onnx_path: str):
     """Verify ONNX model is valid"""
-    print("\n🔍 Verifying ONNX model...")
+
+    logger.info("🔍 Verifying ONNX model...")
 
     try:
         import onnx
 
         model = onnx.load(str(onnx_path))
         onnx.checker.check_model(model)
-        print("  ✓ ONNX model is valid")
+        logger.info("✓ ONNX model is valid")
         return True
     except ImportError:
-        print("  ⚠️  onnx package not installed, skipping verification")
-        print("     Install with: uv pip install onnx")
+        logger.error("✗ ONNX package not installed")
         return False
     except Exception as e:
-        print(f"  ❌ ONNX validation failed: {e}")
+        logger.error("✗ ONNX verification failed: %s", str(e))
         return False
 
 
 def test_inference(onnx_path: str, num_samples: int = 5):
     """Test ONNX model inference"""
-    print("\n🧪 Testing ONNX inference...")
+
+    logger.info("🧪 Testing ONNX model inference (%d samples)...", num_samples)
 
     try:
         import onnxruntime as ort
@@ -163,22 +156,17 @@ def test_inference(onnx_path: str, num_samples: int = 5):
         ]
 
         sess = ort.InferenceSession(str(onnx_path), providers=providers)
-        provider_used = sess.get_providers()[0]
-        print(f"  ✓ ONNX Runtime session created (provider: {provider_used})")
+        logger.info("→ Using provider: %s", sess.get_providers()[0])
 
         # Get input/output info
         input_name = sess.get_inputs()[0].name
         output_name = sess.get_outputs()[0].name
 
-        print(f"  Input: {input_name}")
-        print(f"  Output: {output_name}")
-
         # Test inference
-        print(f"\n  Running {num_samples} inference tests...")
         import time
 
         times = []
-        for i in range(num_samples):
+        for _i in range(num_samples):
             test_input = (torch.randn(1, 1, 64, 64).numpy()).astype("float32")
 
             start = time.time()
@@ -186,20 +174,16 @@ def test_inference(onnx_path: str, num_samples: int = 5):
             elapsed = time.time() - start
             times.append(elapsed * 1000)  # Convert to ms
 
-            print(f"    Sample {i + 1}: {elapsed * 1000:.2f} ms")
-
         avg_time = sum(times) / len(times)
-        print(f"\n  ✓ Average inference time: {avg_time:.2f} ms")
-        print(f"  Throughput: {1000 / avg_time:.1f} samples/sec")
+        logger.info("✓ Inference test successful: %.2f ms per sample", avg_time)
 
         return True
 
     except ImportError:
-        print("  ⚠️  onnxruntime package not installed, skipping inference test")
-        print("     Install with: uv pip install onnxruntime-gpu")
+        logger.error("✗ ONNX Runtime not installed")
         return False
     except Exception as e:
-        print(f"  ❌ Inference test failed: {e}")
+        logger.error("✗ Inference test failed: %s", str(e))
         return False
 
 
@@ -260,6 +244,18 @@ Examples:
 
     args = parser.parse_args()
 
+    logger.info("=" * 70)
+    logger.info("EXPORT HIERCODE MODEL TO ONNX")
+    logger.info("=" * 70)
+    logger.info(
+        "Model type: %s | Opset: %d | Verify: %s | Test: %s",
+        args.model_type,
+        args.opset,
+        args.verify,
+        args.test_inference,
+    )
+    logger.info("")
+
     # Export
     onnx_path, info = export_to_onnx(
         args.model_path,
@@ -268,24 +264,22 @@ Examples:
         model_type=args.model_type,
     )
 
+    if onnx_path is None:
+        logger.error("✗ Export failed")
+        return
+
     # Verify if requested
     if args.verify:
+        logger.info("")
         verify_onnx(onnx_path)
 
     # Test inference if requested
     if args.test_inference:
+        logger.info("")
         test_inference(onnx_path)
 
-    print("\n" + "=" * 70)
-    print("✅ EXPORT COMPLETE")
-    print("=" * 70)
-    print(f"\nONNX Model: {onnx_path}")
-    print("\nDeployment Options:")
-    print("  1. Python: uv pip install onnxruntime-gpu")
-    print("  2. Web: ONNX.js + WebAssembly")
-    print("  3. Mobile: ONNX Mobile Runtime (iOS/Android)")
-    print("  4. Edge: TensorRT (NVIDIA), TVM, TensorFlow Lite")
-    print()
+    logger.info("=" * 70)
+    logger.info("✓ All tasks complete!")
 
 
 if __name__ == "__main__":

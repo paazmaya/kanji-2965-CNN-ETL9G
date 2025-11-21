@@ -83,7 +83,7 @@ class HiGITAConfig:
         self.data_dir = "dataset"
 
     def to_dict(self) -> dict:
-        return {k: v for k, v in self.__dict__.items()}
+        return dict(self.__dict__.items())
 
 
 def create_synthetic_text_data(
@@ -407,7 +407,7 @@ def main():
     try:
         from subprocess import run
 
-        result = run(
+        result = run(  # noqa: S603
             [
                 sys.executable,
                 "scripts/create_class_mapping.py",

@@ -65,7 +65,7 @@ class TokensToTokens(nn.Module):
         out_channels = 16
 
         # Single-stage progression
-        for i, kernel_size in enumerate(kernel_sizes):
+        for _i, kernel_size in enumerate(kernel_sizes):
             padding = kernel_size // 2
 
             layers.extend(
@@ -678,7 +678,7 @@ Examples:
     try:
         from subprocess import run
 
-        result = run(
+        result = run(  # noqa: S603
             [
                 sys.executable,
                 "scripts/create_class_mapping.py",

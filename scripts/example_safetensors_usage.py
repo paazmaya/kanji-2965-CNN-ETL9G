@@ -13,6 +13,7 @@ from PIL import Image
 from safetensors.torch import load_file
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 try:
     from train_cnn_model import LightweightKanjiNet
@@ -30,16 +31,12 @@ def load_safetensors_model(
     info_path="kanji_etl9g_model_64x64_info.json",
 ):
     """Load model from SafeTensors format."""
-    print(f"📁 Loading SafeTensors model: {safetensors_path}")
 
     # Load model info
     with open(info_path) as f:
         model_info = json.load(f)
 
     num_classes = model_info["num_classes"]
-    print(
-        f"📊 Model info: {num_classes} classes, {model_info['metadata']['total_parameters']} parameters"
-    )
 
     # Create model architecture
     model = LightweightKanjiNet(num_classes=num_classes)
@@ -49,7 +46,6 @@ def load_safetensors_model(
     model.load_state_dict(state_dict)
     model.eval()
 
-    print("✅ SafeTensors model loaded successfully")
     return model, model_info
 
 
@@ -127,8 +123,6 @@ def predict_kanji(
 
 def main():
     """Example usage of SafeTensors kanji model."""
-    print("🚀 SafeTensors Kanji Recognition Example")
-    print("=" * 50)
 
     try:
         # Load the SafeTensors model
@@ -144,35 +138,26 @@ def main():
         logger.info(f"   Training Epoch: {metadata['epoch']}")
 
         # Example with a synthetic image (since we don't have actual kanji images)
-        print("\n🖼️  Creating synthetic test image...")
         test_image = torch.randn(1, 1, 64, 64)  # Random noise as example
 
         # Run prediction
-        print("🔍 Running inference...")
         predictions = predict_kanji(model, test_image, top_k=3)
 
-        print("\n🎯 Top 3 Predictions:")
+        logger.info("Top predictions:")
         for i, pred in enumerate(predictions, 1):
-            char = pred["character"]
-            confidence = pred["confidence"] * 100
-            strokes = pred["stroke_count"]
-            jis = pred["jis_code"]
-            print(f"   {i}. {char} ({confidence:.1f}% confidence, {strokes} strokes, JIS: {jis})")
+            logger.info(
+                "  [%d] %s (JIS: %s, strokes: %d, confidence: %.2f%%)",
+                i,
+                pred["character"],
+                pred["jis_code"],
+                pred["stroke_count"],
+                pred["confidence"] * 100,
+            )
 
-        print("\n✅ SafeTensors inference example completed!")
-
-        print("\n📂 **Integration Tips:**")
-        print("   - Use safetensors.torch.load_file() for fast loading")
-        print("   - Model weights are memory-mapped for efficiency")
-        print("   - No pickle dependency - secure deserialization")
-        print("   - Cross-platform compatibility guaranteed")
-        print("   - Rich metadata embedded in the file")
-
-    except FileNotFoundError as e:
-        print(f"❌ File not found: {e}")
-        print("💡 Make sure to run convert_to_safetensors.py first")
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    except FileNotFoundError as e:  # noqa: S110
+        logger.error("Model or mapping file not found: %s", str(e))
+    except Exception as e:  # noqa: S110
+        logger.error("Error during inference: %s", str(e))
 
 
 if __name__ == "__main__":

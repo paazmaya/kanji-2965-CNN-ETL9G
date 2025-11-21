@@ -665,7 +665,7 @@ Examples:
     try:
         from subprocess import run
 
-        result = run(
+        result = run(  # noqa: S603
             [
                 sys.executable,
                 "scripts/create_class_mapping.py",

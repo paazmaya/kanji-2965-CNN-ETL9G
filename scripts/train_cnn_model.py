@@ -26,7 +26,6 @@ from optimization_config import (
     get_dataset_directory,
     get_optimizer,
     get_scheduler,
-    load_chunked_dataset,
     prepare_dataset_and_loaders,
     verify_and_setup_gpu,
 )
@@ -40,8 +39,8 @@ logger = logging.getLogger(__name__)
 class ETL9GDataset(Dataset):
     """Efficient dataset for ETL9G with memory management"""
 
-    def __init__(self, X, y, augment=False):
-        self.X = torch.FloatTensor(X)
+    def __init__(self, x, y, augment=False):  # noqa: N803
+        self.X = torch.FloatTensor(x)
         self.y = torch.LongTensor(y)
         self.augment = augment
 
@@ -507,7 +506,7 @@ class ProgressiveTrainer:
         return best_val_acc
 
 
-def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
+def create_balanced_loaders(x, y, batch_size, test_size=0.15, val_size=0.15):  # noqa: N803
     """Create balanced data loaders with stratification"""
 
     logger.debug("Creating stratified splits...")
@@ -526,7 +525,10 @@ def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
 
         # First split: train+val vs test
         X_temp, X_test, y_temp, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=42
+            X,  # noqa: F821
+            y,
+            test_size=test_size,
+            random_state=42,
         )
 
         # Second split: train vs val
@@ -540,7 +542,11 @@ def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
 
         # First split: train+val vs test
         X_temp, X_test, y_temp, y_test = train_test_split(
-            X, y, test_size=test_size, stratify=y, random_state=42
+            X,  # noqa: F821
+            y,
+            test_size=test_size,
+            stratify=y,
+            random_state=42,
         )
 
         # Second split: train vs val
@@ -582,101 +588,8 @@ def create_balanced_loaders(X, y, batch_size, test_size=0.15, val_size=0.15):
     return train_loader, val_loader, test_loader
 
 
-def load_chunked_dataset(data_dir):
-    """Load dataset from chunks if available, otherwise load single file.
-    Auto-detects with combined_all_etl as highest priority: combined_all_etl > etl9g > etl8g > etl7 > etl6 > etl1"""
-    data_path = Path(data_dir)
-
-    # Priority order for dataset selection (always prefer combined dataset)
-    dataset_priority = [
-        "combined_all_etl",
-        "etl9g",
-        "etl8g",
-        "etl7",
-        "etl6",
-        "etl1",
-    ]
-
-    # Find the best available dataset
-    selected_dataset = None
-    for dataset_name in dataset_priority:
-        chunk_info_path = data_path / dataset_name / "chunk_info.json"
-        if chunk_info_path.exists():
-            selected_dataset = dataset_name
-            logger.debug(f"🔍 Auto-detected dataset: {dataset_name}")
-            break
-
-    if selected_dataset is None:
-        # Check for legacy flat structure (backwards compatibility)
-        chunk_info_path = data_path / "chunk_info.json"
-        if chunk_info_path.exists():
-            selected_dataset = "legacy"
-            logger.debug("🔍 Auto-detected legacy dataset structure")
-        else:
-            raise FileNotFoundError(
-                f"No dataset found in {data_path}. Available datasets should have chunk_info.json"
-            )
-
-    if selected_dataset == "legacy":
-        # Legacy flat structure
-        logger.debug("Loading legacy chunked dataset...")
-        with open(data_path / "chunk_info.json") as f:
-            chunk_info = json.load(f)
-
-        all_X = []
-        all_y = []
-
-        for i in range(chunk_info["num_chunks"]):
-            chunk_file = data_path / f"etl9g_dataset_chunk_{i:02d}.npz"
-            if chunk_file.exists():
-                chunk = np.load(chunk_file)
-                all_X.append(chunk["X"])
-                all_y.append(chunk["y"])
-                logger.debug(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
-            else:
-                logger.warning(f"Warning: Missing chunk file {chunk_file}")
-
-        X = np.concatenate(all_X, axis=0) if all_X else np.array([])
-        y = np.concatenate(all_y, axis=0) if all_y else np.array([])
-        logger.debug(f"Total samples loaded: {len(X)}")
-        return X, y
-    else:
-        # New directory structure
-        dataset_dir = data_path / selected_dataset
-        chunk_info_path = dataset_dir / "chunk_info.json"
-
-        if chunk_info_path.exists():
-            logger.debug(f"Loading {selected_dataset} dataset from chunks...")
-            with open(chunk_info_path) as f:
-                chunk_info = json.load(f)
-
-            all_X = []
-            all_y = []
-
-            for i in range(chunk_info["num_chunks"]):
-                chunk_file = dataset_dir / f"{selected_dataset}_chunk_{i:02d}.npz"
-                if chunk_file.exists():
-                    chunk = np.load(chunk_file)
-                    all_X.append(chunk["X"])
-                    all_y.append(chunk["y"])
-                    logger.debug(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
-                else:
-                    logger.warning(f"Warning: Missing chunk file {chunk_file}")
-
-            X = np.concatenate(all_X, axis=0) if all_X else np.array([])
-            y = np.concatenate(all_y, axis=0) if all_y else np.array([])
-            logger.debug(f"Total samples loaded: {len(X)}")
-            return X, y
-        else:
-            # Try single file
-            single_file = dataset_dir / f"{selected_dataset}_dataset.npz"
-            if single_file.exists():
-                logger.debug(f"Loading {selected_dataset} dataset from single file...")
-                dataset = np.load(single_file)
-                logger.debug(f"Total samples loaded: {len(dataset['X'])}")
-                return dataset["X"], dataset["y"]
-            else:
-                raise FileNotFoundError(f"No valid dataset files found in {dataset_dir}")
+# Note: load_chunked_dataset is imported from optimization_config (line 29), not redefined below
+# The original function implementation has been removed to avoid duplication
 
 
 def main():
@@ -807,7 +720,6 @@ def main():
 
     # Check for existing checkpoint and resume if available
     start_epoch = 0
-    best_val_acc = 0
 
     # Use unified checkpoint loading (DRY pattern)
     start_epoch, best_metrics = checkpoint_manager.load_checkpoint_for_training(
@@ -818,7 +730,7 @@ def main():
         resume_from=args.resume_from,
         args_no_checkpoint=args.no_checkpoint,
     )
-    best_val_acc = best_metrics.get("val_accuracy", 0.0)
+    best_metrics.get("val_accuracy", 0.0)
 
     # Train model
     logger.info("一Starting training...")
@@ -840,7 +752,7 @@ def main():
     try:
         from subprocess import run
 
-        result = run(
+        result = run(  # noqa: S603
             [
                 sys.executable,
                 "scripts/create_class_mapping.py",

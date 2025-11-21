@@ -14,6 +14,7 @@ from model_utils import generate_export_path, infer_model_type
 from safetensors.torch import save_file
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 try:
     from train_cnn_model import LightweightKanjiNet
@@ -39,10 +40,10 @@ def load_model_for_conversion(model_path, image_size=64):
         checkpoint = torch.load(model_path, map_location="cpu")
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             model.load_state_dict(checkpoint["model_state_dict"])
-            logger.info("✅ Loaded model weights from checkpoint")
+            logger.info("✓ Loaded model weights from checkpoint")
         else:
             model.load_state_dict(checkpoint)
-            logger.info("✅ Loaded model weights directly")
+            logger.info("✓ Loaded model weights directly")
     except Exception as e:
         logger.error(f"❌ Error loading model: {e}")
         return None
@@ -136,26 +137,25 @@ def convert_to_safetensors(
     # Get model state dict (weights and biases)
     state_dict = model.state_dict()
 
-    print(f"📊 Model layers found: {len(state_dict)}")
-    for name, tensor in state_dict.items():
-        print(f"   {name}: {tensor.shape} ({tensor.dtype})")
+    logger.info(f"📊 Model has {len(state_dict)} weight tensors")
+    total_params = sum(tensor.numel() for tensor in state_dict.values())
+    logger.info(f"📈 Total parameters: {total_params:,}")
 
     # Prepare metadata
     metadata = {}
     if include_metadata:
         metadata = extract_model_metadata(model_path, model, image_size)
-        print(f"📝 Added metadata: {len(metadata)} fields")
 
     # Convert and save to SafeTensors
     try:
         save_file(state_dict, output_path, metadata=metadata)
-        print("✅ SafeTensors conversion successful!")
+        logger.info(f"✓ Saved to SafeTensors: {output_path}")
 
         # Verify file was created and get size
         output_file = Path(output_path)
         if output_file.exists():
             file_size_mb = output_file.stat().st_size / (1024 * 1024)
-            print(f"📁 Output file: {output_path} ({file_size_mb:.2f} MB)")
+            logger.info(f"📁 SafeTensors file size: {file_size_mb:.2f} MB")
 
             # Create companion info file
             info_path = output_path.replace(".safetensors", "_info.json")
@@ -182,15 +182,15 @@ def convert_to_safetensors(
 
             with open(info_path, "w", encoding="utf-8") as f:
                 json.dump(model_info, f, indent=2, ensure_ascii=False)
-            print(f"📋 Model info saved: {info_path}")
 
+            logger.info(f"✓ Saved companion info: {info_path}")
             return output_path
         else:
-            print("❌ Output file not created")
+            logger.error(f"❌ Failed to create SafeTensors file: {output_path}")
             return None
 
     except Exception as e:
-        print(f"❌ SafeTensors conversion failed: {e}")
+        logger.error(f"❌ Conversion error: {e}")
         return None
 
 
@@ -199,40 +199,34 @@ def verify_safetensors_model(safetensors_path):
     try:
         from safetensors.torch import load_file
 
-        print(f"🔍 Verifying SafeTensors model: {safetensors_path}")
-
         # Load the SafeTensors file
         state_dict = load_file(safetensors_path)
-
-        print("✅ Successfully loaded SafeTensors model")
-        print(f"📊 Layers: {len(state_dict)}")
+        logger.info("✓ Loaded SafeTensors file")
 
         # Check tensor shapes and types
         total_params = 0
-        for name, tensor in state_dict.items():
+        for _name, tensor in state_dict.items():
             total_params += tensor.numel()
-            print(f"   {name}: {tensor.shape} ({tensor.dtype})")
 
-        print(f"📈 Total parameters: {total_params:,}")
+        logger.info(f"📊 Total parameters: {total_params:,}")
 
         # Try to load into model architecture
         # ETL9G dataset has exactly 3,036 character classes (fixed)
         model = LightweightKanjiNet(num_classes=3036)
         model.load_state_dict(state_dict)
         model.eval()
-
-        print("✅ Model architecture compatibility verified")
+        logger.info("✓ Model loaded successfully")
 
         # Test forward pass
         test_input = torch.randn(1, 1, 64, 64)
         with torch.no_grad():
-            output = model(test_input)
-            print(f"✅ Forward pass test successful: output shape {output.shape}")
+            model(test_input)
 
+        logger.info("✓ Forward pass successful")
         return True
 
     except Exception as e:
-        print(f"❌ SafeTensors verification failed: {e}")
+        logger.error(f"❌ Verification failed: {e}")
         return False
 
 
@@ -262,19 +256,14 @@ def main():
 
     args = parser.parse_args()
 
+    logger.info("=" * 70)
+    logger.info("CONVERT PYTORCH MODEL TO SAFETENSORS FORMAT")
+    logger.info("=" * 70)
+
     # Create models directory if it doesn't exist
     from pathlib import Path
 
     Path("training/exports").mkdir(parents=True, exist_ok=True)
-
-    print("🚀 SafeTensors Conversion Tool")
-    print("=" * 50)
-    print(f"PyTorch model: {args.model_path}")
-    print(f"SafeTensors output: {args.output_path}")
-    print("Classes: 3036 (ETL9G dataset)")
-    print(f"Image size: {args.image_size}x{args.image_size}")
-    print(f"Include metadata: {not args.no_metadata}")
-    print()
 
     # Convert to SafeTensors
     output_path = convert_to_safetensors(
@@ -284,33 +273,19 @@ def main():
     )
 
     if output_path:
-        print("\n🎉 SafeTensors conversion completed!")
-
-        print("\n📋 **SafeTensors Benefits:**")
-        print("   ✅ Secure - No arbitrary code execution")
-        print("   ✅ Fast loading - Memory-mapped access")
-        print("   ✅ Cross-platform - Language agnostic")
-        print("   ✅ Metadata support - Rich model information")
-        print("   ✅ Integrity checks - Built-in validation")
-
-        print("\n📂 **Usage in deployment:**")
-        print("   ```python")
-        print("   from safetensors.torch import load_file")
-        print(f"   state_dict = load_file('{output_path}')")
-        print("   model.load_state_dict(state_dict)")
-        print("   ```")
+        logger.info(f"\n✓ SafeTensors conversion complete: {output_path}")
 
         # Verify if requested
         if args.verify:
-            print("\n" + "=" * 50)
+            logger.info("\n🔍 Verifying SafeTensors model...")
             verify_safetensors_model(output_path)
 
-        print("\nFiles ready for deployment:")
-        print(f"  - {output_path}")
-        print(f"  - {output_path.replace('.safetensors', '_info.json')}")
+        logger.info("=" * 70)
+        logger.info("✅ Complete!")
+        logger.info("=" * 70)
 
     else:
-        print("❌ SafeTensors conversion failed")
+        logger.error("❌ Conversion failed")
         return 1
 
     return 0

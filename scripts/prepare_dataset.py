@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import json
+import logging
 import struct
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -23,6 +24,9 @@ from typing import Optional
 import cv2
 import numpy as np
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 class ETLFormatHandler(ABC):
@@ -72,8 +76,7 @@ class ETL1Handler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "M-type",
             }
-        except Exception as e:
-            print(f"Error extracting ETL1 record: {e}")
+        except Exception:
             return None
 
 
@@ -105,8 +108,7 @@ class ETL2Handler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "K-type",
             }
-        except Exception as e:
-            print(f"Error extracting ETL2 record: {e}")
+        except Exception:
             return None
 
 
@@ -138,8 +140,7 @@ class ETL3Handler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "C-type",
             }
-        except Exception as e:
-            print(f"Error extracting ETL3 record: {e}")
+        except Exception:
             return None
 
 
@@ -171,8 +172,7 @@ class ETL4Handler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "M-type",
             }
-        except Exception as e:
-            print(f"Error extracting ETL4 record: {e}")
+        except Exception:
             return None
 
 
@@ -204,8 +204,7 @@ class ETL5Handler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "M-type",
             }
-        except Exception as e:
-            print(f"Error extracting ETL5 record: {e}")
+        except Exception:
             return None
 
 
@@ -237,8 +236,7 @@ class ETL6Handler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "M-type",
             }
-        except Exception as e:
-            print(f"Error extracting ETL6 record: {e}")
+        except Exception:
             return None
 
 
@@ -270,8 +268,7 @@ class ETL7Handler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "M-type",
             }
-        except Exception as e:
-            print(f"Error extracting ETL7 record: {e}")
+        except Exception:
             return None
 
 
@@ -303,8 +300,7 @@ class ETL8GHandler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "ETL8G",
             }
-        except Exception as e:
-            print(f"Error extracting ETL8G record: {e}")
+        except Exception:
             return None
 
 
@@ -336,8 +332,7 @@ class ETL9GHandler(ETLFormatHandler):
                 "image_data": image_data,
                 "format_type": "ETL9G",
             }
-        except Exception as e:
-            print(f"Error extracting ETL9G record: {e}")
+        except Exception:
             return None
 
 
@@ -430,8 +425,7 @@ class ETLDatasetProcessor:
             image = np.array(pixels, dtype=np.uint8).reshape(height, width)
             return image * 17
 
-        except Exception as e:
-            print(f"Error unpacking 4-bit image: {e}")
+        except Exception:
             return None
 
     def unpack_6bit_image(
@@ -461,8 +455,7 @@ class ETLDatasetProcessor:
             image = np.array(pixels, dtype=np.uint8).reshape(height, width)
             return image * 4
 
-        except Exception as e:
-            print(f"Error unpacking 6-bit image: {e}")
+        except Exception:
             return None
 
     def preprocess_image(
@@ -508,9 +501,6 @@ class ETLDatasetProcessor:
 
         if not etl_files:
             raise FileNotFoundError(f"No {dataset_name} files found in {etl_dir}")
-
-        print(f"Processing {dataset_name}: {len(etl_files)} files")
-        print(f"Dataset info: {self.DATASET_INFO[dataset_name_lower]}")
 
         all_samples = []
         all_local_mappings = []
@@ -574,8 +564,8 @@ class ETLDatasetProcessor:
 
                 all_samples.extend(samples)
                 all_local_mappings.append(local_jis_to_class)
-            except Exception as e:
-                print(f"Error processing file {etl_file_path}: {e}")
+            except Exception:  # noqa: S110
+                pass
 
         if not all_samples:
             raise ValueError(f"No samples processed from {dataset_name}")
@@ -616,14 +606,6 @@ class ETLDatasetProcessor:
             },
         }
 
-        print(f"\n{dataset_name} Summary:")
-        print(f"  Total classes: {metadata['num_classes']}")
-        print(f"  Total samples: {metadata['total_samples']}")
-        print(f"  Image size: {target_size}x{target_size}")
-        print(
-            f"  Average samples per class: {metadata['dataset_info']['avg_samples_per_class']:.1f}"
-        )
-
         output_subdir = self.output_dir / dataset_name_lower
         output_subdir.mkdir(parents=True, exist_ok=True)
 
@@ -655,7 +637,6 @@ class ETLDatasetProcessor:
         with open(output_subdir / "metadata.json", "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-        print(f"Dataset saved to {output_subdir}")
         return X, y, metadata
 
     @staticmethod
@@ -676,9 +657,6 @@ class ETLDatasetProcessor:
 
     def combine_datasets(self, dataset_names: list, output_name: str = "combined_etl"):
         """Combine multiple processed datasets into one unified dataset"""
-        print(f"\n{'=' * 70}")
-        print(f"Combining datasets: {', '.join(dataset_names)}")
-        print(f"{'=' * 70}\n")
 
         all_X = []
         all_y = []
@@ -692,7 +670,6 @@ class ETLDatasetProcessor:
             dataset_dir = self.output_dir / dataset_lower
 
             if not dataset_dir.exists():
-                print(f"Warning: {dataset_dir} not found, skipping {dataset_name}")
                 continue
 
             metadata_file = dataset_dir / "metadata.json"
@@ -730,7 +707,6 @@ class ETLDatasetProcessor:
                 current_class_idx += len(set(y_chunk))
 
         if not all_X:
-            print("No data to combine!")
             return
 
         X_combined = np.vstack(all_X)
@@ -770,14 +746,6 @@ class ETLDatasetProcessor:
 
         with open(output_dir / "metadata.json", "w") as f:
             json.dump(combined_metadata, f, indent=2)
-
-        print(f"\n{'=' * 70}")
-        print(f"Combined dataset saved to {output_dir}")
-        print(f"{'=' * 70}")
-        print(f"Total classes: {current_class_idx:,}")
-        print(f"Total samples: {len(X_combined):,}")
-        print(f"Datasets included: {', '.join(combined_sources)}")
-        print(f"{'=' * 70}\n")
 
     @staticmethod
     def find_etl_directories(root_dir: Path = Path(".")) -> dict:
@@ -856,15 +824,20 @@ Examples:
 
     args = parser.parse_args()
 
+    logger.info("\n=== ETL Dataset Preparation ===")
     output_dir = Path(args.output_dir)
     processor = ETLDatasetProcessor(str(output_dir))
 
     # Auto-detect available ETL directories
     available_datasets = processor.find_etl_directories()
+    logger.info(
+        "Found %d available ETL datasets: %s",
+        len(available_datasets),
+        ", ".join(available_datasets.keys()),
+    )
 
     if not available_datasets:
-        print("❌ No ETL directories found in current directory!")
-        print("Looking for: ETL1/, ETL2/, ETL3/, ETL4/, ETL5/, ETL6/, ETL7/, ETL8G/, ETL9G/")
+        logger.error("No ETL datasets found in project root")
         return 1
 
     # Determine which datasets to process
@@ -872,33 +845,24 @@ Examples:
         datasets_to_process = [d.lower() for d in args.only]
         missing = [d for d in datasets_to_process if d not in available_datasets]
         if missing:
-            print(f"⚠️  Datasets not found: {', '.join(missing)}")
-            datasets_to_process = [d for d in datasets_to_process if d in available_datasets]
+            logger.error("Specified datasets not found: %s", ", ".join(missing))
+            return 1
+        logger.info("Processing specified datasets: %s", ", ".join(datasets_to_process))
     else:
         # Process in priority order (high-value datasets first)
         priority_order = ["etl9g", "etl8g", "etl7", "etl6", "etl5", "etl4", "etl3", "etl2", "etl1"]
         datasets_to_process = [d for d in priority_order if d in available_datasets]
+        logger.info("Processing datasets in priority order: %s", ", ".join(datasets_to_process))
 
     if not datasets_to_process:
-        print("❌ No datasets to process!")
+        logger.error("No datasets to process")
         return 1
-
-    # Show banner
-    print("\n" + "=" * 70)
-    print("🔄 ETLCDB Unified Dataset Preparation")
-    print("=" * 70)
-    print(f"\nAvailable datasets: {', '.join(available_datasets.keys())}")
-    print(f"Processing: {', '.join(datasets_to_process)}")
-    print(f"Output directory: {output_dir}")
-    print(f"Image size: {args.size}x{args.size}")
-    print(f"Workers: {args.workers}")
-    print(f"Combine after processing: {not args.no_combine} (default: enabled)")
-    print("\n" + "=" * 70 + "\n")
 
     # Process each dataset
     processed_datasets = []
     for dataset_name in datasets_to_process:
         try:
+            logger.info("\nProcessing %s...", dataset_name.upper())
             etl_dir = available_datasets[dataset_name]
             processor.process_dataset(
                 dataset_name,
@@ -907,34 +871,32 @@ Examples:
                 max_workers=args.workers,
             )
             processed_datasets.append(dataset_name)
-            print()
-        except Exception as e:
-            print(f"❌ Error processing {dataset_name}: {e}\n")
+            logger.info("✓ %s completed", dataset_name.upper())
+        except Exception as e:  # noqa: S110
+            logger.error("✗ Error processing %s: %s", dataset_name.upper(), str(e))
 
     # Combine datasets (default behavior unless --no-combine specified)
     if not args.no_combine and len(processed_datasets) > 1:
         try:
+            logger.info("\nCombining %d datasets into unified dataset...", len(processed_datasets))
             processor.combine_datasets(processed_datasets, output_name="combined_all_etl")
+            logger.info("✓ Combined dataset created")
         except Exception as e:
-            print(f"❌ Error combining datasets: {e}")
+            logger.error("Error combining datasets: %s", str(e))
             return 1
     elif args.no_combine:
-        print("⚠️  Combining disabled with --no-combine flag")
+        logger.info("Dataset combination skipped (--no-combine)")
 
     # Summary
-    print("=" * 70)
-    print("✅ Dataset preparation complete!")
-    print("=" * 70)
-    print("\nProcessed datasets:")
+    logger.info("\n=== Summary ===")
     for dataset in processed_datasets:
-        dataset_dir = output_dir / dataset
-        print(f"  • {dataset.upper()}: {dataset_dir}")
+        output_path = output_dir / dataset
+        logger.info("✓ %s: %s", dataset.upper(), output_path)
 
     if not args.no_combine and len(processed_datasets) > 1:
-        print("\nCombined dataset:")
-        print(f"  • combined_all_etl: {output_dir / 'combined_all_etl'}")
+        logger.info("✓ Combined: %s", output_dir / "combined_all_etl")
 
-    print("\n" + "=" * 70)
+    logger.info("✓ All datasets prepared successfully!")
     return 0
 
 

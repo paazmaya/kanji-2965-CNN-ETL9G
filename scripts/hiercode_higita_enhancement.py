@@ -23,12 +23,16 @@ Based on: Hi-GITA paper (2505.24837v1)
 Date: November 17, 2025
 """
 
+import logging
 import math
 from typing import Dict, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 class StrokeEncoder(nn.Module):
@@ -47,6 +51,7 @@ class StrokeEncoder(nn.Module):
 
     def __init__(self, input_channels: int = 1, output_dim: int = 128, num_patches: int = 64):
         super().__init__()
+        logger.debug(f"🔧 Initializing StrokeEncoder (patches={num_patches}, dim={output_dim})")
         self.output_dim = output_dim
         self.num_patches = num_patches
         self.patch_size = int(math.sqrt(64 // num_patches)) * 8  # ~8x8 for 64x64
@@ -72,6 +77,7 @@ class StrokeEncoder(nn.Module):
             stroke_features: (B, Ns, D_s) stroke-level embeddings
             stroke_attention: (B, Ns) attention weights for strokes
         """
+        logger.debug("→ StrokeEncoder forward pass")
         # Extract patches (strokes)
         patches = F.unfold(image, kernel_size=8, stride=8)  # (B, 64, 64)
         patches = patches.permute(0, 2, 1)  # (B, 64, 64)
@@ -111,6 +117,7 @@ class RadicalEncoder(nn.Module):
 
     def __init__(self, stroke_dim: int = 128, radical_dim: int = 256, num_radicals: int = 16):
         super().__init__()
+        logger.debug(f"🔧 Initializing RadicalEncoder (radicals={num_radicals}, dim={radical_dim})")
         self.stroke_dim = stroke_dim
         self.radical_dim = radical_dim
         self.num_radicals = num_radicals
@@ -140,6 +147,7 @@ class RadicalEncoder(nn.Module):
             radical_features: (B, Nr, D_r) radical-level embeddings
             radical_attention: (B, Nr) radical attention weights
         """
+        logger.debug("→ RadicalEncoder forward pass")
         # Soft assignment of strokes to radicals
         assignment_weights = F.softmax(self.stroke_radical_assignment, dim=0)  # (Ns, Nr)
 
@@ -178,6 +186,7 @@ class CharacterEncoder(nn.Module):
 
     def __init__(self, radical_dim: int = 256, character_dim: int = 512):
         super().__init__()
+        logger.debug(f"🔧 Initializing CharacterEncoder (dim={character_dim})")
         self.radical_dim = radical_dim
         self.character_dim = character_dim
 
@@ -205,6 +214,7 @@ class CharacterEncoder(nn.Module):
             character_features: (B, 1, D_c) character-level embedding
             fused_attention: (B, Nr) fused attention map
         """
+        logger.debug("→ CharacterEncoder forward pass")
         # Compute attention weights for radical aggregation
         radical_weights = self.radical_to_character_attention(radical_features)  # (B, Nr, 1)
         radical_weights = radical_weights.squeeze(-1)  # (B, Nr)
@@ -245,6 +255,7 @@ class MultiGranularityImageEncoder(nn.Module):
         num_radicals: int = 16,
     ):
         super().__init__()
+        logger.info("🏗️  Building MultiGranularityImageEncoder")
         self.stroke_encoder = StrokeEncoder(output_dim=stroke_dim)
         self.radical_encoder = RadicalEncoder(stroke_dim, radical_dim, num_radicals)
         self.character_encoder = CharacterEncoder(radical_dim, character_dim)
@@ -263,6 +274,7 @@ class MultiGranularityImageEncoder(nn.Module):
             - 'character': (B, 1, character_dim)
             - 'character_attention': (B, num_radicals) - fused radical attention
         """
+        logger.debug("→ MultiGranularityImageEncoder forward pass (3-level hierarchy)")
         # Level 0: Stroke encoding
         stroke_features, stroke_attention = self.stroke_encoder(image)
 
@@ -274,6 +286,10 @@ class MultiGranularityImageEncoder(nn.Module):
         # Level 2: Character encoding
         character_features, character_attention = self.character_encoder(
             radical_features, radical_attention
+        )
+
+        logger.debug(
+            f"   ✓ Stroke: {stroke_features.shape}, Radical: {radical_features.shape}, Character: {character_features.shape}"
         )
 
         return {
@@ -296,6 +312,7 @@ class TextStrokeEncoder(nn.Module):
 
     def __init__(self, num_strokes: int = 20, stroke_dim: int = 128):
         super().__init__()
+        logger.debug(f"🔧 Initializing TextStrokeEncoder (strokes={num_strokes}, dim={stroke_dim})")
         self.stroke_embedding = nn.Embedding(num_strokes, stroke_dim)
         self.stroke_encoder_rnn = nn.GRU(
             input_size=stroke_dim, hidden_size=stroke_dim, batch_first=True, bidirectional=True
@@ -337,6 +354,9 @@ class TextRadicalEncoder(nn.Module):
 
     def __init__(self, num_radicals: int = 214, radical_dim: int = 256):
         super().__init__()
+        logger.debug(
+            f"🔧 Initializing TextRadicalEncoder (radicals={num_radicals}, dim={radical_dim})"
+        )
         self.radical_embedding = nn.Embedding(num_radicals, radical_dim)
         self.radical_encoder_rnn = nn.GRU(
             input_size=radical_dim, hidden_size=radical_dim, batch_first=True, bidirectional=True
@@ -370,6 +390,7 @@ class TextCharacterEncoder(nn.Module):
 
     def __init__(self, radical_dim: int = 256, character_dim: int = 512):
         super().__init__()
+        logger.debug(f"🔧 Initializing TextCharacterEncoder (dim={character_dim})")
         self.character_fc = nn.Sequential(
             nn.Linear(radical_dim, character_dim // 2),
             nn.ReLU(),
@@ -414,6 +435,7 @@ class MultiGranularityTextEncoder(nn.Module):
         character_dim: int = 512,
     ):
         super().__init__()
+        logger.info("🏗️  Building MultiGranularityTextEncoder")
         self.stroke_encoder = TextStrokeEncoder(num_strokes, stroke_dim)
         self.radical_encoder = TextRadicalEncoder(num_radicals, radical_dim)
         self.character_encoder = TextCharacterEncoder(radical_dim, character_dim)
@@ -434,6 +456,7 @@ class MultiGranularityTextEncoder(nn.Module):
             - 'radical_importance': (B, num_radicals)
             - 'character': (B, character_dim)
         """
+        logger.debug("→ MultiGranularityTextEncoder forward pass (3-level hierarchy)")
         stroke_features, stroke_importance = self.stroke_encoder(stroke_codes)
         radical_features, radical_importance = self.radical_encoder(radical_codes)
         character_features = self.character_encoder(radical_features, radical_importance)
@@ -468,6 +491,10 @@ class FineGrainedContrastiveLoss(nn.Module):
         weight_character: float = 0.2,
     ):
         super().__init__()
+        logger.info("🏗️  Building FineGrainedContrastiveLoss")
+        logger.debug(
+            f"   Weights - Stroke: {weight_stroke}, Radical: {weight_radical}, Character: {weight_character}"
+        )
         self.temperature = temperature
         self.weight_stroke = weight_stroke
         self.weight_radical = weight_radical
@@ -518,6 +545,7 @@ class FineGrainedContrastiveLoss(nn.Module):
             - 'character_loss': contrastive loss at character level
             - 'total_loss': weighted sum of all losses
         """
+        logger.debug("→ Computing fine-grained contrastive losses")
         # Stroke-level contrastive loss
         # Need to aggregate multiple strokes into single vector
         image_strokes = image_outputs["stroke"].mean(dim=1)  # (B, stroke_dim)
@@ -539,6 +567,10 @@ class FineGrainedContrastiveLoss(nn.Module):
             self.weight_stroke * stroke_loss
             + self.weight_radical * radical_loss
             + self.weight_character * character_loss
+        )
+
+        logger.debug(
+            f"   Losses - Stroke: {stroke_loss.item():.4f}, Radical: {radical_loss.item():.4f}, Character: {character_loss.item():.4f}, Total: {total_loss.item():.4f}"
         )
 
         return {
@@ -572,6 +604,10 @@ class HierCodeWithHiGITA(nn.Module):
         character_dim: int = 512,
     ):
         super().__init__()
+        logger.info("=" * 70)
+        logger.info("🏗️  INITIALIZING HIERCODE WITH HI-GITA ENHANCEMENT")
+        logger.info("=" * 70)
+        logger.info(f"Classes: {num_classes}, Hi-GITA: {use_higita_enhancement}")
         self.num_classes = num_classes
         self.use_higita_enhancement = use_higita_enhancement
 
@@ -583,6 +619,10 @@ class HierCodeWithHiGITA(nn.Module):
 
             # Classification head
             self.classifier = nn.Linear(character_dim, num_classes)
+            logger.info("✓ Hi-GITA enhancement ENABLED")
+            logger.info(
+                f"  Stroke dim: {stroke_dim}, Radical dim: {radical_dim}, Character dim: {character_dim}"
+            )
         else:
             # Standard HierCode (minimal image encoder)
             self.image_encoder = nn.Sequential(
@@ -594,6 +634,8 @@ class HierCodeWithHiGITA(nn.Module):
                 nn.AdaptiveAvgPool2d((1, 1)),
             )
             self.classifier = nn.Linear(256, num_classes)
+            logger.info("✓ Standard HierCode (Hi-GITA disabled)")
+        logger.info("=" * 70)
 
     def forward(self, image: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -613,6 +655,9 @@ class HierCodeWithHiGITA(nn.Module):
             # Classification from character-level features
             character_features = features["character"].squeeze(1)
             logits = self.classifier(character_features)
+            logger.debug(
+                f"→ HierCode forward (Hi-GITA mode): image {image.shape} → logits {logits.shape}"
+            )
 
             return {
                 "logits": logits,
@@ -624,6 +669,9 @@ class HierCodeWithHiGITA(nn.Module):
             features = self.image_encoder(image)
             features = features.view(features.size(0), -1)
             logits = self.classifier(features)
+            logger.debug(
+                f"→ HierCode forward (standard mode): image {image.shape} → logits {logits.shape}"
+            )
 
             return {
                 "logits": logits,
@@ -633,42 +681,47 @@ class HierCodeWithHiGITA(nn.Module):
 
 if __name__ == "__main__":
     # Test Hi-GITA enhancement
-    print("Hi-GITA Enhancement for HierCode - Testing\n")
+
+    logger.info("=" * 70)
+    logger.info("TESTING HI-GITA ENHANCEMENT WITH HIERCODE")
+    logger.info("=" * 70)
 
     # Create model with Hi-GITA enhancement
+    logger.info("\n1️⃣  Creating HierCode model with Hi-GITA...")
     model = HierCodeWithHiGITA(num_classes=3036, use_higita_enhancement=True)
 
     # Test image input
     batch_size = 4
     image = torch.randn(batch_size, 1, 64, 64)
+    logger.info(f"   Input shape: {image.shape}")
 
     # Forward pass
+    logger.info("\n2️⃣  Testing image encoder forward pass...")
     output = model(image)
-    print("✅ Image encoder output:")
-    print(f"   - Logits shape: {output['logits'].shape}")
-    print(f"   - Character features shape: {output['character_features'].shape}")
-    print(f"   - Stroke features shape: {output['features']['stroke'].shape}")
-    print(f"   - Radical features shape: {output['features']['radical'].shape}")
-    print(f"   - Character embedding shape: {output['features']['character'].shape}")
+    logger.info(f"   ✓ Output logits: {output['logits'].shape}")
+    logger.info(f"   ✓ Character features: {output['character_features'].shape}")
 
     # Test text encoder
+    logger.info("\n3️⃣  Creating text encoder and testing forward pass...")
     text_encoder = MultiGranularityTextEncoder()
     stroke_codes = torch.randint(0, 20, (batch_size, 15))
     radical_codes = torch.randint(0, 214, (batch_size, 10))
+    logger.info(f"   Stroke codes: {stroke_codes.shape}, Radical codes: {radical_codes.shape}")
 
     text_output = text_encoder(stroke_codes, radical_codes)
-    print("\n✅ Text encoder output:")
-    print(f"   - Stroke embeddings shape: {text_output['stroke'].shape}")
-    print(f"   - Radical embeddings shape: {text_output['radical'].shape}")
-    print(f"   - Character embedding shape: {text_output['character'].shape}")
+    logger.info(f"   ✓ Text stroke output: {text_output['stroke'].shape}")
+    logger.info(f"   ✓ Text radical output: {text_output['radical'].shape}")
+    logger.info(f"   ✓ Text character output: {text_output['character'].shape}")
 
     # Test contrastive loss
+    logger.info("\n4️⃣  Testing contrastive loss computation...")
     contrastive = FineGrainedContrastiveLoss()
     losses = contrastive(output["features"], text_output)
-    print("\n✅ Contrastive losses:")
-    print(f"   - Stroke loss: {losses['stroke_loss'].item():.4f}")
-    print(f"   - Radical loss: {losses['radical_loss'].item():.4f}")
-    print(f"   - Character loss: {losses['character_loss'].item():.4f}")
-    print(f"   - Total loss: {losses['total_loss'].item():.4f}")
+    logger.info(f"   ✓ Stroke loss: {losses['stroke_loss'].item():.4f}")
+    logger.info(f"   ✓ Radical loss: {losses['radical_loss'].item():.4f}")
+    logger.info(f"   ✓ Character loss: {losses['character_loss'].item():.4f}")
+    logger.info(f"   ✓ Total loss: {losses['total_loss'].item():.4f}")
 
-    print("\n✅ All Hi-GITA components working correctly!")
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ HI-GITA ENHANCEMENT TEST COMPLETE!")
+    logger.info("=" * 70)

@@ -1,9 +1,10 @@
-"""
-Unified configuration and utilities for all optimization approaches.
+"""Unified configuration and utilities for all optimization approaches.
+
 Centralizes common parameters and utilities to reduce code duplication.
 """
 
 import json
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
+
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # ============================================================================
 # GPU VERIFICATION AND INITIALIZATION
@@ -28,26 +33,7 @@ def verify_and_setup_gpu():
         str: "cuda" device string
     """
     if not torch.cuda.is_available():
-        print("=" * 70)
-        print("❌ NVIDIA GPU NOT FOUND")
-        print("=" * 70)
-        print("\nThese training scripts require an NVIDIA GPU with CUDA support.")
-        print("CPU training is not supported for performance reasons.")
-        print("\nError Details:")
-        print(f"  - PyTorch version: {torch.__version__}")
-        print(f"  - CUDA available: {torch.cuda.is_available()}")
-        print(f"  - CUDA version: {torch.version.cuda if torch.version.cuda else 'Not installed'}")
-        print(
-            f"  - cuDNN version: {torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else 'Not available'}"
-        )
-        print("\nPlease ensure:")
-        print("  1. NVIDIA GPU drivers are installed")
-        print("  2. CUDA Toolkit is installed (matching PyTorch version)")
-        print("  3. cuDNN library is installed (recommended for optimal performance)")
-        print("\nInstallation guides:")
-        print("  - NVIDIA CUDA Toolkit: https://developer.nvidia.com/cuda-downloads")
-        print("  - cuDNN: https://developer.nvidia.com/cudnn")
-        print("=" * 70)
+        logger.error("✗ GPU not available")
         sys.exit(1)
 
     # Enable CUDA optimizations
@@ -56,13 +42,9 @@ def verify_and_setup_gpu():
     torch.backends.cudnn.allow_tf32 = True
 
     # Log GPU info
-    gpu_name = torch.cuda.get_device_name(0)
-    gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
-    print(f"\n✅ GPU Detected: {gpu_name} ({gpu_memory_gb:.1f} GB)")
-    print(f"   CUDA Version: {torch.version.cuda}")
-    print(f"   cuDNN Version: {torch.backends.cudnn.version()}")
-    print("   cuDNN Benchmark: Enabled")
-    print("   TF32 Support: Enabled\n")
+    device_name = torch.cuda.get_device_name(0)
+    memory_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+    logger.info(f"✓ GPU: {device_name} ({memory_gb:.1f}GB)")
 
     return "cuda"
 
@@ -103,7 +85,7 @@ class OptimizationConfig:
     # ========== OPTIMIZATION ALGORITHM PARAMETERS ==========
     optimizer: str = "adamw"  # adamw or sgd
     scheduler: str = "cosine"  # cosine or step
-    scheduler_T_max: int = 30  # For cosine annealing (usually = epochs)
+    scheduler_t_max: int = 30  # For cosine annealing (usually = epochs)  # noqa: N815
 
     # ========== DEVICE & LOGGING ==========
     device: str = "cuda"  # GPU required (verified at startup)
@@ -330,7 +312,7 @@ class ETL9GDataset(Dataset):
 
     def __init__(
         self,
-        X: np.ndarray,
+        X: np.ndarray,  # noqa: N803
         y: np.ndarray,
         augment: bool = False,
         config: Optional[OptimizationConfig] = None,
@@ -431,7 +413,6 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
         chunk_info_path = data_path / dataset_name / "chunk_info.json"
         if chunk_info_path.exists():
             selected_dataset = dataset_name
-            print(f"🔍 Auto-detected dataset: {dataset_name}")
             break
 
     if selected_dataset is None:
@@ -439,15 +420,15 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
         chunk_info_path = data_path / "chunk_info.json"
         if chunk_info_path.exists():
             selected_dataset = "legacy"
-            print("🔍 Auto-detected legacy dataset structure")
         else:
             raise FileNotFoundError(
                 f"No dataset found in {data_path}. Available datasets should have chunk_info.json"
             )
 
+    logger.info(f"📂 Loading dataset: {selected_dataset}")
+
     if selected_dataset == "legacy":
         # Legacy flat structure
-        print("Loading legacy chunked dataset...")
         with open(data_path / "chunk_info.json") as f:
             chunk_info = json.load(f)
 
@@ -460,11 +441,10 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
                 chunk = np.load(chunk_file)
                 all_X.append(chunk["X"])
                 all_y.append(chunk["y"])
-                print(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
 
         X = np.concatenate(all_X, axis=0) if all_X else np.array([])
         y = np.concatenate(all_y, axis=0) if all_y else np.array([])
-        print(f"✓ Total samples loaded: {len(X)}")
+        logger.info(f"  → Loaded {len(y)} samples")
         return X, y
     else:
         # New directory structure
@@ -472,7 +452,6 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
         chunk_info_path = dataset_dir / "chunk_info.json"
 
         if chunk_info_path.exists():
-            print(f"Loading {selected_dataset} dataset from chunks...")
             with open(chunk_info_path) as f:
                 chunk_info = json.load(f)
 
@@ -485,28 +464,29 @@ def load_chunked_dataset(data_dir: str) -> Tuple[np.ndarray, np.ndarray]:
                     chunk = np.load(chunk_file)
                     all_X.append(chunk["X"])
                     all_y.append(chunk["y"])
-                    print(f"  Loaded chunk {i + 1}/{chunk_info['num_chunks']}")
                 else:
-                    print(f"  ⚠️  Missing chunk {i:02d}, continuing...")
+                    pass
 
             X = np.concatenate(all_X, axis=0) if all_X else np.array([])
             y = np.concatenate(all_y, axis=0) if all_y else np.array([])
-            print(f"✓ Total samples loaded: {len(X)}")
+            logger.info(f"  → Loaded {len(y)} samples")
             return X, y
         else:
             # Try single file
             single_file = dataset_dir / f"{selected_dataset}_dataset.npz"
             if single_file.exists():
-                print(f"Loading {selected_dataset} dataset from single file...")
                 dataset = np.load(single_file)
-                print(f"✓ Loaded {len(dataset['X'])} samples")
+                logger.info(f"  → Loaded {len(dataset['y'])} samples")
                 return dataset["X"], dataset["y"]
             else:
                 raise FileNotFoundError(f"No valid dataset files found in {dataset_dir}")
 
 
 def create_data_loaders(
-    X: np.ndarray, y: np.ndarray, config: OptimizationConfig, sample_limit: Optional[int] = None
+    x: np.ndarray,
+    y: np.ndarray,
+    config: OptimizationConfig,
+    sample_limit: Optional[int] = None,  # noqa: N803
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Create train/val/test data loaders with proper splitting.
@@ -523,11 +503,8 @@ def create_data_loaders(
     from sklearn.model_selection import train_test_split
 
     if sample_limit:
-        X = X[:sample_limit]
+        X = X[:sample_limit]  # noqa: F821
         y = y[:sample_limit]
-        print(f"Using {sample_limit} samples")
-
-    print(f"Dataset: {len(X)} samples, {len(np.unique(y))} classes")
 
     # Train/val/test split
     X_temp, X_test, y_temp, y_test = train_test_split(
@@ -538,8 +515,6 @@ def create_data_loaders(
     X_train, X_val, y_train, y_val = train_test_split(
         X_temp, y_temp, test_size=val_size, random_state=config.random_seed, stratify=y_temp
     )
-
-    print(f"  Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
 
     # Create datasets
     train_dataset = ETL9GDataset(X_train, y_train, augment=config.augment_enabled, config=config)
@@ -557,6 +532,11 @@ def create_data_loaders(
         test_dataset, batch_size=config.batch_size, shuffle=False, num_workers=4, pin_memory=True
     )
 
+    logger.info(f"✓ Data loaders created (batch_size={config.batch_size})")
+    logger.info(
+        f"  Train: {len(train_dataset)}, Val: {len(val_dataset)}, Test: {len(test_dataset)}"
+    )
+
     return train_loader, val_loader, test_loader
 
 
@@ -566,7 +546,6 @@ def save_config(config: OptimizationConfig, output_dir: str, name: str = "config
     config_path = Path(output_dir) / name
     with open(config_path, "w") as f:
         json.dump(config.to_dict(), f, indent=2)
-    print(f"✓ Configuration saved to {config_path}")
 
 
 def prepare_dataset_and_loaders(

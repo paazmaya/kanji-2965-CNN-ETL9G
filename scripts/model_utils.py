@@ -2,7 +2,11 @@
 Utility functions for model type detection and export path management.
 """
 
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # Supported model types in the training structure
 SUPPORTED_MODEL_TYPES = ["cnn", "rnn", "qat", "vit", "hiercode", "hiercode_higita"]

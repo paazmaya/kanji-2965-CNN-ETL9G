@@ -7,12 +7,16 @@ This script measures and tracks CO2 emissions during model training and inferenc
 """
 
 import json
+import logging
 import platform
 from datetime import datetime
 from pathlib import Path
 
 import psutil
 import torch
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # Try to import CodeCarbon for CO2 tracking
 try:
@@ -21,7 +25,6 @@ try:
     CODECARBON_AVAILABLE = True
 except ImportError:
     CODECARBON_AVAILABLE = False
-    print("⚠️  CodeCarbon not installed. Install with: uv pip install codecarbon")
 
 
 def get_system_info():
@@ -55,22 +58,13 @@ def get_system_info():
 def estimate_training_emissions():
     """Estimate CO2 emissions for model training based on system specs and training time"""
 
-    print("🌍 CO2 Emissions Estimation for Kanji Recognition Model")
-    print("=" * 60)
-    print()
-
     # Get system information
     sys_info = get_system_info()
 
-    print("📊 System Configuration:")
-    print(f"   - Platform: {sys_info['platform']}")
-    print(f"   - CPU: {sys_info['processor']} ({sys_info['cpu_count']} cores)")
-    print(f"   - Memory: {sys_info['memory_total_gb']} GB")
     if sys_info["gpu_available"]:
-        print(f"   - GPU: {sys_info['gpu_name']} ({sys_info['gpu_memory_gb']} GB)")
+        pass
     else:
-        print("   - GPU: Not available")
-    print()
+        pass
 
     # Training parameters from our model
     training_params = {
@@ -84,13 +78,11 @@ def estimate_training_emissions():
         "model_size_mb": 6.62,
     }
 
-    print("🏋️ Training Configuration:")
-    for key, value in training_params.items():
+    for _key, value in training_params.items():
         if isinstance(value, float):
-            print(f"   - {key.replace('_', ' ').title()}: {value:.2f}")
+            pass
         else:
-            print(f"   - {key.replace('_', ' ').title()}: {value:,}")
-    print()
+            pass
 
     # Power consumption estimates (typical values)
     power_estimates = {
@@ -112,14 +104,8 @@ def estimate_training_emissions():
         total_training_watts * training_params["estimated_training_time_hours"]
     ) / 1000
 
-    print("⚡ Power Consumption Estimates:")
-    print(f"   - CPU Training Power: {power_estimates['cpu_training_watts']} W")
     if sys_info["gpu_available"]:
-        print(f"   - GPU Training Power: {power_estimates['gpu_training_watts']} W")
-    print(f"   - System Overhead: {power_estimates['system_overhead_watts']} W")
-    print(f"   - Total Training Power: {total_training_watts} W")
-    print(f"   - Total Energy Consumption: {total_training_kwh:.3f} kWh")
-    print()
+        pass
 
     # CO2 emission factors (kg CO2 per kWh)
     # These vary by country/region - using global averages
@@ -131,13 +117,8 @@ def estimate_training_emissions():
         "renewable": 0.041,  # If using renewable energy
     }
 
-    print("🌍 CO2 Emission Estimates by Region:")
-    for region, factor in emission_factors.items():
-        co2_kg = total_training_kwh * factor
-        print(
-            f"   - {region.replace('_', ' ').title()}: {co2_kg:.6f} kg CO2 ({co2_kg * 1000:.3f} g CO2)"
-        )
-    print()
+    for _region, factor in emission_factors.items():
+        total_training_kwh * factor
 
     # Additional metrics
     inference_power_watts = 50  # Much lower for inference
@@ -148,14 +129,6 @@ def estimate_training_emissions():
         inference_power_watts * (images_per_day * inference_time_ms / 1000) / 3600
     ) / 1000
     daily_inference_co2 = daily_inference_kwh * emission_factors["global_average"]
-
-    print("📱 Inference Emissions (Example Usage):")
-    print(f"   - Power per inference: ~{inference_power_watts} W")
-    print(f"   - Time per inference: ~{inference_time_ms} ms")
-    print(f"   - Daily usage: {images_per_day:,} images")
-    print(f"   - Daily energy: {daily_inference_kwh:.6f} kWh")
-    print(f"   - Daily CO2: {daily_inference_co2 * 1000:.3f} g CO2")
-    print()
 
     # Create summary report
     report = {
@@ -188,8 +161,6 @@ def estimate_training_emissions():
     with open(report_file, "w") as f:
         json.dump(report, f, indent=2)
 
-    print(f"📄 Detailed report saved to: {report_file}")
-
     return report
 
 
@@ -197,11 +168,7 @@ def setup_codecarbon_tracking():
     """Set up CodeCarbon for actual measurement during training"""
 
     if not CODECARBON_AVAILABLE:
-        print("❌ CodeCarbon not available. Install with:")
-        print("   uv pip install codecarbon")
         return None
-
-    print("🔧 Setting up CodeCarbon tracking...")
 
     # Create CodeCarbon configuration
     config = {
@@ -222,25 +189,6 @@ def setup_codecarbon_tracking():
     # Save configuration
     with open("./emissions/codecarbon_config.json", "w") as f:
         json.dump(config, f, indent=2)
-
-    print("✅ CodeCarbon configuration saved to ./emissions/codecarbon_config.json")
-    print("💡 To track training emissions, modify your training script:")
-    print("""
-    from codecarbon import EmissionsTracker
-
-    # Start tracking at beginning of training
-    tracker = EmissionsTracker(
-        project_name="tsujimoto-kanji-recognition",
-        output_dir="./emissions/"
-    )
-    tracker.start()
-
-    # Your training code here...
-
-    # Stop tracking at end of training
-    emissions = tracker.stop()
-    print(f"Training emissions: {emissions:.6f} kg CO2")
-    """)
 
     return config
 
@@ -308,40 +256,20 @@ For reference, daily inference usage:
     with open("carbon_footprint_section.md", "w") as f:
         f.write(carbon_section)
 
-    print("\n📝 Carbon footprint section saved to: carbon_footprint_section.md")
-    print("💡 You can copy this section into your model-card.md file")
-
     return carbon_section
 
 
 def main():
     """Main function to run CO2 measurement and reporting"""
 
-    print("🌱 Tsujimoto - CO2 Emissions Assessment")
-    print("=" * 70)
-    print()
-
     # 1. Estimate emissions from completed training
-    print("📊 Step 1: Estimating emissions from completed training...")
     estimate_training_emissions()
-    print()
 
     # 2. Set up CodeCarbon for future training
-    print("🔧 Step 2: Setting up CodeCarbon for precise measurement...")
     setup_codecarbon_tracking()
-    print()
 
     # 3. Create model card section
-    print("📝 Step 3: Creating model card carbon footprint section...")
     create_carbon_footprint_section()
-    print()
-
-    print("✅ CO2 assessment complete!")
-    print("\n📋 Next Steps:")
-    print("1. Review the generated carbon footprint section")
-    print("2. Add it to your model-card.md file")
-    print("3. Install CodeCarbon for future training runs")
-    print("4. Consider using renewable energy for training")
 
 
 if __name__ == "__main__":

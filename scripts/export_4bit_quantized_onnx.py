@@ -6,6 +6,7 @@ Converts PyTorch INT8 model to ultra-lightweight 4-bit ONNX for edge deployment
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -14,12 +15,16 @@ from model_utils import generate_export_path, infer_model_type
 from optimization_config import HierCodeConfig
 from train_hiercode import HierCodeClassifier
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+
 
 def quantize_onnx_4bit(
     onnx_model_path: str, output_path: Optional[str] = None
 ) -> Tuple[Optional[str], Optional[dict]]:
     """Quantize ONNX model to 4-bit using ONNX Runtime tools"""
-    print("\n🔧 Applying dynamic quantization to ONNX model...")
+
+    logger.info("🔄 Quantizing ONNX model to INT8...")
 
     try:
         from onnxruntime.quantization import (  # type: ignore[import-not-found]
@@ -34,42 +39,40 @@ def quantize_onnx_4bit(
         else:
             output_path_obj = Path(output_path)
 
-        print(f"  Input: {onnx_path}")
-        print(f"  Output: {output_path_obj}")
-
         # Dynamic quantization to INT8 (8-bit, more stable than 4-bit)
         # 4-bit quantization requires pre-INT8 quantization which is more complex
         # Using INT8 dynamic quantization for production stability
+        logger.info("  → Applying INT8 quantization...")
         quantize_dynamic(
             str(onnx_path),
             str(output_path_obj),
             weight_type=QuantType.QInt8,
         )
 
-        print("  ✓ INT8 dynamic quantization applied")
-
         # Check file size
         original_size = onnx_path.stat().st_size
         quantized_size = output_path_obj.stat().st_size
+        reduction = 100 * (1 - quantized_size / original_size)
 
-        print("\n  Size Comparison:")
-        print(f"    Original (float32 ONNX): {original_size / 1e6:.2f} MB")
-        print(f"    Quantized (INT8):        {quantized_size / 1e6:.2f} MB")
-        print(f"    Reduction:               {100 * (1 - quantized_size / original_size):.1f}%")
+        logger.info("✓ Quantization complete")
+        logger.info(
+            "  → Original: %.2f MB → Quantized: %.2f MB (%.1f%% reduction)",
+            original_size / 1e6,
+            quantized_size / 1e6,
+            reduction,
+        )
 
         return str(output_path_obj), {
             "original_size_mb": original_size / 1e6,
             "quantized_size_mb": quantized_size / 1e6,
-            "reduction_percent": 100 * (1 - quantized_size / original_size),
+            "reduction_percent": reduction,
         }
 
     except ImportError:
-        print("  ❌ onnxruntime not installed")
-        print("     Install with: uv pip install onnxruntime-gpu")
+        logger.error("✗ ONNX Runtime not installed. Install with: pip install onnxruntime")
         return None, None
     except Exception as e:
-        print(f"  ⚠️  Quantization failed: {e}")
-        print("     Returning original float32 model")
+        logger.error("✗ Quantization failed: %s", str(e))
         onnx_path = Path(onnx_model_path)
         return str(onnx_path), {"original_size_mb": onnx_path.stat().st_size / 1e6}
 
@@ -81,16 +84,10 @@ def export_int8_to_4bit_onnx(
     model_type: str = "hiercode",
 ) -> Tuple[Optional[str], Optional[dict]]:
     """Export INT8 PyTorch model to 4-bit quantized ONNX"""
-    print("\n" + "=" * 70)
-    print("EXPORTING INT8 MODEL TO 4-BIT QUANTIZED ONNX")
-    print("=" * 70)
 
     model_path_obj = Path(model_path)
     if not model_path_obj.exists():
-        print(f"❌ Model not found: {model_path}")
         return None, None
-
-    print(f"\n📂 Loading INT8 model: {model_path}")
 
     # Load config
     config_path = model_path_obj.parent / f"{model_type}_config.json"
@@ -105,8 +102,6 @@ def export_int8_to_4bit_onnx(
     # Load quantized checkpoint
     checkpoint = torch.load(model_path_obj, map_location="cpu")
 
-    print("ℹ️  Loading INT8 model")
-
     # For quantized models, extract state dict
     if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
         state_dict = checkpoint["model_state_dict"]
@@ -118,11 +113,9 @@ def export_int8_to_4bit_onnx(
         config = HierCodeConfig(num_classes=num_classes)
         model = HierCodeClassifier(num_classes=num_classes, config=config)
     else:
-        print(f"❌ Unknown model type: {model_type}")
         return None, None
 
     # Dequantize tensors for ONNX export
-    print("ℹ️  Dequantizing INT8 tensors...")
     dequantized_state = {}
     for key, value in state_dict.items():
         if hasattr(value, "dequantize"):
@@ -133,13 +126,10 @@ def export_int8_to_4bit_onnx(
     # Load dequantized state dict
     try:
         model.load_state_dict(dequantized_state, strict=False)
-    except Exception as e:
-        print(f"❌ Failed to load model: {e}")
+    except Exception:
         return None, None
 
     model.eval()
-
-    print("✓ INT8 model loaded successfully (dequantized)")
 
     # Generate output path if not specified
     if output_path is None:
@@ -153,14 +143,6 @@ def export_int8_to_4bit_onnx(
         output_path_obj = Path(output_path)
 
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-    print("\n🔧 Exporting to ONNX...")
-    print(f"  Model type: {model_type}")
-    print("  Source quantization: INT8")
-    print("  Target quantization: 4-bit")
-    print(f"  Opset version: {opset_version}")
-    print("  Input: (batch_size, 1, 64, 64)")
-    print(f"  Output: (batch_size, {num_classes})")
 
     # Create dummy input
     dummy_input = torch.randn(1, 1, 64, 64)
@@ -178,20 +160,16 @@ def export_int8_to_4bit_onnx(
             verbose=False,
             export_params=True,
         )
-        print("\n✅ Model exported to ONNX (float32)")
-    except Exception as e:
-        print(f"\n❌ Export failed: {e}")
+    except Exception:
         return None, None
 
     # Check file size before quantization
     onnx_float_size = output_path_obj.stat().st_size
-    print(f"  Size (float32 ONNX): {onnx_float_size / 1e6:.2f} MB")
 
     # Apply 4-bit quantization
     quantized_path, quant_info = quantize_onnx_4bit(str(output_path_obj))
 
     if quantized_path is None:
-        print("\n⚠️  4-bit quantization skipped (onnxruntime not available)")
         quantized_path = str(output_path_obj)
         quant_info = {"original_size_mb": onnx_float_size / 1e6}
 
@@ -217,42 +195,35 @@ def export_int8_to_4bit_onnx(
     with open(info_path, "w") as f:
         json.dump(info, f, indent=2)
 
-    print(f"\n📋 Info file saved: {info_path}")
-
     return quantized_path, info
 
 
 def verify_onnx(onnx_path: str):
     """Verify ONNX model is valid"""
-    print("\n🔍 Verifying ONNX model...")
+
+    logger.info("🔍 Verifying ONNX model...")
 
     try:
         import onnx
 
         model = onnx.load(str(onnx_path))
         onnx.checker.check_model(model)
-        print("  ✓ ONNX model is valid")
 
-        # Print model info
-        graph = model.graph
-        print("\n  Model Graph Info:")
-        print(f"    Inputs: {[inp.name for inp in graph.input]}")
-        print(f"    Outputs: {[out.name for out in graph.output]}")
-        print(f"    Nodes: {len(graph.node)}")
+        logger.info("✓ ONNX model is valid")
 
         return True
     except ImportError:
-        print("  ⚠️  onnx package not installed, skipping verification")
-        print("     Install with: uv pip install onnx")
+        logger.error("✗ ONNX package not installed")
         return False
     except Exception as e:
-        print(f"  ❌ ONNX validation failed: {e}")
+        logger.error("✗ ONNX verification failed: %s", str(e))
         return False
 
 
 def test_inference(onnx_path: str, num_samples: int = 5):
     """Test 4-bit quantized ONNX model inference"""
-    print("\n🧪 Testing 4-bit ONNX inference...")
+
+    logger.info("🧪 Testing ONNX model inference (%d samples)...", num_samples)
 
     try:
         import numpy as np
@@ -266,21 +237,16 @@ def test_inference(onnx_path: str, num_samples: int = 5):
         ]
 
         sess = ort.InferenceSession(str(onnx_path), providers=providers)  # type: ignore[attr-defined]
-        print("  ✓ ONNX Runtime session created (with quantization support)")
 
         # Get input/output info
         input_name = sess.get_inputs()[0].name
         output_name = sess.get_outputs()[0].name
 
-        print(f"  Input: {input_name}")
-        print(f"  Output: {output_name}")
-
         # Test inference
-        print(f"\n  Running {num_samples} inference tests...")
         import time
 
         times = []
-        for i in range(num_samples):
+        for _i in range(num_samples):
             test_input = np.random.randn(1, 1, 64, 64).astype("float32")
 
             start = time.time()
@@ -288,20 +254,16 @@ def test_inference(onnx_path: str, num_samples: int = 5):
             elapsed = time.time() - start
             times.append(elapsed * 1000)
 
-            print(f"    Sample {i + 1}: {elapsed * 1000:.2f} ms")
-
         avg_time = sum(times) / len(times)
-        print(f"\n  ✓ Average inference time: {avg_time:.2f} ms")
-        print(f"  Throughput: {1000 / avg_time:.1f} samples/sec")
+        logger.info("✓ Inference test successful: %.2f ms per sample", avg_time)
 
         return True
 
     except ImportError:
-        print("  ⚠️  onnxruntime package not installed")
-        print("     Install with: uv pip install onnxruntime-gpu")
+        logger.error("✗ ONNX Runtime not installed")
         return False
     except Exception as e:
-        print(f"  ❌ Inference test failed: {e}")
+        logger.error("✗ Inference test failed: %s", str(e))
         return False
 
 
@@ -367,7 +329,18 @@ Examples:
 
     args = parser.parse_args()
 
+    logger.info("=" * 70)
+    logger.info("EXPORT INT8 MODEL TO 4-BIT QUANTIZED ONNX")
+    logger.info("=" * 70)
+    logger.info(
+        "Model type: %s | Verify: %s | Test inference: %s",
+        args.model_type,
+        args.verify,
+        args.test_inference,
+    )
+
     # Export INT8 to 4-bit ONNX
+    logger.info("→ Exporting model to 4-bit quantized ONNX...")
     onnx_path, info = export_int8_to_4bit_onnx(
         args.model_path,
         output_path=args.output,
@@ -376,39 +349,23 @@ Examples:
     )
 
     if onnx_path is None or info is None:
-        print("\n❌ Export failed")
+        logger.error("✗ Export failed")
         return
+
+    logger.info("✓ Export complete: %s", onnx_path)
 
     # Verify if requested
     if args.verify:
+        logger.info("")
         verify_onnx(onnx_path)
 
     # Test inference if requested
     if args.test_inference:
+        logger.info("")
         test_inference(onnx_path)
 
-    print("\n" + "=" * 70)
-    print("✅ 4-BIT ONNX EXPORT COMPLETE")
-    print("=" * 70)
-    print(f"\n4-bit Quantized ONNX Model: {onnx_path}")
-    print(f"File Size: {info['final_size_mb']:.2f} MB")
-    print(f"Size Reduction: {info.get('size_reduction_percent', 0):.1f}%")
-    print("\nComparison with other formats:")
-    print("  📦 PyTorch float32:     9.56 MB")
-    print("  📦 PyTorch INT8:        2.10 MB (5.5x)")
-    print("  📦 ONNX float32:        6.86 MB")
-    print(f"  📦 ONNX 4-bit:          {info['final_size_mb']:.2f} MB (ultra-light!)")
-    print("\nDeployment Benefits:")
-    print("  ✓ Ultra-lightweight model for edge devices")
-    print("  ✓ Fast inference on CPU")
-    print("  ✓ Minimal memory footprint")
-    print("  ✓ Ideal for embedded systems, IoT, mobile")
-    print("\nDeployment Options:")
-    print("  1. Python: uv pip install onnxruntime-gpu")
-    print("  2. Edge: TensorRT, TVM, TensorFlow Lite")
-    print("  3. Embedded: ONNX Core Runtime")
-    print("  4. Web: ONNX.js (with server-side quantization)")
-    print()
+    logger.info("=" * 70)
+    logger.info("✓ All tasks complete!")
 
 
 if __name__ == "__main__":

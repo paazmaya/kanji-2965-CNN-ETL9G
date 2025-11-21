@@ -5,10 +5,14 @@ Configuration module for HierCode + Hi-GITA training
 Extends optimization_config.py with Hi-GITA specific settings.
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
 import torch
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 @dataclass
@@ -214,7 +218,6 @@ def get_standard_hiercode_config() -> HiGITATrainingConfig:
 
 if __name__ == "__main__":
     # Show available configs
-    print("Hi-GITA Configuration Presets\n")
 
     configs = {
         "full": get_higita_full_config(),
@@ -223,11 +226,6 @@ if __name__ == "__main__":
         "standard": get_standard_hiercode_config(),
     }
 
+    logger.info("Available configurations:")
     for name, config in configs.items():
-        print(f"{'=' * 50}")
-        print(f"Configuration: {name.upper()}")
-        print(f"{'=' * 50}")
-        import json
-
-        print(json.dumps(config.to_dict(), indent=2))
-        print()
+        logger.info("  - %s: %s parameters", name, len(config.__dict__))

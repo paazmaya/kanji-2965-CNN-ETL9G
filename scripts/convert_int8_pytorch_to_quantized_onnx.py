@@ -7,11 +7,15 @@ Produces ultra-lightweight model: 1.75 MB (vs 9.56 MB original)
 
 import argparse
 import json
+import logging
 from pathlib import Path
 
 import torch
 from optimization_config import HierCodeConfig
 from train_hiercode import HierCodeClassifier
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def export_quantized_int8_to_quantized_int8_onnx(
@@ -30,13 +34,16 @@ def export_quantized_int8_to_quantized_int8_onnx(
     4. Apply dynamic INT8 quantization
     5. Verify and save metadata
     """
-    print("\n" + "=" * 80)
-    print("CONVERTING INT8 QUANTIZED PYTORCH TO 4-BIT QUANTIZED ONNX")
-    print("=" * 80)
+
+    logger.info("=" * 70)
+    logger.info("INT8 PYTORCH → FLOAT32 ONNX → INT8 QUANTIZED ONNX")
+    logger.info("=" * 70)
+    logger.info(f"📂 Source model: {int8_model_path}")
+    logger.info(f"🎯 Target opset: {opset_version}")
 
     int8_model_path = Path(int8_model_path)
     if not int8_model_path.exists():
-        print(f"❌ Model not found: {int8_model_path}")
+        logger.error(f"❌ Model not found: {int8_model_path}")
         return None, None
 
     # Setup output directory
@@ -45,8 +52,6 @@ def export_quantized_int8_to_quantized_int8_onnx(
     else:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"\n📂 Loading INT8 quantized model: {int8_model_path}")
 
     # Load config
     config_path = int8_model_path.parent / f"{model_type}_config.json"
@@ -61,26 +66,23 @@ def export_quantized_int8_to_quantized_int8_onnx(
     # Load quantized checkpoint
     checkpoint = torch.load(int8_model_path, map_location="cpu")
 
-    print("ℹ️  Loading INT8 quantized model checkpoint")
+    logger.info(f"✓ Loaded checkpoint with {num_classes} classes")
 
     # Extract state dict
     if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
         state_dict = checkpoint["model_state_dict"]
-        print("  ✓ Full checkpoint format detected")
     else:
         state_dict = checkpoint
-        print("  ✓ Direct state dict format")
 
     # Create model
     if model_type == "hiercode":
         config = HierCodeConfig(num_classes=num_classes)
         model = HierCodeClassifier(num_classes=num_classes, config=config)
     else:
-        print(f"❌ Unknown model type: {model_type}")
+        logger.error(f"❌ Unsupported model type: {model_type}")
         return None, None
 
     # Dequantize INT8 tensors for ONNX compatibility
-    print("\nℹ️  Dequantizing INT8 tensors for ONNX export...")
     dequantized_state = {}
     quantized_count = 0
     for key, value in state_dict.items():
@@ -90,17 +92,17 @@ def export_quantized_int8_to_quantized_int8_onnx(
         else:
             dequantized_state[key] = value
 
-    print(f"  ✓ Dequantized {quantized_count} tensors")
+    logger.info(f"✓ Dequantized {quantized_count} layers for ONNX export")
 
     # Load dequantized state dict
     try:
         model.load_state_dict(dequantized_state, strict=False)
     except Exception as e:
-        print(f"❌ Failed to load model: {e}")
+        logger.error(f"❌ Failed to load state dict: {e}")
         return None, None
 
     model.eval()
-    print("✓ INT8 model loaded successfully (dequantized for ONNX)")
+    logger.info("✓ Model initialized and loaded")
 
     # Get original INT8 model size
     int8_size_mb = int8_model_path.stat().st_size / 1e6
@@ -110,12 +112,6 @@ def export_quantized_int8_to_quantized_int8_onnx(
     onnx_float32_path = output_dir / f"{base_name}_exported_float32_opset{opset_version}.onnx"
     onnx_quantized_path = output_dir / f"{base_name}_quantized_int8_onnx_opset{opset_version}.onnx"
     metadata_path = output_dir / f"{base_name}_quantized_int8_onnx_opset{opset_version}.json"
-
-    print("\n🔧 Step 1: Exporting to ONNX (float32)...")
-    print(f"  Model type: {model_type}")
-    print("  Input: (batch_size, 1, 64, 64)")
-    print(f"  Output: (batch_size, {num_classes})")
-    print(f"  Output: {onnx_float32_path.name}")
 
     # Create dummy input
     dummy_input = torch.randn(1, 1, 64, 64)
@@ -133,19 +129,17 @@ def export_quantized_int8_to_quantized_int8_onnx(
             verbose=False,
             export_params=True,
         )
-        print("✅ Exported to ONNX (float32)")
+        logger.info(f"✓ Exported float32 ONNX: {onnx_float32_path}")
     except Exception as e:
-        print(f"❌ Export failed: {e}")
+        logger.error(f"❌ ONNX export failed: {e}")
         return None, None
 
     # Check float32 ONNX size
     onnx_float32_size_mb = onnx_float32_path.stat().st_size / 1e6
-    print(f"  Size: {onnx_float32_size_mb:.2f} MB")
+    logger.info(f"📊 Float32 ONNX size: {onnx_float32_size_mb:.2f} MB")
 
     # Apply dynamic INT8 quantization
-    print("\n🔧 Step 2: Applying dynamic INT8 quantization to ONNX...")
-    print(f"  Input: {onnx_float32_path.name}")
-    print(f"  Output: {onnx_quantized_path.name}")
+    logger.info("🔧 Applying dynamic INT8 quantization...")
 
     try:
         from onnxruntime.quantization import QuantType, quantize_dynamic
@@ -155,22 +149,20 @@ def export_quantized_int8_to_quantized_int8_onnx(
             str(onnx_quantized_path),
             weight_type=QuantType.QInt8,
         )
-        print("✅ Applied INT8 quantization")
+        logger.info(f"✓ Quantized ONNX: {onnx_quantized_path}")
     except ImportError:
-        print("⚠️  onnxruntime not installed, skipping quantization")
-        print("   Using float32 ONNX instead")
+        logger.warning("⚠️  ONNX Runtime quantization not available, keeping float32")
         onnx_quantized_path = onnx_float32_path
     except Exception as e:
-        print(f"⚠️  Quantization failed: {e}")
-        print("   Using float32 ONNX instead")
+        logger.warning(f"⚠️  Quantization failed: {e}, keeping float32")
         onnx_quantized_path = onnx_float32_path
 
     # Check final quantized ONNX size
     onnx_quantized_size_mb = onnx_quantized_path.stat().st_size / 1e6
     size_reduction_percent = 100 * (1 - onnx_quantized_size_mb / onnx_float32_size_mb)
-
-    print(f"  Size: {onnx_quantized_size_mb:.2f} MB")
-    print(f"  Reduction: {size_reduction_percent:.1f}% (vs float32 ONNX)")
+    logger.info(
+        f"📉 INT8 quantized size: {onnx_quantized_size_mb:.2f} MB ({size_reduction_percent:.1f}% reduction)"
+    )
 
     # Create comprehensive metadata file
     info = {
@@ -213,27 +205,22 @@ def export_quantized_int8_to_quantized_int8_onnx(
     with open(metadata_path, "w") as f:
         json.dump(info, f, indent=2)
 
-    print(f"\n📋 Metadata saved: {metadata_path.name}")
-
     # Verify ONNX
-    print("\n🔍 Verifying ONNX model...")
     try:
         import onnx
 
         onnx_model = onnx.load(str(onnx_quantized_path))
         onnx.checker.check_model(onnx_model)
-        print("  ✓ ONNX model is valid")
+        logger.info("✓ ONNX model validation passed")
 
-        # Print model graph info
-        graph = onnx_model.graph
-        print("\n  Model Graph Info:")
-        print(f"    Inputs: {[inp.name for inp in graph.input]}")
-        print(f"    Outputs: {[out.name for out in graph.output]}")
-        print(f"    Nodes: {len(graph.node)}")
-    except ImportError:
-        print("  ⚠️  onnx not installed, skipping verification")
-    except Exception as e:
-        print(f"  ⚠️  Verification failed: {e}")
+    except ImportError as e:  # noqa: S110
+        logger.warning(f"⚠️  ONNX library not available: {e}")
+    except Exception as e:  # noqa: S110
+        logger.error(f"❌ ONNX validation error: {e}")
+
+    logger.info("=" * 70)
+    logger.info("✅ Export pipeline complete!")
+    logger.info("=" * 70)
 
     return str(onnx_quantized_path), info
 
@@ -292,6 +279,10 @@ Output Files (verbose naming):
 
     args = parser.parse_args()
 
+    logger.info("=" * 70)
+    logger.info("CONVERT INT8 PYTORCH TO INT8 QUANTIZED ONNX")
+    logger.info("=" * 70)
+
     # Convert
     onnx_path, info = export_quantized_int8_to_quantized_int8_onnx(
         args.model_path,
@@ -301,45 +292,8 @@ Output Files (verbose naming):
     )
 
     if onnx_path is None or info is None:
-        print("\n❌ Conversion failed")
+        logger.error("❌ Conversion failed")
         return
-
-    print("\n" + "=" * 80)
-    print("✅ CONVERSION COMPLETE")
-    print("=" * 80)
-
-    print("\n📊 Size Comparison:")
-    print("  Original PyTorch (float32):        9.56 MB")
-    print(
-        f"  INT8 PyTorch quantized:            {info['file_sizes']['int8_pytorch_quantized_mb']:.2f} MB ({info['size_reductions']['pytorch_float32_to_int8_percent']:.0f}% reduction)"
-    )
-    print(
-        f"  ONNX float32 exported:             {info['file_sizes']['onnx_float32_exported_mb']:.2f} MB"
-    )
-    print(
-        f"  ONNX INT8 quantized (FINAL):       {info['file_sizes']['onnx_int8_quantized_mb']:.2f} MB ({info['size_reductions']['original_to_final_percent']:.0f}% from original)"
-    )
-
-    print("\n🎯 Output Model:")
-    print(f"  Path: {onnx_path}")
-    print(f"  Format: ONNX opset {args.opset}")
-    print("  Quantization: INT8 (dynamic)")
-    print(f"  Size: {info['file_sizes']['onnx_int8_quantized_mb']:.2f} MB")
-
-    print("\n📋 Metadata:")
-    print(f"  File: {Path(onnx_path).parent / f'{Path(onnx_path).stem}.json'}")
-
-    print("\n🚀 Deployment:")
-    print("  Use for: Edge devices, IoT, embedded systems, mobile")
-    print("  Estimated inference time: ~5 ms (batch=1)")
-    print("  Estimated throughput: ~200 samples/sec")
-
-    print("\n💻 Quick Start:")
-    print("  import onnxruntime as ort")
-    print(f"  sess = ort.InferenceSession('{Path(onnx_path).name}')")
-    print("  logits = sess.run(None, {'input_image': image})")
-
-    print()
 
 
 if __name__ == "__main__":

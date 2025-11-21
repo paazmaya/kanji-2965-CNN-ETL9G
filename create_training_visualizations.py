@@ -17,10 +17,14 @@ Usage:
 
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
 import matplotlib.pyplot as plt
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # Pastel color palette with high contrast
 PASTEL_COLORS = {
@@ -119,6 +123,7 @@ def get_output_path(log_path: str) -> str:
 def create_single_log_visualization(log_path: str, output_path: Optional[str] = None):
     """Create comprehensive visualization from a single training log."""
     # Load and validate data
+    logger.info("Loading training log: %s", log_path)
     data = load_training_log(log_path)
     data = validate_log_data(data)
 
@@ -127,6 +132,7 @@ def create_single_log_visualization(log_path: str, output_path: Optional[str] = 
 
     epochs = data["epochs"]
     num_epochs = len(epochs)
+    logger.info("Loaded %d epochs of training data", num_epochs)
 
     # Determine which metrics are available
     has_train_loss = "train_loss" in data
@@ -262,7 +268,7 @@ def create_single_log_visualization(log_path: str, output_path: Optional[str] = 
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none")
-    print(f"✅ Visualization saved: {output_path}")
+    logger.info("✓ Visualization saved: %s", output_path)
 
     return output_path
 
@@ -304,18 +310,17 @@ JSON Format:
     args = parser.parse_args()
 
     try:
-        output_path = create_single_log_visualization(args.log_file, args.output)
-        print(f"📊 Model: {Path(args.log_file).stem}")
-        print("💾 Metrics: Loss (training, validation) and Accuracy (training, validation)")
-        print("🎨 Color scheme: Pastel with high-contrast annotations")
+        logger.info("Creating visualization...")
+        output = create_single_log_visualization(args.log_file, args.output)
+        logger.info("✓ Success! Output: %s", output)
     except FileNotFoundError as e:
-        print(f"❌ Error: {e}")
+        logger.error("✗ File not found: %s", str(e))
         exit(1)
     except ValueError as e:
-        print(f"❌ Validation error: {e}")
+        logger.error("✗ Invalid data: %s", str(e))
         exit(1)
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        logger.error("✗ Error: %s", str(e))
         exit(1)
 
 

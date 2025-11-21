@@ -5,13 +5,16 @@ Run this before starting actual training
 """
 
 import importlib.util
+import logging
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def check_virtual_environment():
     """Check if virtual environment is active"""
-    print("=== Checking Virtual Environment ===")
 
     # Check if we're in a virtual environment
     in_venv = hasattr(sys, "real_prefix") or (
@@ -19,20 +22,15 @@ def check_virtual_environment():
     )
 
     if in_venv:
-        venv_path = sys.prefix
-        print(f"✓ Virtual environment active: {venv_path}")
+        logger.info("✓ Virtual environment detected")
         return True
     else:
-        print("✗ No virtual environment detected")
-        print("Please activate your virtual environment:")
-        print("  Windows: .\\venv\\Scripts\\Activate.ps1")
-        print("  Linux/Mac: source venv/bin/activate")
+        logger.warning("✗ Not in a virtual environment (recommended)")
         return False
 
 
 def check_gpu_availability():
     """Check NVIDIA GPU and CUDA availability"""
-    print("\n=== Checking GPU and CUDA ===")
 
     try:
         import torch
@@ -42,39 +40,34 @@ def check_gpu_availability():
 
         if cuda_available:
             gpu_count = torch.cuda.device_count()
-            print(f"✓ CUDA available with {gpu_count} GPU(s)")
+            logger.info("✓ CUDA available with %d GPU(s)", gpu_count)
 
             for i in range(gpu_count):
                 gpu_name = torch.cuda.get_device_name(i)
-                gpu_memory = torch.cuda.get_device_properties(i).total_memory / (1024**3)
-                print(f"  GPU {i}: {gpu_name} ({gpu_memory:.1f} GB)")
+                gpu_memory_gb = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+                logger.info("  GPU %d: %s (%.2f GB)", i, gpu_name, gpu_memory_gb)
 
             # Test GPU memory allocation
             try:
                 test_tensor = torch.randn(1000, 1000).cuda()
                 del test_tensor
                 torch.cuda.empty_cache()
-                print("✓ GPU memory allocation test passed")
-            except Exception as e:
-                print(f"⚠ GPU memory test failed: {e}")
+                logger.info("✓ GPU memory allocation test passed")
+            except Exception as e:  # noqa: S110
+                logger.warning("GPU memory test failed: %s", str(e))
 
             return True
         else:
-            print("✗ CUDA not available")
-            print("Please check:")
-            print("  - NVIDIA GPU drivers are installed")
-            print("  - PyTorch with CUDA support is installed")
-            print("  - uv pip install torch --index-url https://download.pytorch.org/whl/cu129")
+            logger.warning("✗ CUDA not available (CPU mode only)")
             return False
 
     except ImportError:
-        print("✗ PyTorch not available")
+        logger.error("PyTorch not installed")
         return False
 
 
 def check_requirements():
     """Check if all required packages are available"""
-    print("=== Checking Requirements ===")
 
     required_packages = [
         "torch",
@@ -101,93 +94,80 @@ def check_requirements():
                 importlib.util.find_spec("sklearn")
             else:
                 __import__(package)
-            print(f"✓ {package}")
+            logger.debug("  ✓ %s", package)
         except ImportError:
-            print(f"✗ {package} - MISSING")
+            logger.warning("  ✗ %s not found", package)
             missing_packages.append(package)
 
     if missing_packages:
-        print(f"\nMissing packages: {missing_packages}")
-        print("Install with: uv pip install " + " ".join(missing_packages))
+        logger.error("Missing packages: %s", ", ".join(missing_packages))
         return False
 
-    print("All packages available ✓")
+    logger.info("✓ All required packages installed")
     return True
 
 
 def check_data_files():
     """Check if ETL9G data files are available"""
-    print("\n=== Checking Data Files ===")
 
     etl9g_dir = Path("ETL9G")
     if not etl9g_dir.exists():
-        print(f"✗ ETL9G directory not found: {etl9g_dir}")
+        logger.error("✗ ETL9G directory not found")
         return False
 
     # Check for ETL9G files
     etl_files = list(etl9g_dir.glob("ETL9G_*"))
     etl_files = [f for f in etl_files if f.is_file() and "INFO" not in f.name]
 
-    print(f"Found {len(etl_files)} ETL9G files")
-
     if len(etl_files) < 50:
-        print(f"✗ Expected 50 ETL9G files, found {len(etl_files)}")
+        logger.warning("✗ Expected ~50 ETL9G files, found %d", len(etl_files))
         return False
+
+    logger.info("✓ Found %d ETL9G data files", len(etl_files))
 
     # Check file sizes (should be around 99MB each)
     sample_file = etl_files[0]
     file_size_mb = sample_file.stat().st_size / (1024 * 1024)
-    print(f"Sample file size: {file_size_mb:.1f} MB")
 
     if file_size_mb < 90 or file_size_mb > 110:
-        print(f"✗ Unexpected file size: {file_size_mb:.1f} MB (expected ~99 MB)")
+        logger.warning("✗ Sample file size %.1f MB (expected ~99 MB)", file_size_mb)
         return False
 
-    print("✓ ETL9G data files look good")
+    logger.debug("Sample file size: %.1f MB", file_size_mb)
     return True
 
 
 def check_system_resources():
     """Check system memory and disk space"""
-    print("\n=== Checking System Resources ===")
 
     try:
         import psutil
 
         # Memory check
         memory = psutil.virtual_memory()
-        memory_gb = memory.total / (1024**3)
+        total_gb = memory.total / (1024**3)
         available_gb = memory.available / (1024**3)
 
-        print(f"Total RAM: {memory_gb:.1f} GB")
-        print(f"Available RAM: {available_gb:.1f} GB")
-
         if available_gb < 8:
-            print(
-                "⚠ Warning: Less than 8 GB RAM available. Consider using --sample-limit for testing."
-            )
+            logger.warning("⚠ Low available memory: %.1f GB (recommended: 8+ GB)", available_gb)
         else:
-            print("✓ Sufficient RAM available")
+            logger.info("✓ System memory: %.1f GB total, %.1f GB available", total_gb, available_gb)
 
         # Disk space check
         disk = psutil.disk_usage(".")
         free_gb = disk.free / (1024**3)
 
-        print(f"Free disk space: {free_gb:.1f} GB")
-
         if free_gb < 10:
-            print("⚠ Warning: Less than 10 GB free disk space")
+            logger.warning("⚠ Low disk space: %.1f GB free (recommended: 10+ GB)", free_gb)
         else:
-            print("✓ Sufficient disk space")
+            logger.info("✓ Disk space available: %.1f GB", free_gb)
 
     except ImportError:
-        print("psutil not available - cannot check system resources")
-        print("Install with: uv pip install psutil")
+        logger.debug("psutil not available, skipping system resource check")
 
 
 def check_training_scripts():
     """Check if all training scripts are present"""
-    print("\n=== Checking Training Scripts ===")
 
     required_files = [
         "scripts/prepare_etl9g_dataset.py",
@@ -199,39 +179,41 @@ def check_training_scripts():
 
     for filename in required_files:
         if Path(filename).exists():
-            print(f"✓ {filename}")
+            logger.debug("  ✓ %s", filename)
         else:
-            print(f"✗ {filename} - MISSING")
+            logger.warning("  ✗ %s not found", filename)
             all_present = False
+
+    if all_present:
+        logger.info("✓ All training scripts present")
+    else:
+        logger.error("✗ Some training scripts missing")
 
     return all_present
 
 
 def estimate_training_time():
     """Estimate training time based on system"""
-    print("\n=== Training Time Estimates ===")
 
     try:
         import torch
 
         if torch.cuda.is_available():
             gpu_name = torch.cuda.get_device_name(0)
-            print(f"GPU available: {gpu_name}")
-            print("Estimated training time: 2-4 hours for 30 epochs")
+            logger.info("Training on: %s", gpu_name)
+            logger.info("Estimated time for 30 epochs: 2-4 hours")
         else:
-            print("No GPU available - using CPU")
-            print("Estimated training time: 8-12 hours for 30 epochs")
-            print("Recommendation: Use --sample-limit 50000 for testing")
+            logger.warning("Training on CPU (very slow, >10 hours for 30 epochs)")
+            logger.info("Recommended: Use GPU for practical training")
 
     except ImportError:
-        print("PyTorch not available")
+        logger.error("PyTorch not available for time estimation")
 
 
 def main():
     """Run all checks"""
-    print("ETL9G Training Setup Check")
-    print("=" * 50)
 
+    logger.info("\n=== ETL9G Training Pre-Flight Check ===")
     checks_passed = 0
     total_checks = 0
 
@@ -247,6 +229,7 @@ def main():
 
     # Requirements check
     total_checks += 1
+    logger.info("Checking required packages...")
     if check_requirements():
         checks_passed += 1
 
@@ -256,31 +239,26 @@ def main():
         checks_passed += 1
 
     # System resources
+    logger.info("Checking system resources...")
     check_system_resources()
 
     # Training scripts check
     total_checks += 1
+    logger.info("Checking training scripts...")
     if check_training_scripts():
         checks_passed += 1
 
     # Training time estimate
+    logger.info("\nTraining time estimate:")
     estimate_training_time()
 
-    print("\n=== Summary ===")
-    print(f"Checks passed: {checks_passed}/{total_checks}")
-
+    # Summary
+    logger.info("\n=== Summary ===")
+    logger.info("Checks passed: %d/%d", checks_passed, total_checks)
     if checks_passed == total_checks:
-        print("✓ Setup looks good! You can proceed with training.")
-        print("\nRecommended workflow:")
-        print(
-            "1. python scripts/prepare_etl9g_dataset.py --etl-dir ETL9G --output-dir dataset --size 64"
-        )
-        print("2. python scripts/test_etl9g_setup.py --data-dir dataset --test-model")
-        print("3. python scripts/train_cnn_model.py --data-dir dataset --epochs 30")
-        print("4. python scripts/convert_to_onnx.py --model-path best_kanji_model.pth")
-        print("5. python scripts/convert_to_safetensors.py --model-path best_kanji_model.pth")
+        logger.info("✓ All checks passed! Ready to train.")
     else:
-        print("✗ Some checks failed. Please resolve issues before training.")
+        logger.warning("⚠ Some checks failed. Review above for details.")
 
     return checks_passed == total_checks
 

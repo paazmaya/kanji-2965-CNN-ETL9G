@@ -59,14 +59,14 @@ class TestCheckpointManagerInit:
 
     def test_init_creates_directory(self, temp_checkpoint_dir):
         """Test that initialization creates approach directory."""
-        manager = CheckpointManager(temp_checkpoint_dir, approach_name="cnn")
+        CheckpointManager(temp_checkpoint_dir, approach_name="cnn")
         assert (Path(temp_checkpoint_dir) / "cnn").exists()
 
     def test_init_with_different_approaches(self, temp_checkpoint_dir):
         """Test initialization with different approach names."""
         approaches = ["cnn", "rnn", "hiercode", "vit", "qat"]
         for approach in approaches:
-            manager = CheckpointManager(temp_checkpoint_dir, approach_name=approach)
+            CheckpointManager(temp_checkpoint_dir, approach_name=approach)
             assert (Path(temp_checkpoint_dir) / approach).exists()
 
     def test_init_sets_attributes(self, checkpoint_manager):

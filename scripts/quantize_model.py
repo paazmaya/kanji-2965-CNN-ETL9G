@@ -6,27 +6,31 @@ Converts trained PyTorch models to INT8 for efficient deployment
 
 import argparse
 import json
+import logging
 import warnings
 from pathlib import Path
 
 import torch
 import torch.nn as nn
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+
 # Suppress PyTorch's TypedStorage deprecation warning (internal, not in user code)
 warnings.filterwarnings("ignore", category=UserWarning, message=".*TypedStorage.*")
 
-from optimization_config import (
+from optimization_config import (  # noqa: E402
     create_data_loaders,
     get_dataset_directory,
     load_chunked_dataset,
     verify_and_setup_gpu,
 )
-from train_cnn_model import LightweightKanjiNet
-from train_hiercode import HierCodeClassifier
-from train_qat import QuantizableLightweightKanjiNet
-from train_radical_rnn import RadicalRNNClassifier
-from train_rnn import KanjiRNN
-from train_vit import VisionTransformer
+from train_cnn_model import LightweightKanjiNet  # noqa: E402
+from train_hiercode import HierCodeClassifier  # noqa: E402
+from train_qat import QuantizableLightweightKanjiNet  # noqa: E402
+from train_radical_rnn import RadicalRNNClassifier  # noqa: E402
+from train_rnn import KanjiRNN  # noqa: E402
+from train_vit import VisionTransformer  # noqa: E402
 
 
 def quantize_model_int8(model: nn.Module, device: str = "cuda", model_name: str = "quantized"):
@@ -45,35 +49,30 @@ def quantize_model_int8(model: nn.Module, device: str = "cuda", model_name: str 
         device: Device to use (always cuda)
         model_name: Name for logging
     """
-    print("\n" + "=" * 70)
-    print("POST-TRAINING INT8 QUANTIZATION (DYNAMIC)")
-    print("=" * 70)
+
+    logger.info("🔄 Quantizing %s model to INT8 (dynamic)...", model_name)
 
     # Keep model on GPU for all calculations
     model = model.to(device)
     model.eval()
-
-    print("\n📊 Original Model:")
-    print(f"  Size: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M parameters")
 
     # Calculate original size
     original_state = model.state_dict()
     original_size = sum(
         v.numel() * v.element_size() for v in original_state.values() if v is not None
     )
-    print(f"  Weight size: {original_size / 1e6:.2f} MB")
+    logger.info("  → Original model size: %.2f MB", original_size / 1e6)
 
     # Dynamic quantization requires CPU, so temporarily move only for this operation
     # PyTorch limitation: dynamic quantization kernel only available on CPU backend
-    print("\n🔄 Applying dynamic INT8 quantization (CPU backend requirement)...")
+    logger.info("  → Applying INT8 quantization...")
     model_cpu = model.cpu()
     quantized_model = torch.quantization.quantize_dynamic(
         model_cpu, {torch.nn.Linear, torch.nn.Conv2d}, dtype=torch.qint8
     )
     # Move quantized model back to GPU if needed for downstream operations
     quantized_model = quantized_model.to(device)
-
-    print("\n✅ Model converted to INT8")
+    logger.info("✓ INT8 quantization complete")
 
     # For dynamic quantization, the actual size is measured after saving
     # (packed parameters have a different memory layout)
@@ -103,33 +102,29 @@ def quantize_with_calibration(
         device: Device to use (always cuda for GPU acceleration)
         model_name: Name for logging
     """
-    print("\n" + "=" * 70)
-    print("POST-TRAINING INT8 QUANTIZATION WITH CALIBRATION")
-    print("=" * 70)
+
+    logger.info("🔄 Quantizing %s model with calibration...", model_name)
 
     model = model.to(device)
     model.eval()
 
-    print("\n📊 Original Model:")
-    print(f"  Size: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M parameters")
-
+    # Calculate original size
     original_state = model.state_dict()
     original_size = sum(
         v.numel() * v.element_size() for v in original_state.values() if isinstance(v, torch.Tensor)
     )
-    print(f"  Weight size: {original_size / 1e6:.2f} MB")
+    logger.info("  → Original model size: %.2f MB", original_size / 1e6)
 
     # Prepare for quantization
     qconfig = torch.quantization.get_default_qconfig("fbgemm")
     model.qconfig = qconfig  # type: ignore
     torch.quantization.prepare(model, inplace=True)
 
-    print("\n🔄 Calibrating on training data...")
-
     # Calibration: Run model on subset of training data
     num_batches = min(100, len(train_loader))  # Use 100 batches for calibration
+    logger.info("  → Running calibration on %d batches...", num_batches)
     with torch.no_grad():
-        for i, (images, labels) in enumerate(train_loader):
+        for i, (images, _labels) in enumerate(train_loader):
             if i >= num_batches:
                 break
 
@@ -140,14 +135,12 @@ def quantize_with_calibration(
                 _ = model(images)
 
             if (i + 1) % 25 == 0:
-                print(f"  Calibrated on {i + 1}/{num_batches} batches")
-
-    print("  ✓ Calibration complete")
+                logger.info("    → Calibrated %d/%d batches", i + 1, num_batches)
 
     # Convert to quantized model
+    logger.info("  → Converting to INT8...")
     torch.quantization.convert(model, inplace=True)
-
-    print("\n✅ Model converted to INT8 (with calibration)")
+    logger.info("✓ Calibrated INT8 quantization complete")
 
     quantized_state = model.state_dict()
     quantized_size = sum(
@@ -155,8 +148,6 @@ def quantize_with_calibration(
         for v in quantized_state.values()
         if isinstance(v, torch.Tensor)
     )
-    print(f"  Quantized size: {quantized_size / 1e6:.2f} MB")
-    print(f"  Size reduction: {original_size / quantized_size:.2f}x")
 
     return model, original_size, quantized_size
 
@@ -174,6 +165,8 @@ def evaluate_quantized_model(model, test_loader, criterion, device: str = "cuda"
         criterion: Loss function
         device: Device specified (note: inference runs on CPU due to PyTorch backend limitations)
     """
+    logger.info("🧪 Evaluating quantized model...")
+
     # Dynamically quantized models only support CPU inference (PyTorch backend limitation)
     # For GPU inference in production, use ONNX export instead
     model = model.cpu()
@@ -182,13 +175,8 @@ def evaluate_quantized_model(model, test_loader, criterion, device: str = "cuda"
     total = 0
     total_loss = 0.0
 
-    print(
-        "\n🧪 Evaluating quantized model (on CPU - PyTorch INT8 kernels only available on CPU)..."
-    )
-    print("   For GPU inference, export to ONNX format with scripts/export_quantized_to_onnx.py")
-
     with torch.no_grad():
-        for images, labels in test_loader:
+        for _i, (images, labels) in enumerate(test_loader):
             # Keep on CPU for quantized model evaluation
             images = images.cpu()
             labels = labels.cpu()
@@ -203,9 +191,7 @@ def evaluate_quantized_model(model, test_loader, criterion, device: str = "cuda"
 
     accuracy = 100.0 * correct / total
     avg_loss = total_loss / len(test_loader)
-
-    print(f"  Accuracy: {accuracy:.2f}%")
-    print(f"  Loss: {avg_loss:.4f}")
+    logger.info("✓ Evaluation complete: Accuracy %.2f%%, Loss %.4f", accuracy, avg_loss)
 
     return accuracy, avg_loss
 
@@ -260,20 +246,24 @@ Examples:
 
     args = parser.parse_args()
 
+    logger.info("=" * 70)
+    logger.info("POST-TRAINING INT8 QUANTIZATION")
+    logger.info("=" * 70)
+    logger.info(
+        "Model: %s | Calibrate: %s | Evaluate: %s", args.model_type, args.calibrate, args.evaluate
+    )
+
     # Verify GPU availability (required for quantization)
     device = verify_and_setup_gpu()
 
     # Load model
-    print("=" * 70)
-    print("LOADING MODEL")
-    print("=" * 70)
 
     model_path = Path(args.model_path)
     if not model_path.exists():
-        print(f"❌ Model not found: {model_path}")
+        logger.error("✗ Model path not found: %s", model_path)
         return
 
-    print(f"📂 Loading: {model_path}")
+    logger.info("→ Loading model from %s...", model_path)
 
     # Load checkpoint to infer num_classes from classifier layer
     checkpoint = torch.load(model_path, map_location="cpu")
@@ -297,13 +287,13 @@ Examples:
         # Fallback: try to load config
         config_path = model_path.parent / f"{args.model_type}_config.json"
         if config_path.exists():
-            with open(config_path) as f:
+            with open(config_path, encoding="utf-8") as f:
                 config_dict = json.load(f)
                 num_classes = config_dict.get("num_classes", 3036)
         else:
             num_classes = 3036
 
-    print(f"✓ Inferred num_classes={num_classes} from checkpoint")
+    logger.info("→ Detected %d classes from model checkpoint", num_classes)
 
     # Create config and model based on type
     from optimization_config import (
@@ -340,7 +330,7 @@ Examples:
         config = ViTConfig(num_classes=num_classes)
         model = VisionTransformer(num_classes=num_classes, config=config)
     else:
-        print(f"❌ Unknown model type: {args.model_type}")
+        logger.error("✗ Unknown model type: %s", args.model_type)
         return
 
     # Load state dict with flexible key matching
@@ -348,16 +338,15 @@ Examples:
         model.load_state_dict(checkpoint)
     except RuntimeError:
         # Try loading with strict=False for compatibility
-        print("⚠️  Strict loading failed, trying flexible loading...")
         model.load_state_dict(checkpoint, strict=False)
-        print("✓ Model loaded with some keys skipped (compatibility mode)")
+        logger.warning("⚠ Loaded model with strict=False (some keys may not match)")
     else:
-        print("✓ Model loaded successfully")
+        logger.info("✓ Model loaded successfully")
 
     # Quantize
     if args.calibrate:
         # Load dataset for calibration (auto-detected)
-        print("\n📂 Loading dataset for calibration...")
+        logger.info("→ Loading dataset for calibration...")
         data_dir = str(get_dataset_directory())
         X, y = load_chunked_dataset(data_dir)
         train_loader, _, test_loader = create_data_loaders(X, y, config)
@@ -377,21 +366,22 @@ Examples:
         output_path = model_path.parent / f"quantized_{args.model_type}_int8.pth"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    logger.info("→ Saving quantized model to %s...", output_path)
     torch.save(quantized_model.state_dict(), output_path)
-    print(f"\n✅ Quantized model saved: {output_path}")
 
     # Measure actual file size after saving (especially important for dynamic quantization)
     if quant_size is None and output_path.exists():
         quant_size = output_path.stat().st_size
-        print("\n📊 File sizes:")
-        print(f"  Original: {orig_size / 1e6:.2f} MB")
-        print(f"  Quantized: {quant_size / 1e6:.2f} MB")
-        print(f"  Reduction: {orig_size / quant_size:.2f}x")
-        print(f"  Space saved: {(orig_size - quant_size) / 1e6:.2f} MB")
+
+    logger.info("✓ Quantized model saved")
+    logger.info("  → Original size: %.2f MB", orig_size / 1e6)
+    logger.info("  → Quantized size: %.2f MB", quant_size / 1e6 if quant_size else 0)
+    if quant_size and orig_size:
+        logger.info("  → Reduction: %.1f%%", 100 * (1 - quant_size / orig_size))
 
     # Evaluate if requested
     if args.evaluate:
-        print("\n📂 Loading test set...")
+        logger.info("→ Loading test dataset...")
         data_dir = str(get_dataset_directory())
         X, y = load_chunked_dataset(data_dir)
         _, _, test_loader = create_data_loaders(X, y, config)
@@ -413,16 +403,13 @@ Examples:
         }
 
         results_path = output_path.parent / f"quantization_results_{args.model_type}.json"
-        with open(results_path, "w") as f:
+        with open(results_path, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2)
 
-        print(f"\n📊 Results saved: {results_path}")
-        print("\n✅ Quantization Summary:")
-        print(f"  Original: {orig_size / 1e6:.2f} MB")
-        if quant_size:
-            print(f"  Quantized: {quant_size / 1e6:.2f} MB")
-            print(f"  Reduction: {orig_size / quant_size:.2f}x")
-        print(f"  Accuracy: {accuracy:.2f}%")
+        logger.info("✓ Results saved: %s", results_path)
+
+    logger.info("=" * 70)
+    logger.info("✓ Quantization complete!")
 
 
 if __name__ == "__main__":

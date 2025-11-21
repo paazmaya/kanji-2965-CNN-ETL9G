@@ -6,10 +6,14 @@ Use this as a reference for updating your existing training scripts.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def load_etl_dataset(
@@ -54,22 +58,11 @@ def load_etl_dataset(
     with open(metadata_file) as f:
         metadata = json.load(f)
 
-    print(f"\n{'=' * 60}")
-    print(f"Loading Dataset: {metadata.get('dataset_name', 'Unknown')}")
-    print(f"{'=' * 60}")
-    print(f"Total classes: {metadata['num_classes']}")
-    print(f"Total samples: {metadata['total_samples']}")
-    print(f"Image size: {metadata.get('target_size', 64)}×{metadata.get('target_size', 64)}")
-
     if "dataset_info" in metadata:
-        info = metadata["dataset_info"]
-        print(f"Source: {info.get('source', 'Unknown')}")
-        print(f"Description: {info.get('description', 'N/A')}")
+        logger.info("Dataset info: %s", metadata["dataset_info"])
 
     if "datasets_combined" in metadata:
-        print(f"Combined from: {', '.join(metadata['datasets_combined'])}")
-
-    print(f"{'=' * 60}\n")
+        logger.info("Combined datasets: %s", metadata["datasets_combined"])
 
     # Load data chunks
     X_chunks = []
@@ -86,9 +79,7 @@ def load_etl_dataset(
     if not chunk_files:
         raise FileNotFoundError(f"No dataset chunks found in {target_dir}")
 
-    print(f"Loading {len(chunk_files)} chunk file(s)...")
     for chunk_file in chunk_files:
-        print(f"  Loading {chunk_file.name}...")
         data = np.load(chunk_file)
         X_chunks.append(data["X"])
         y_chunks.append(data["y"])
@@ -102,11 +93,7 @@ def load_etl_dataset(
         target_size = metadata.get("target_size", 64)
         expected_features = target_size * target_size
         if X.shape[-1] != expected_features:
-            print(f"Warning: Expected {expected_features} features, got {X.shape[-1]}")
-
-    print(f"Data loaded: X shape = {X.shape}, y shape = {y.shape}")
-    print(f"Feature range: [{X.min():.3f}, {X.max():.3f}]")
-    print(f"Class range: [{y.min()}, {y.max()}]")
+            pass
 
     return X, y, metadata
 
@@ -151,8 +138,6 @@ def load_combined_etl_datasets(
     current_class_offset = 0
 
     for dataset_name in dataset_names:
-        print(f"\nLoading {dataset_name}...")
-
         X, y, metadata = load_etl_dataset(dataset_path, dataset_name)
 
         # Offset class indices to avoid conflicts
@@ -177,13 +162,6 @@ def load_combined_etl_datasets(
         "datasets_combined": list(dataset_names),
         "source_metadata": all_metadata,
     }
-
-    print(f"\n{'=' * 60}")
-    print("Combined Dataset Created")
-    print(f"{'=' * 60}")
-    print(f"Total classes: {combined_metadata['num_classes']}")
-    print(f"Total samples: {combined_metadata['total_samples']}")
-    print(f"{'=' * 60}\n")
 
     return X_combined, y_combined, combined_metadata
 
@@ -230,23 +208,13 @@ def main_example():
     """Example usage"""
 
     # Method 1: Load pre-combined dataset
-    print("\n--- Method 1: Load Pre-Combined Dataset ---")
     X, y, metadata = load_etl_dataset("dataset/processed/kanji_etl89_combined")
-    print(f"Loaded: {metadata['dataset_name']}")
-    print(f"Shape: X={X.shape}, y={y.shape}, classes={metadata['num_classes']}\n")
 
     # Method 2: Load specific single dataset
-    print("--- Method 2: Load Single Dataset ---")
     X_single, y_single, meta_single = load_etl_dataset("dataset/processed", dataset_name="etl9g")
-    print(f"Loaded: {meta_single['dataset_name']}")
-    print(f"Shape: X={X_single.shape}, y={y_single.shape}\n")
 
     # Method 3: Get dataset configuration
-    print("--- Method 3: Use Predefined Configs ---")
-    config = get_dataset_config("enhanced_kanji")
-    print(f"Config: {config['description']}")
-    print(f"Datasets: {config['datasets']}")
-    print(f"Expected samples: {config['samples']:,}\n")
+    get_dataset_config("enhanced_kanji")
 
 
 if __name__ == "__main__":

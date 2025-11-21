@@ -9,6 +9,7 @@ Reference: https://huggingface.co/docs/bitsandbytes/en/reference/nn/linear4bit
 
 import argparse
 import json
+import logging
 import warnings
 from pathlib import Path
 from typing import Literal, Tuple
@@ -16,17 +17,20 @@ from typing import Literal, Tuple
 import torch
 import torch.nn as nn
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+
 # Suppress PyTorch's TypedStorage deprecation warning (internal, not in user code)
 warnings.filterwarnings("ignore", category=UserWarning, message=".*TypedStorage.*")
 
-from hiercode_higita_enhancement import HierCodeWithHiGITA
-from optimization_config import verify_and_setup_gpu
-from train_cnn_model import LightweightKanjiNet
-from train_hiercode import HierCodeClassifier
-from train_qat import QuantizableLightweightKanjiNet
-from train_radical_rnn import RadicalRNNClassifier
-from train_rnn import KanjiRNN
-from train_vit import VisionTransformer
+from hiercode_higita_enhancement import HierCodeWithHiGITA  # noqa: E402
+from optimization_config import verify_and_setup_gpu  # noqa: E402
+from train_cnn_model import LightweightKanjiNet  # noqa: E402
+from train_hiercode import HierCodeClassifier  # noqa: E402
+from train_qat import QuantizableLightweightKanjiNet  # noqa: E402
+from train_radical_rnn import RadicalRNNClassifier  # noqa: E402
+from train_rnn import KanjiRNN  # noqa: E402
+from train_vit import VisionTransformer  # noqa: E402
 
 
 def quantize_model_4bit_nf4(
@@ -55,15 +59,13 @@ def quantize_model_4bit_nf4(
     Returns:
         Quantized model with Linear4bit layers
     """
-    print(f"\n🔄 Applying 4-bit quantization ({quant_type.upper()})...")
-    print("   Note: BitsAndBytes performs dynamic quantization during inference")
-    print("   File size similar, but memory usage is 4x smaller during execution")
+
+    logger.info("🔄 Quantizing model to 4-bit %s...", quant_type.upper())
 
     try:
         from bitsandbytes.nn import Linear4bit
     except ImportError:
-        print("❌ bitsandbytes not installed")
-        print("   Install with: uv pip install bitsandbytes")
+        logger.error("✗ BitsAndBytes not installed. Install with: pip install bitsandbytes")
         return None
 
     model = model.to(device)
@@ -106,14 +108,16 @@ def quantize_model_4bit_nf4(
 
             quantized_count += 1
             if quantized_count <= 5:  # Print first 5
-                print(f"  ✓ Quantized: {name} ({module.in_features}x{module.out_features})")
+                logger.info(
+                    "  → Quantized layer: %s (%d → %d)",
+                    name,
+                    module.in_features,
+                    module.out_features,
+                )
             elif quantized_count == 6:
-                print(f"  ✓ ... and {quantized_count - 5} more layers")
+                logger.info("  → ... and %d more layers", quantized_count - 5)
 
-    print(f"\n✅ Quantized {quantized_count} Linear layers to 4-bit ({quant_type.upper()})")
-    print("   Runtime memory usage: ~4x smaller during inference")
-    print("   Inference speedup: 2-4x faster depending on hardware")
-
+    logger.info("✓ Replaced %d layers with 4-bit quantization", quantized_count)
     return model
 
 
@@ -138,23 +142,17 @@ def quantize_model_4bit_gptq(
     Returns:
         Quantized model
     """
-    print(f"\n🔄 Applying GPTQ 4-bit quantization (group_size={group_size})...")
 
     try:
-        from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+        from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig  # noqa: F401
     except ImportError:
-        print("❌ auto-gptq not installed")
-        print("   Install with: uv pip install auto-gptq")
         return None
 
     # GPTQ quantization requires specific dataset calibration
     # This is a simplified version - full GPTQ requires training data
-    print("  ⚠️  GPTQ requires calibration data for optimal results")
-    print("  Using simplified mode - accuracy may vary")
 
     # Note: Full GPTQ implementation would require dataset loading
     # For now, return original model with warning
-    print("  Skipping GPTQ (requires calibration dataset)")
     return model
 
 
@@ -186,10 +184,7 @@ def load_model_for_quantization(
     """
     model_path = Path(model_path)
     if not model_path.exists():
-        print(f"❌ Model not found: {model_path}")
         return None, None
-
-    print(f"\n📂 Loading model: {model_path}")
 
     # Infer num_classes from checkpoint
     checkpoint = torch.load(model_path, map_location="cpu")
@@ -208,8 +203,6 @@ def load_model_for_quantization(
 
     if num_classes is None:
         num_classes = 3036
-
-    print(f"✓ Inferred num_classes={num_classes} from checkpoint")
 
     # Create and load model
     from optimization_config import (
@@ -243,17 +236,13 @@ def load_model_for_quantization(
         config = ViTConfig(num_classes=num_classes)
         model = VisionTransformer(num_classes=num_classes, config=config)
     else:
-        print(f"❌ Unknown model type: {model_type}")
         return None, None
 
     # Load state dict
     try:
         model.load_state_dict(checkpoint, strict=True)
-        print("✓ Model loaded successfully (strict mode)")
     except RuntimeError:
-        print("⚠️  Strict loading failed, trying flexible loading...")
         model.load_state_dict(checkpoint, strict=False)
-        print("✓ Model loaded with some keys skipped")
 
     model = model.to(device)
     model.eval()
@@ -286,18 +275,12 @@ def save_4bit_model(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print("\n💾 Saving 4-bit quantized model...")
-    print(f"  Path: {output_path}")
-
     # Save model state dict
     torch.save(model.state_dict(), output_path)
 
     # Measure file size
     quantized_size = output_path.stat().st_size
     size_reduction = (1 - quantized_size / original_size) * 100
-
-    print(f"  Size: {quantized_size / 1e6:.2f} MB")
-    print(f"  Reduction: {size_reduction:.1f}% (from {original_size / 1e6:.2f} MB)")
 
     # Save metadata
     metadata = {
@@ -316,8 +299,6 @@ def save_4bit_model(
     metadata_path = output_path.with_suffix(".json")
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
-
-    print(f"  Metadata: {metadata_path}")
 
     return str(output_path), metadata
 
@@ -384,9 +365,6 @@ Examples:
     device = verify_and_setup_gpu()
 
     # Load model
-    print("=" * 70)
-    print("4-BIT QUANTIZATION WITH BITSANDBYTES")
-    print("=" * 70)
 
     model, num_classes = load_model_for_quantization(
         args.model_path,
@@ -395,14 +373,10 @@ Examples:
     )
 
     if model is None:
-        print("\n❌ Failed to load model")
         return
 
     # Calculate original size
     original_size = calculate_model_size(model)
-    print("\n📊 Original Model:")
-    print(f"  Size: {original_size / 1e6:.2f} MB")
-    print(f"  Classes: {num_classes}")
 
     # Quantize model
     if args.method in ["nf4", "fp4"]:
@@ -415,11 +389,9 @@ Examples:
     elif args.method == "gptq":
         quantized_model = quantize_model_4bit_gptq(model, device=device)
     else:
-        print(f"❌ Unknown quantization method: {args.method}")
         return
 
     if quantized_model is None:
-        print("\n❌ Quantization failed")
         return
 
     # Generate output path if not specified
@@ -446,33 +418,9 @@ Examples:
     )
 
     # Print summary
-    print("\n" + "=" * 70)
-    print("✅ 4-BIT QUANTIZATION COMPLETE")
-    print("=" * 70)
-    print("\n📦 Model Comparison:")
-    print(f"  Original ({args.model_type}):        {original_size / 1e6:.2f} MB")
-    print(f"  4-bit {args.method.upper()}:               {metadata['quantized_size_mb']:.2f} MB")
-    print(f"  Reduction:                  {metadata['size_reduction_percent']:.1f}%")
 
     if args.double_quant:
-        print("  Double Quantization:        ✓ Enabled (scale factors quantized)")
-
-    print(f"\n📋 Metadata saved: {output_path.with_suffix('.json')}")
-    print(f"✅ Model saved: {saved_path}")
-
-    print("\n💡 Deployment Tips:")
-    print(f"  • {args.method.upper()} Quantization Method: {args.method}")
-    print("  • Compute dtype: float16 (for fast inference)")
-    print("  • Requires: bitsandbytes library")
-    print("  • Best for: Edge devices, resource-constrained environments")
-    print("\n  Install bitsandbytes:")
-    print("  uv pip install bitsandbytes")
-
-    print("\n📚 Quantization Methods:")
-    print("  • NF4: Normalized Float 4-bit (recommended for weights)")
-    print("  • FP4: Standard Float 4-bit")
-    print("  • Double Quant: Quantizes scale factors for extra compression")
-    print()
+        pass
 
 
 if __name__ == "__main__":
